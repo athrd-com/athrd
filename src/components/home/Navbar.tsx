@@ -1,0 +1,81 @@
+"use client";
+
+import { Github } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+function formatStars(n: number | null) {
+  if (n === null) return "—";
+  if (n < 1000) return String(n);
+  return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+}
+
+export function Navbar() {
+  const [stars, setStars] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchStars() {
+      try {
+        const res = await fetch("https://api.github.com/repos/athrd-com/cli", {
+          headers: { Accept: "application/vnd.github.v3+json" },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.stargazers_count === "number") {
+          setStars(data.stargazers_count);
+        }
+      } catch (err) {
+        // ignore network errors — keep stars null
+      }
+    }
+
+    fetchStars();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <nav className="relative z-50 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full text-sm">
+      <div className="flex items-center gap-8">
+        <div className="flex items-center gap-2 font-semibold text-gray-100">
+          <Link className="text-lg hover:underline" href="/">
+            athrd
+          </Link>
+        </div>
+        <div className="hidden md:flex gap-6 text-gray-400">
+          <Link
+            href="https://github.com/athrd-com/cli"
+            target={"_blank"}
+            className="hover:text-white transition-colors"
+          >
+            Open Source
+          </Link>
+          <Link
+            href="/enterprise"
+            target={"_blank"}
+            className="hover:text-white transition-colors"
+          >
+            Enterprise
+          </Link>
+        </div>
+      </div>
+
+      <div>
+        <Link
+          href="https://github.com/athrd-com/cli"
+          target="_blank"
+          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
+        >
+          <Github size={20} />
+          <span className="hidden sm:inline-block text-gray-300">
+            {formatStars(stars)}
+          </span>
+        </Link>
+      </div>
+    </nav>
+  );
+}

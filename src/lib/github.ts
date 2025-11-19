@@ -14,6 +14,7 @@ export interface GistFile {
   raw_url: string;
   size: number;
   content?: string;
+  truncated?: boolean;
 }
 
 export interface GistData {
@@ -25,27 +26,41 @@ export interface GistData {
   updated_at: string;
 }
 
-export async function fetchGist(id: string): Promise<GistData | null> {
+export async function fetchGist(
+  id: string
+): Promise<{ gist?: GistData; file?: GistFile }> {
   try {
     const response = await fetch(`https://api.github.com/gists/${id}`, {
       headers: {
         Accept: "application/vnd.github.v3+json",
       },
-      // Revalidate every hour
-      next: { revalidate: 3600 },
+      // Revalidate every day
+      next: { revalidate: 3600 * 24 },
     });
 
     if (!response.ok) {
-      return null;
+      return {};
     }
 
-    return response.json();
+    const json = (await response.json()) as GistData;
+    const file = findAthrdFile(json);
+    if (!file) return {};
+
+    if (file.truncated === true) {
+      const full = await fetch(file.raw_url, {
+        next: { revalidate: 3600 * 24 },
+      }).then((res) => res.text());
+
+      file.content = full;
+    }
+
+    return { gist: json, file };
   } catch (error) {
-    return null;
+    return {};
   }
 }
 
-export function findAthrdFile(gist: GistData): GistFile | null {
+function findAthrdFile(gist: GistData): GistFile | null {
   const files = Object.values(gist.files);
   const athrdFile = files.find((file) => file.filename.startsWith("athrd-"));
   return athrdFile || null;

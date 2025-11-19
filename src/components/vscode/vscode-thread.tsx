@@ -9,10 +9,10 @@ import type {
 } from "@/types/vscode";
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
-import ToolCall from "../thread/tool-call";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
+import VSCodeToolCall from "./vscode-tool-call";
 
 type VSCodeThreadProps = {
   owner: GistOwner;
@@ -170,7 +170,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
               );
             } else if (isToolCall(response)) {
               renderedItems.push(
-                <ToolCall
+                <VSCodeToolCall
                   key={response.toolCallId}
                   tool={response}
                   text={response?.pastTenseMessage?.value ?? ""}

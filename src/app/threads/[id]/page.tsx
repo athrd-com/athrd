@@ -1,8 +1,9 @@
+import ClaudeThread from "@/components/claude/claude-thread";
 import ThreadHeader from "@/components/thread/thread-header";
 import VSCodeThread from "@/components/vscode/vscode-thread";
 import { IDE } from "@/types/ide";
 import { notFound } from "next/navigation";
-import { fetchGist, findAthrdFile } from "~/lib/github";
+import { fetchGist } from "~/lib/github";
 
 export default async function ThreadPage({
   params,
@@ -10,29 +11,30 @@ export default async function ThreadPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const gist = await fetchGist(id);
-  if (!gist) {
-    notFound();
-  }
-
-  const athrdFile = findAthrdFile(gist);
-  if (!athrdFile) {
+  const { gist, file } = await fetchGist(id);
+  if (!gist || !file) {
     notFound();
   }
 
   const owner = gist.owner;
   let content = {};
+  let ide = IDE.VSCODE;
 
   try {
-    content = JSON.parse(athrdFile.content || "{}");
+    content = JSON.parse(file.content || "{}");
+    // @ts-ignore TODO: fix this properly later
+    if (content.__athrd.ide === IDE.CLAUDE) ide = IDE.CLAUDE;
   } catch (error) {
     return (
       <main className="container mx-auto max-w-4xl px-4 py-8">
         <h1 className="mb-4 font-bold text-3xl">Thread {id}</h1>
         <p className="text-red-600">
-          Error parsing JSON from {athrdFile.filename}:{" "}
+          Error parsing JSON from {file.filename}:{" "}
           {error instanceof Error ? error.message : "Unknown error"}
         </p>
+        <code className="">
+          <pre>{JSON.stringify(file.content, null, 2)}</pre>
+        </code>
       </main>
     );
   }
@@ -44,9 +46,10 @@ export default async function ThreadPage({
           owner={owner}
           title={gist.description}
           createdAt={gist.created_at}
-          ide={IDE.VSCODE}
+          ide={ide}
         />
-        <VSCodeThread owner={owner} thread={content} />
+        {ide === IDE.VSCODE && <VSCodeThread owner={owner} thread={content} />}
+        {ide === IDE.CLAUDE && <ClaudeThread owner={owner} thread={content} />}
       </main>
     </div>
   );

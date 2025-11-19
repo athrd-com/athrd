@@ -3,4 +3,5 @@ export enum IDE {
   CLAUDE_CODE = "claude",
   CODEX = "codex",
   GEMINI = "gemini",
+  CLAUDE = "claude",
 }

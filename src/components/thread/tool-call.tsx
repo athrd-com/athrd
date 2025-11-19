@@ -39,7 +39,7 @@ export default function ToolCall({
     case "copilot_readFile": {
       const keys = Object.keys(tool.pastTenseMessage.uris ?? {});
       const key = keys[0];
-      const uri = tool.pastTenseMessage.uris?.[key];
+      const uri = tool.pastTenseMessage.uris?.[key ?? ""];
       const path = typeof uri?.path === "string" ? uri.path : "";
       const fileName = path ? path.split("/").pop() : undefined;
       const rest = text.match(/\)(, .+)/);

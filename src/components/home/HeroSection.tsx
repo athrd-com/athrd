@@ -6,6 +6,7 @@ import { Vscode } from "@/components/ui/svgs/vscode";
 import { Check, Copy } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CursorDark } from "../ui/svgs/cursorDark";
 
 export function HeroSection() {
   const [copied, setCopied] = useState(false);
@@ -29,8 +30,18 @@ export function HeroSection() {
       ),
     },
     {
+      name: "Cursor",
+      color: "from-white-500 to-slate-500",
+      icon: (
+        <CursorDark
+          className="w-8 h-8 md:w-10 md:h-10 text-white"
+          fill="currentColor"
+        />
+      ),
+    },
+    {
       name: "Codex",
-      color: "from-green-500 to-emerald-500",
+      color: "from-white-500 to-slate-400",
       icon: (
         <Openai
           className="w-8 h-8 md:w-10 md:h-10 text-white"

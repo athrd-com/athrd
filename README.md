@@ -1,29 +1,64 @@
-# Create T3 App
+<h3 align="center">
+  <a name="readme-top"></a>
+</h3>
+<div align="center">
+    <a href="https://github.com/athrd-com/athrd/blob/main/LICENSE">
+  <img src="https://img.shields.io/github/license/athrd-com/athrd" alt="License">
+</a>
+    <a href="https://pepy.tech/project/athrd-py">
+  <img src="https://static.pepy.tech/badge/athrd-py" alt="Downloads">
+</a>
+<a href="https://athrd.com">
+  <img src="https://img.shields.io/badge/Visit-athrd.dev-orange" alt="Visit athrd.com">
+</a>
+</div>
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+# 🧵 athrd
 
-## What's next? How do I make an app with this?
+**Share your AI coding threads with the world.**
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+[License](LICENSE) <!-- | [Website](https://athrd.com) -->
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## What is athrd?
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+**athrd** is a platform that allows you to share your coding conversations from your favorite AI assistants. Whether you're debugging with Claude, generating code with Copilot in VS Code, or building with Cursor, athrd provides a beautiful, shareable link for your threads.
 
-## Learn More
+Turn your private debugging sessions into public knowledge bases.
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+## Features
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+- **Universal Support**: Works with VS Code, Claude, Cursor, and Codex.
+- **Beautiful Visualization**: Renders code blocks, tool use, and thinking processes elegantly.
+- **CLI Tool**: Share threads directly from your terminal.
+- **Open Source**: Self-hostable and community-driven.
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+## How to use it?
 
-## How do I deploy this?
+### CLI Installation
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+To start sharing threads, install the CLI tool:
+
+```bash
+npm install -g @athrd/cli
+```
+
+Or using other package managers:
+
+```bash
+pnpm add -g @athrd/cli
+# or
+yarn global add @athrd/cli
+```
+
+### Usage
+
+Authenticate and share your threads:
+
+```bash
+athrd login
+athrd share
+```
+
+## License
+
+This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).

@@ -191,6 +191,13 @@ export interface MCPServersStartingResponse {
 }
 
 /** Response item for prepare tool invocation */
+export interface ThinkingToolResponse {
+  kind: "thinking";
+  value: string;
+  id: string;
+}
+
+/** Response item for prepare tool invocation */
 export interface PrepareToolInvocationResponse {
   kind: "prepareToolInvocation";
   toolName: string;
@@ -306,6 +313,7 @@ export type ResponseItem =
   | ToolInvocationSerialized
   | InlineReferenceResponse
   | TextEditGroupResponse
+  | ThinkingToolResponse
   | { kind: string; [key: string]: unknown }; // fallback for unknown response types
 
 /** Request from user/requester with message and response */

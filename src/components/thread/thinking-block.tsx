@@ -12,6 +12,10 @@ interface ThinkingBlockProps {
 export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
+  if (thinking === "") {
+    return null;
+  }
+
   return (
     <div
       className={cn(

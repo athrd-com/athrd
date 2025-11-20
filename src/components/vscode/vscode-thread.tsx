@@ -3,12 +3,14 @@ import type {
   InlineReferenceResponse,
   ResponseItem,
   TextResponse,
+  ThinkingToolResponse,
   ToolInvocationSerialized,
   VariableFile,
   VSCodeThread,
 } from "@/types/vscode";
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
+import ThinkingBlock from "../thread/thinking-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
@@ -54,6 +56,12 @@ function isSheelToolCall(
     response.kind === "toolInvocationSerialized" &&
     response.toolId == "run_in_terminal"
   );
+}
+
+function isThinkingResponse(
+  response: ResponseItem
+): response is ThinkingToolResponse {
+  return "kind" in response && response.kind === "thinking";
 }
 
 function isTextEditGroup(
@@ -129,6 +137,13 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
           };
 
           request.response?.forEach((response) => {
+            if (isThinkingResponse(response)) {
+              renderedItems.push(
+                <ThinkingBlock key={response.id} thinking={response.value} />
+              );
+              return;
+            }
+
             if (isTextResponse(response)) {
               currentText += response.value;
               return;
@@ -137,8 +152,9 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${currentRefs.length - 1
-                }"></span>`;
+              currentText += `<span data-ref-index="${
+                currentRefs.length - 1
+              }"></span>`;
               return;
             }
 

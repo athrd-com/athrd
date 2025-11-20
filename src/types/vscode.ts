@@ -163,6 +163,26 @@ export interface ToolSource {
   label: string;
 }
 
+export interface TerminalToolData {
+  kind: "terminal";
+  language: string;
+  commandLine: {
+    toolEdited?: string;
+    original: string;
+  };
+}
+
+export interface TodoListToolData {
+  kind: "todoList";
+  toolId: "manage_todo_list";
+  todoList: {
+    id: string;
+    title: string;
+    description: string;
+    status: "in-progress" | "completed" | "not-started";
+  }[];
+}
+
 /** Tool invocation with serialized details */
 export interface ToolInvocationSerialized {
   kind: "toolInvocationSerialized";
@@ -174,14 +194,7 @@ export interface ToolInvocationSerialized {
   source: ToolSource;
   toolCallId: string;
   toolId: string;
-  toolSpecificData?: {
-    kind: "terminal";
-    language: string;
-    commandLine: {
-      toolEdited?: string;
-      original: string;
-    };
-  };
+  toolSpecificData?: TerminalToolData | TodoListToolData;
 }
 
 /** Response item representing text content */

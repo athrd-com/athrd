@@ -1,4 +1,14 @@
-import { CheckCircle2, Circle } from "lucide-react";
+"use client";
+
+import { cn } from "@/lib/utils";
+import {
+  CheckCircle2,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Circle,
+  ListTodo,
+} from "lucide-react";
+import { useState } from "react";
 import { Badge } from "../ui/badge";
 
 type TodoStatus = "pending" | "in_progress" | "completed";
@@ -17,6 +27,11 @@ export default function ToolTodosBlock({
   todos,
   title = "Tasks",
 }: ToolTodosBlockProps) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const completedCount = todos.filter((t) => t.status === "completed").length;
+  const totalCount = todos.length;
+
   const getStatusIcon = (status: TodoStatus) => {
     switch (status) {
       case "completed":
@@ -61,26 +76,47 @@ export default function ToolTodosBlock({
   };
 
   return (
-    <div className="my-4">
-      <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-sm font-medium text-gray-300">{title}</h3>
-        <Badge variant="outline" className="text-xs">
-          {todos.length}
-        </Badge>
-      </div>
-      <div className="space-y-2">
-        {todos.map((todo, index) => (
-          <div
-            key={index}
-            className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors"
-          >
-            <div className="mt-0.5">{getStatusIcon(todo.status)}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-200">{todo.content}</p>
-            </div>
-            <div className="shrink-0">{getStatusBadge(todo.status)}</div>
+    <div
+      className={cn(
+        "group rounded-lg p-3 flex items-center justify-between hover:bg-[#111] hover:border-white/20 transition-colors",
+        !isCollapsed && "bg-[#111] border border-white/10"
+      )}
+    >
+      <div className="w-full">
+        <div
+          className="flex justify-between w-full cursor-pointer"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          <div className="flex items-center gap-3 font-mono text-xs">
+            <ListTodo size={14} className="text-blue-400 stroke-3" />
+            <span className="text-gray-300 font-medium">
+              {title} ({completedCount}/{totalCount})
+            </span>
           </div>
-        ))}
+          <div className="ml-2 hidden group-hover:flex cursor-pointer">
+            {isCollapsed ? (
+              <ChevronsDownUp size={14} className="text-gray-500 shrink-0" />
+            ) : (
+              <ChevronsUpDown size={14} className="text-gray-500 shrink-0" />
+            )}
+          </div>
+        </div>
+        {!isCollapsed && (
+          <div className="mt-3 space-y-2">
+            {todos.map((todo, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-3 p-2 rounded-md bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors"
+              >
+                <div className="mt-0.5">{getStatusIcon(todo.status)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-200">{todo.content}</p>
+                </div>
+                <div className="shrink-0">{getStatusBadge(todo.status)}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

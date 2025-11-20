@@ -2,8 +2,10 @@ import type { GistOwner } from "@/lib/github";
 import type {
   InlineReferenceResponse,
   ResponseItem,
+  TerminalToolData,
   TextResponse,
   ThinkingToolResponse,
+  TodoListToolData,
   ToolInvocationSerialized,
   VariableFile,
   VSCodeThread,
@@ -11,6 +13,7 @@ import type {
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
 import ThinkingBlock from "../thread/thinking-block";
+import ToolTodosBlock from "../thread/tool-todos-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
@@ -50,11 +53,27 @@ function isToolCall(
 
 function isSheelToolCall(
   response: ResponseItem
-): response is ToolInvocationSerialized {
+): response is ToolInvocationSerialized & {
+  toolSpecificData: TerminalToolData;
+} {
   return (
     "kind" in response &&
     response.kind === "toolInvocationSerialized" &&
-    response.toolId == "run_in_terminal"
+    response.toolId == "run_in_terminal" &&
+    response.toolSpecificData?.kind === "terminal"
+  );
+}
+
+function isTodoList(
+  response: ResponseItem
+): response is ToolInvocationSerialized & {
+  toolSpecificData: TodoListToolData;
+} {
+  return (
+    "kind" in response &&
+    response.kind === "toolInvocationSerialized" &&
+    response.toolId === "manage_todo_list" &&
+    response.toolSpecificData?.kind === "todoList"
   );
 }
 
@@ -181,6 +200,21 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                     response.toolSpecificData?.commandLine.original ??
                     ""
                   }
+                />
+              );
+            } else if (isTodoList(response)) {
+              renderedItems.push(
+                <ToolTodosBlock
+                  key={response.toolCallId}
+                  todos={response.toolSpecificData.todoList.map((t) => ({
+                    content: t.title,
+                    status:
+                      t.status === "in-progress"
+                        ? "in_progress"
+                        : t.status === "completed"
+                        ? "completed"
+                        : "pending",
+                  }))}
                 />
               );
             } else if (isToolCall(response)) {

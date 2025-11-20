@@ -65,7 +65,9 @@ export default function VSCodeToolCall({
   let parsed: string | React.ReactElement = text;
   switch (tool.toolId) {
     case "run_in_terminal":
-      parsed = tool.toolSpecificData?.commandLine.original ?? "";
+      if (tool.toolSpecificData?.kind === "terminal") {
+        parsed = tool.toolSpecificData.commandLine.original ?? "";
+      }
       break;
   }
 

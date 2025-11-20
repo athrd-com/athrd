@@ -56,9 +56,8 @@ function isSheelToolCall(
 ): response is ToolInvocationSerialized & {
   toolSpecificData: TerminalToolData;
 } {
+  if (!isToolCall(response)) return false;
   return (
-    "kind" in response &&
-    response.kind === "toolInvocationSerialized" &&
     response.toolId == "run_in_terminal" &&
     response.toolSpecificData?.kind === "terminal"
   );
@@ -69,9 +68,8 @@ function isTodoList(
 ): response is ToolInvocationSerialized & {
   toolSpecificData: TodoListToolData;
 } {
+  if (!isToolCall(response)) return false;
   return (
-    "kind" in response &&
-    response.kind === "toolInvocationSerialized" &&
     response.toolId === "manage_todo_list" &&
     response.toolSpecificData?.kind === "todoList"
   );
@@ -171,9 +169,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${
-                currentRefs.length - 1
-              }"></span>`;
+              currentText += `<span data-ref-index="${currentRefs.length - 1
+                }"></span>`;
               return;
             }
 
@@ -212,8 +209,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                       t.status === "in-progress"
                         ? "in_progress"
                         : t.status === "completed"
-                        ? "completed"
-                        : "pending",
+                          ? "completed"
+                          : "pending",
                   }))}
                 />
               );

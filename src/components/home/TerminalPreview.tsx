@@ -21,6 +21,7 @@ const MOCK_REQUESTS: ClaudeRequest[] = [
     type: "user",
     timestamp: "2024-01-01T10:00:00Z",
     message: {
+      model: "claude-3-5-sonnet-20241022",
       role: "user",
       content:
         "Create a simple counter component using React and Lucide icons.",
@@ -91,6 +92,7 @@ const MOCK_REQUESTS: ClaudeRequest[] = [
     timestamp: "2024-01-01T10:00:12Z",
     message: {
       role: "user",
+      model: "claude-3-5-sonnet-20241022",
       content: [
         {
           type: "tool_result",

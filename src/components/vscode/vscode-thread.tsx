@@ -207,11 +207,14 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   files={(
                     (request.variableData.variables ?? []) as VariableFile[]
                   )
-                    .filter((file) => file.kind === "file")
+                    .filter(
+                      (file) => file.kind === "file" || file.kind === "image"
+                    )
                     .map((file) => {
                       return {
                         id: file.id,
                         name: file.name,
+                        kind: file.kind,
                       };
                     })}
                 />

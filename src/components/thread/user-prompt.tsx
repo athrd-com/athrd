@@ -1,6 +1,6 @@
 import type { GistOwner } from "@/lib/github";
 import type { IFile } from "@/lib/providers";
-import { File } from "lucide-react";
+import { File, Image } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
@@ -34,7 +34,8 @@ export default function UserPrompt({
                   variant="outline"
                   className="rounded-md text-xs bg-blue-500/10 border-blue-500/20 text-blue-400 font-mono px-2 py-0.5"
                 >
-                  <File className="w-3 h-3 mr-1" />
+                  {f.kind === "image" && <Image className="w-3 h-3 mr-1" />}
+                  {f.kind === "file" && <File className="w-3 h-3 mr-1" />}
                   {f.name}
                 </Badge>
               ))}

@@ -54,6 +54,14 @@ export interface VariableFile {
   value: InlineReference;
 }
 
+export interface VariableImage {
+  kind: "image";
+  id: string;
+  name: string;
+  fullName: string;
+  value: Record<string, number>;
+}
+
 /** Variable data associated with a request */
 export interface VariableData {
   variables: unknown[] | VariableFile[];

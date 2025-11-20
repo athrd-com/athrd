@@ -18,6 +18,8 @@ apps/web/node_modules
 db.sqlite
 
 # next.js
+apps/web/.next/
+apps/web/out/
 /.next/
 /out/
 next-env.d.ts

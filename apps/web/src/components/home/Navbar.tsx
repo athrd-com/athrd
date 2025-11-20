@@ -54,12 +54,8 @@ export function Navbar() {
           >
             Open Source
           </Link>
-          <Link
-            href="/enterprise"
-            target={"_blank"}
-            className="hover:text-white transition-colors"
-          >
-            Enterprise
+          <Link href="/pricing" className="hover:text-white transition-colors">
+            Pricing
           </Link>
         </div>
       </div>

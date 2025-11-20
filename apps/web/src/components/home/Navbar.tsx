@@ -48,7 +48,7 @@ export function Navbar() {
         </div>
         <div className="hidden md:flex gap-6 text-gray-400">
           <Link
-            href="https://github.com/athrd-com/cli"
+            href="https://github.com/athrd-com/athrd"
             target={"_blank"}
             className="hover:text-white transition-colors"
           >
@@ -62,7 +62,7 @@ export function Navbar() {
 
       <div>
         <Link
-          href="https://github.com/athrd-com/cli"
+          href="https://github.com/athrd-com/athrd"
           target="_blank"
           className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
         >

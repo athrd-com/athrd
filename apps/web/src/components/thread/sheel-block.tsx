@@ -56,7 +56,7 @@ export default function ShellBlock({
             )}
           </div>
           {result && !isCollapsed && (
-            <pre className="mt-2 text-xs font-mono whitespace-pre-wrap wrap-break-word text-gray-500 font-medium border-t border-white/5 pt-2">
+            <pre className="mt-2 text-xs font-mono whitespace-pre-wrap break-all text-gray-500 font-medium border-t border-white/5 pt-2 overflow-x-auto">
               {result}
             </pre>
           )}

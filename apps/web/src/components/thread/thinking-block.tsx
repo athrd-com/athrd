@@ -16,10 +16,20 @@ export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
     return null;
   }
 
+  let title = "Thinking";
+  if (thinking.startsWith("**")) {
+    const endIndex = thinking.indexOf("**", 2);
+    if (endIndex !== -1) {
+      title = thinking.substring(2, endIndex);
+    }
+  } else {
+    title = thinking;
+  }
+
   return (
     <div
       className={cn(
-        "group rounded-lg p-3 flex items-center justify-between hover:bg-[#111] hover:border-white/20 transition-colors",
+        "group rounded-lg p-3 hover:bg-[#111] hover:border-white/20 transition-colors overflow-hidden",
         !isCollapsed && "bg-[#111] border border-white/10"
       )}
     >
@@ -28,9 +38,12 @@ export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
           className="flex justify-between w-full cursor-pointer"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
-          <div className="flex items-center gap-3 font-mono text-xs">
-            <BrainIcon size={14} className="text-orange-400 stroke-3" />
-            <span className="text-gray-300 font-medium">{"Thinking"}</span>
+          <div className="flex items-center gap-3 font-mono text-xs overflow-hidden min-w-0">
+            <BrainIcon
+              size={14}
+              className="text-orange-400 stroke-3 shrink-0"
+            />
+            <span className="text-gray-300 font-medium truncate">{title}</span>
           </div>
           <div className="ml-2 hidden group-hover:flex cursor-pointer">
             {isCollapsed ? (
@@ -41,7 +54,7 @@ export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
           </div>
         </div>
         {!isCollapsed && (
-          <pre className="markdown-content mt-2 text-xs font-mono whitespace-pre-wrap wrap-break-word text-gray-300 font-medium">
+          <pre className="markdown-content mt-2 text-xs font-mono whitespace-pre-wrap break-all text-gray-300 font-medium overflow-x-auto">
             <Markdown>{thinking}</Markdown>
           </pre>
         )}

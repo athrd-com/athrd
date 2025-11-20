@@ -17,7 +17,7 @@ export default function ClaudeThread({ owner, thread }: ClaudeThreadProps) {
   const groupedRequests = groupRequests(claudeThread.requests);
 
   return (
-    <div className="athrd-thread max-w-4xl mx-auto px-6 py-8">
+    <div className="athrd-thread max-w-4xl mx-auto px-6 py-8 overflow-x-hidden">
       <div className="space-y-2">
         {groupedRequests.map((item) => {
           // Handle Assistant Group

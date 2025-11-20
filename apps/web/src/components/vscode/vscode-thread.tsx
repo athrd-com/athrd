@@ -102,7 +102,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
   const vscodeThread = thread as VSCodeThread;
 
   return (
-    <div className="athrd-thread max-w-4xl mx-auto px-6 py-8">
+    <div className="athrd-thread max-w-4xl mx-auto px-6 py-8 overflow-x-hidden">
       <div className="space-y-6">
         {vscodeThread.requests.map((request) => {
           // Track tool call index for mapping to tool call rounds
@@ -274,7 +274,9 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                     AI
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 space-y-2">{renderedItems}</div>
+                <div className="flex-1 space-y-2 w-full overflow-auto">
+                  {renderedItems}
+                </div>
               </div>
             </div>
           );

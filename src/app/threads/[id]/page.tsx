@@ -5,6 +5,9 @@ import { IDE } from "@/types/ide";
 import { notFound } from "next/navigation";
 import { fetchGist } from "~/lib/github";
 
+// Enable static generation and caching
+export const revalidate = 604800; // Cache for 1 week
+
 export default async function ThreadPage({
   params,
 }: {

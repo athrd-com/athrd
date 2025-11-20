@@ -2,7 +2,7 @@
 
 import type { GistOwner } from "@/lib/github";
 import { IDE } from "@/types/ide";
-import { Check, Link2 } from "lucide-react";
+import { Check, Github, Link2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "~/components/ui/badge";
@@ -17,6 +17,9 @@ type ThreadHeaderProps = {
   owner: GistOwner;
   title: string;
   createdAt: string | number;
+  repoUrl?: string;
+  repoName?: string;
+  modelsUsed?: string[];
 };
 
 function getIDEIcon(ide?: IDE) {
@@ -49,11 +52,24 @@ function getIDEName(ide?: IDE) {
   }
 }
 
+function getModelIcon(model: string) {
+  const m = model.toLowerCase();
+  if (m.includes("claude"))
+    return <ClaudeAiIcon className="h-3.5 w-3.5 mr-1.5" />;
+  if (m.includes("gemini")) return <Gemini className="h-3.5 w-3.5 mr-1.5" />;
+  if (m.includes("gpt") || m.includes("o1"))
+    return <OpenaiDark className="h-3.5 w-3.5 mr-1.5" />;
+  return null;
+}
+
 export default function ThreadHeader({
   owner,
   createdAt,
   title,
   ide,
+  repoUrl,
+  repoName,
+  modelsUsed,
 }: ThreadHeaderProps) {
   const [copied, setCopied] = useState(false);
 
@@ -68,7 +84,7 @@ export default function ThreadHeader({
   };
 
   return (
-    <div className="border-b border-white/5 py-6 mb-8">
+    <div className="border-b border-white/5 pt-6 pb-3 mb-8">
       <div className="">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-medium text-white flex items-center gap-3 tracking-tight">
@@ -100,6 +116,20 @@ export default function ThreadHeader({
           </div>
         </div>
         <div className="flex items-center gap-3 text-sm text-gray-500">
+          {repoUrl && repoName && (
+            <>
+              <Link href={repoUrl} target="_blank" rel="nofollow">
+                <Badge
+                  variant="outline"
+                  className="bg-[#111] text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-300 hover:border-white/20 transition-all rounded-md px-2 py-0.5 font-mono text-xs flex items-center"
+                >
+                  <Github className="h-3.5 w-3.5 mr-1.5" />
+                  {repoName}
+                </Badge>
+              </Link>
+              <span className="text-gray-700">•</span>
+            </>
+          )}
           <Link
             href={`https://github.com/${owner.login}`}
             target={"_blank"}
@@ -112,6 +142,23 @@ export default function ThreadHeader({
               @{owner.login}
             </Badge>
           </Link>
+          {modelsUsed && modelsUsed.length > 0 && (
+            <>
+              <span className="text-gray-700">•</span>
+              <div className="flex items-center gap-2">
+                {modelsUsed.map((model) => (
+                  <Badge
+                    key={model}
+                    variant="outline"
+                    className="bg-[#111] text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-300 hover:border-white/20 transition-all rounded-md px-2 py-0.5 font-mono text-xs flex items-center"
+                  >
+                    {getModelIcon(model)}
+                    {model}
+                  </Badge>
+                ))}
+              </div>
+            </>
+          )}
           <span className="text-gray-700">•</span>
           <span>
             {new Date(createdAt).toLocaleDateString(undefined, {

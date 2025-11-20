@@ -5,6 +5,7 @@ export interface ClaudeThread {
 export interface RequestUserMessage {
   role: "user";
   content: string | ToolResultContent[];
+  model: string;
 }
 
 export interface RequestAssistantMessage {

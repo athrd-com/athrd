@@ -4,14 +4,30 @@ import { ClaudeAiIcon } from "@/components/ui/svgs/claudeAiIcon";
 import { Openai } from "@/components/ui/svgs/openai";
 import { Vscode } from "@/components/ui/svgs/vscode";
 import { Check, Copy } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CursorDark } from "../ui/svgs/cursorDark";
+
+type PackageManager = "npm" | "npx" | "pnpm" | "yarn";
 
 export function HeroSection() {
   const [copied, setCopied] = useState(false);
   const [brandIndex, setBrandIndex] = useState(0);
-  const command = "npm install -g @athrd/cli";
+  const [packageManager, setPackageManager] = useState<PackageManager>("npm");
+
+  const getCommand = (pm: PackageManager) => {
+    switch (pm) {
+      case "npm":
+        return "npm install -g @athrd/cli";
+      case "npx":
+        return "npx @athrd/cli";
+      case "pnpm":
+        return "pnpm add -g @athrd/cli";
+      case "yarn":
+        return "yarn global add @athrd/cli";
+    }
+  };
+
+  const command = getCommand(packageManager);
 
   const brands = [
     {
@@ -73,9 +89,8 @@ export function HeroSection() {
         <span className="inline-flex items-center gap-3 md:gap-5 mx-4">
           <span className="relative group inline-flex">
             <div
-              className={`absolute -inset-0.5 bg-linear-to-r ${
-                currentBrand!.color
-              } rounded-xl opacity-80 blur-[2px] transition-all duration-500`}
+              className={`absolute -inset-0.5 bg-linear-to-r ${currentBrand!.color
+                } rounded-xl opacity-80 blur-[2px] transition-all duration-500`}
             ></div>
             <div className="relative w-14 h-14 md:w-20 md:h-20 bg-[#0a0a0a] rounded-xl flex items-center justify-center border border-white/10">
               {currentBrand!.icon}
@@ -113,12 +128,20 @@ export function HeroSection() {
           </div>
         </div>
 
-        <Link
-          href="#"
-          className="text-sm text-purple-400 hover:text-purple-300 font-mono transition-colors"
-        >
-          More install options
-        </Link>
+        <div className="flex items-center gap-2">
+          {(["npm", "npx", "pnpm", "yarn"] as PackageManager[]).map((pm) => (
+            <button
+              key={pm}
+              onClick={() => setPackageManager(pm)}
+              className={`px-4 py-2 rounded-md font-mono text-sm transition-all ${packageManager === pm
+                ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300"
+                }`}
+            >
+              {pm}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

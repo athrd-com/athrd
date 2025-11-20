@@ -16,7 +16,7 @@ import VSCodeToolCall from "./vscode-tool-call";
 
 type VSCodeThreadProps = {
   owner: GistOwner;
-  thread: any;
+  thread: unknown;
 };
 
 function isTextResponse(response: ResponseItem): response is TextResponse {
@@ -137,9 +137,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${
-                currentRefs.length - 1
-              }"></span>`;
+              currentText += `<span data-ref-index="${currentRefs.length - 1
+                }"></span>`;
               return;
             }
 

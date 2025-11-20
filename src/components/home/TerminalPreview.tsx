@@ -171,6 +171,9 @@ export function TerminalPreview() {
               createdAt="2025-11-01T10:00:00Z"
               title="React Counter Component"
               ide={IDE.CLAUDE_CODE}
+              repoName="athrd/app"
+              repoUrl="https://github.com/athrd/app"
+              modelsUsed={["claude-3-5-sonnet-20241022"]}
             />
           </div>
           <ClaudeThread

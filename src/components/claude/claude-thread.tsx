@@ -13,7 +13,6 @@ type ClaudeThreadProps = {
 
 export default function ClaudeThread({ owner, thread }: ClaudeThreadProps) {
   const claudeThread = thread as { requests: ClaudeRequest[] };
-  console.log(claudeThread);
 
   const groupedRequests = groupRequests(claudeThread.requests);
 

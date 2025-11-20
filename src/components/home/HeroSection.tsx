@@ -89,8 +89,9 @@ export function HeroSection() {
         <span className="inline-flex items-center gap-3 md:gap-5 mx-4">
           <span className="relative group inline-flex">
             <div
-              className={`absolute -inset-0.5 bg-linear-to-r ${currentBrand!.color
-                } rounded-xl opacity-80 blur-[2px] transition-all duration-500`}
+              className={`absolute -inset-0.5 bg-linear-to-r ${
+                currentBrand!.color
+              } rounded-xl opacity-80 blur-[2px] transition-all duration-500`}
             ></div>
             <div className="relative w-14 h-14 md:w-20 md:h-20 bg-[#0a0a0a] rounded-xl flex items-center justify-center border border-white/10">
               {currentBrand!.icon}
@@ -128,15 +129,16 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center p-1 bg-gray-900/50 border border-gray-800 rounded-full backdrop-blur-sm">
           {(["npm", "npx", "pnpm", "yarn"] as PackageManager[]).map((pm) => (
             <button
               key={pm}
               onClick={() => setPackageManager(pm)}
-              className={`px-4 py-2 rounded-md font-mono text-sm transition-all ${packageManager === pm
-                ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300"
-                }`}
+              className={`px-4 py-1.5 rounded-full font-mono text-sm transition-all duration-300 ${
+                packageManager === pm
+                  ? "bg-gray-800 text-white shadow-lg shadow-black/20 ring-1 ring-white/10"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+              }`}
             >
               {pm}
             </button>

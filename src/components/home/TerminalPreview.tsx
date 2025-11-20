@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { GistOwner } from "@/lib/github";
+import type { ClaudeRequest } from "@/types/claude";
+import { IDE } from "@/types/ide";
 import ClaudeThread from "../claude/claude-thread";
 import ThreadHeader from "../thread/thread-header";
-import type { ClaudeRequest } from "@/types/claude";
-import type { GistOwner } from "@/lib/github";
-import { IDE } from "@/types/ide";
 
 const MOCK_OWNER: GistOwner = {
   login: "athrd-user",
@@ -23,7 +22,8 @@ const MOCK_REQUESTS: ClaudeRequest[] = [
     timestamp: "2024-01-01T10:00:00Z",
     message: {
       role: "user",
-      content: "Create a simple counter component using React and Lucide icons.",
+      content:
+        "Create a simple counter component using React and Lucide icons.",
     },
   },
   {
@@ -159,8 +159,6 @@ export function Counter() {
 ];
 
 export function TerminalPreview() {
-
-
   return (
     <div className="w-full max-w-[1000px] mx-auto p-px bg-linear-to-b from-gray-800 to-gray-900 rounded-xl shadow-2xl shadow-blue-900/10">
       <div className="bg-white dark:bg-[#0a0b10] rounded-xl overflow-hidden border border-white/5 min-h-[400px] relative transition-all duration-500 ease-in-out">

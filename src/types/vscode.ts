@@ -187,7 +187,7 @@ export interface TodoListToolData {
 export interface ToolInvocationSerialized {
   kind: "toolInvocationSerialized";
   invocationMessage: ToolInvocationMessage;
-  pastTenseMessage: ToolInvocationMessage;
+  pastTenseMessage?: ToolInvocationMessage;
   presentation?: string;
   isConfirmed: { type: number };
   isComplete: boolean;

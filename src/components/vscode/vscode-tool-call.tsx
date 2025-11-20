@@ -1,8 +1,12 @@
 import type { ToolCallRound, ToolInvocationSerialized } from "@/types/vscode";
-import { Search, TerminalIcon, type LucideIcon } from "lucide-react";
+import {
+  PencilRuler,
+  Search,
+  TerminalIcon,
+  type LucideIcon,
+} from "lucide-react";
 import ToolEditBlock from "../thread/tool-edit-block";
 import ToolReadBlock from "../thread/tool-read-block";
-
 
 interface ToolCallProps {
   icon?: LucideIcon;
@@ -55,6 +59,9 @@ export default function VSCodeToolCall({
   let ToolIcon = Icon;
 
   switch (tool.toolId) {
+    case "copilot_applyPatch":
+      ToolIcon = PencilRuler;
+      break;
     case "copilot_findTextInFiles":
       ToolIcon = Search;
       break;

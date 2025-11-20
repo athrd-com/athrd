@@ -25,7 +25,7 @@ type ToolTodosBlockProps = {
 
 export default function ToolTodosBlock({
   todos,
-  title = "Tasks",
+  title = "Todos",
 }: ToolTodosBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 

@@ -13,6 +13,7 @@ import type {
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
 import ThinkingBlock from "../thread/thinking-block";
+import ToolPatchBlock from "../thread/tool-patch-block";
 import ToolTodosBlock from "../thread/tool-todos-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
@@ -61,6 +62,13 @@ function isSheelToolCall(
     response.toolId == "run_in_terminal" &&
     response.toolSpecificData?.kind === "terminal"
   );
+}
+
+function isPatchToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_applyPatch";
 }
 
 function isTodoList(
@@ -169,8 +177,9 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${currentRefs.length - 1
-                }"></span>`;
+              currentText += `<span data-ref-index="${
+                currentRefs.length - 1
+              }"></span>`;
               return;
             }
 
@@ -181,7 +190,9 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (
               isToolCall(response) ||
               isSheelToolCall(response) ||
-              isTextEditGroup(response)
+              isTextEditGroup(response) ||
+              isTodoList(response) ||
+              isPatchToolCall(response)
             ) {
               toolCallRound =
                 request.result?.metadata.toolCallRounds?.[toolCallIndex];
@@ -199,6 +210,13 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   }
                 />
               );
+            } else if (isPatchToolCall(response)) {
+              // TODO: Improve and add try catch
+              const patch = JSON.parse(
+                toolCallRound?.toolCalls[0]?.arguments || "{}"
+              );
+
+              renderedItems.push(<ToolPatchBlock patch={patch.input} />);
             } else if (isTodoList(response)) {
               renderedItems.push(
                 <ToolTodosBlock
@@ -209,8 +227,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                       t.status === "in-progress"
                         ? "in_progress"
                         : t.status === "completed"
-                          ? "completed"
-                          : "pending",
+                        ? "completed"
+                        : "pending",
                   }))}
                 />
               );

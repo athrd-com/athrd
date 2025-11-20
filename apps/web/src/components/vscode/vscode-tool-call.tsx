@@ -52,16 +52,9 @@ export default function VSCodeToolCall({
     let path = typeof uri?.path === "string" ? uri.path : "";
 
     if (tool.toolId === "vscode_fetchWebPage_internal" && !path) {
-      const call = toolCallRound?.toolCalls?.find(
-        (c) => c.name === "vscode_fetchWebPage_internal"
-      );
-      if (call) {
-        try {
-          const args = JSON.parse(call.arguments);
-          if (args.url) path = args.url;
-          if (args.urls && Array.isArray(args.urls)) path = args.urls[0];
-        } catch {}
-      }
+      // @ts-ignore
+      path = tool.resultDetails[0].external || "";
+      console.log({ path });
     }
 
     const rest = text.match(/\)(, .+)/);

@@ -21,7 +21,9 @@ export default function ToolReadBlock({
   label = "Read",
   icon: Icon = FileIcon,
 }: ToolReadBlockProps) {
-  const shortName = filePath.split("/").pop() || filePath;
+  const shortName = filePath.startsWith("http")
+    ? filePath
+    : filePath.split("/").pop() || filePath;
 
   const badge = (
     <Badge

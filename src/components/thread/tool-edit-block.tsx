@@ -17,7 +17,7 @@ interface DiffLine {
 }
 
 /**
- * FileDiff: Displays file changes with header showing path and stats
+ * ToolEditBlock: Displays file changes with header showing path and stats
  * Uses the diff library to calculate line-by-line differences
  */
 export default function ToolEditBlock({
@@ -62,8 +62,10 @@ export default function ToolEditBlock({
   return (
     <div className="my-6 rounded-lg border border-white/10 overflow-hidden bg-[#111] shadow-sm">
       {/* File Header */}
-      <div className="flex items-center justify-between bg-white/5 border-b border-white/10 px-3 py-2">
-        <div className="flex items-center gap-2 text-xs font-mono text-gray-400 truncate">
+      <div onClick={() => setIsCollapsed(!isCollapsed)}
+        className="flex items-center justify-between bg-white/5 border-b border-white/10 px-3 py-2">
+        <div
+          className="flex items-center gap-2 text-xs font-mono text-gray-400 truncate">
           <FileCode size={14} className="text-gray-500 shrink-0" />
           <span className="truncate text-gray-400 hover:text-gray-200 transition-colors cursor-pointer hover:underline decoration-gray-700 underline-offset-2">
             {body.filePath}
@@ -96,11 +98,11 @@ export default function ToolEditBlock({
             className={cn(
               "flex px-3 border-l-2 group",
               line.type === "add" &&
-                "bg-[#1a3d28]/30 text-green-200 border-green-500/50",
+              "bg-[#1a3d28]/30 text-green-200 border-green-500/50",
               line.type === "del" &&
-                "bg-[#42181c]/30 text-red-200 border-red-500/50",
+              "bg-[#42181c]/30 text-red-200 border-red-500/50",
               line.type === "ctx" &&
-                "text-gray-500 border-transparent hover:bg-white/5"
+              "text-gray-500 border-transparent hover:bg-white/5"
             )}
           >
             <span className="w-4 shrink-0 select-none opacity-40 text-right mr-3">
@@ -114,7 +116,7 @@ export default function ToolEditBlock({
         {isCollapsed && hasMoreLines && (
           <button
             onClick={() => setIsCollapsed(false)}
-            className="px-3 py-2 text-center text-gray-500 text-xs cursor-pointer hover:bg-white/5 hover:text-gray-300"
+            className="w-full px-3 py-2 text-center text-gray-500 text-xs cursor-pointer hover:bg-white/5 hover:text-gray-300"
           >
             ... {lines.length - 5} more lines ...
           </button>

@@ -1,6 +1,6 @@
 import type { ToolCallRound, ToolInvocationSerialized } from "@/types/vscode";
 import { Search, TerminalIcon, type LucideIcon } from "lucide-react";
-import FileDiff from "../thread/file-diff";
+import ToolEditBlock from "../thread/tool-edit-block";
 import ToolReadBlock from "../thread/tool-read-block";
 
 
@@ -19,7 +19,17 @@ export default function VSCodeToolCall({
 }: ToolCallProps) {
   const fileDiffs = (toolCallRound?.toolCalls ?? [])
     .filter((call) => call.name === "replace_string_in_file")
-    .map((round) => <FileDiff key={round.id} toolCall={round} />);
+    .map((round) => {
+      const args = JSON.parse(round.arguments);
+      return (
+        <ToolEditBlock
+          key={round.id}
+          filePath={args.filePath}
+          oldString={args.oldString}
+          newString={args.newString}
+        />
+      );
+    });
 
   if (
     tool.toolId === "copilot_readFile" ||

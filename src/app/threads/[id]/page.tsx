@@ -26,7 +26,7 @@ export default async function ThreadPage({
   try {
     content = JSON.parse(file.content || "{}");
     // @ts-ignore TODO: fix this properly later
-    if (content.__athrd.ide === IDE.CLAUDE) ide = IDE.CLAUDE;
+    if (content?.__athrd?.ide === IDE.CLAUDE) ide = IDE.CLAUDE;
   } catch (error) {
     return (
       <main className="container mx-auto max-w-4xl px-4 py-8">

@@ -87,8 +87,19 @@ export default function ToolTodosBlock({
           className="flex justify-between w-full cursor-pointer"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
-          <div className="flex items-center gap-3 font-mono text-xs">
-            <ListTodo size={14} className="text-blue-400 stroke-3" />
+          <div
+            className={cn(
+              "flex items-center font-mono text-xs",
+              !isCollapsed && "gap-2"
+            )}
+          >
+            <ListTodo
+              size={14}
+              className={cn(
+                "text-blue-400 stroke-3 transition-all -translate-x-2",
+                !isCollapsed && "translate-x-0"
+              )}
+            />
             <span className="text-gray-300 font-medium">
               {title} ({completedCount}/{totalCount})
             </span>

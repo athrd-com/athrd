@@ -1,4 +1,4 @@
-import { FileIcon } from "lucide-react";
+import { FileIcon, type LucideIcon } from "lucide-react";
 import { Badge } from "../ui/badge";
 import {
   HoverCard,
@@ -10,12 +10,16 @@ type ToolReadBlockProps = {
   filePath: string;
   content?: string;
   extra?: string;
+  label?: string;
+  icon?: LucideIcon;
 };
 
 export default function ToolReadBlock({
   filePath,
   content,
   extra,
+  label = "Read",
+  icon: Icon = FileIcon,
 }: ToolReadBlockProps) {
   const shortName = filePath.split("/").pop() || filePath;
 
@@ -31,9 +35,9 @@ export default function ToolReadBlock({
   return (
     <div className="">
       <div className="flex items-center text-sm my-4">
-        <FileIcon className="h-4 w-4 text-gray-400 mr-2" />
+        <Icon className="h-4 w-4 text-gray-400 mr-2" />
         <>
-          Read{" "}
+          {label}{" "}
           {content ? (
             <HoverCard>
               <HoverCardTrigger asChild>{badge}</HoverCardTrigger>

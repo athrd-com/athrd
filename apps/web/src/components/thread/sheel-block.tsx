@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 
@@ -26,10 +27,18 @@ export default function ShellBlock({
             }`}
             onClick={() => result && setIsCollapsed(!isCollapsed)}
           >
-            <div className="flex items-center gap-3 font-mono text-xs min-w-0">
+            <div
+              className={cn(
+                "flex items-center font-mono text-xs min-w-0",
+                !isCollapsed && "gap-2"
+              )}
+            >
               <ChevronRight
                 size={14}
-                className="text-blue-500 stroke-3 shrink-0"
+                className={cn(
+                  "text-blue-500 stroke-3 shrink-0 transition-all -translate-x-2",
+                  !isCollapsed && "translate-x-0"
+                )}
               />
               <span
                 className={`text-gray-300 font-medium ${

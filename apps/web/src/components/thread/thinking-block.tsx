@@ -38,10 +38,18 @@ export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
           className="flex justify-between w-full cursor-pointer"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
-          <div className="flex items-center gap-3 font-mono text-xs overflow-hidden min-w-0">
+          <div
+            className={cn(
+              "flex items-center font-mono text-xs min-w-0",
+              !isCollapsed && "gap-2"
+            )}
+          >
             <BrainIcon
               size={14}
-              className="text-orange-400 stroke-3 shrink-0"
+              className={cn(
+                "text-orange-400 stroke-3 shrink-0 transition-all -translate-x-3",
+                !isCollapsed && "translate-x-0"
+              )}
             />
             <span className="text-gray-300 font-medium truncate">{title}</span>
           </div>

@@ -54,7 +54,6 @@ export default function VSCodeToolCall({
     if (tool.toolId === "vscode_fetchWebPage_internal" && !path) {
       // @ts-ignore
       path = tool.resultDetails[0].external || "";
-      console.log({ path });
     }
 
     const rest = text.match(/\)(, .+)/);

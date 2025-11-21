@@ -19,9 +19,12 @@ export function Navbar() {
 
     async function fetchStars() {
       try {
-        const res = await fetch("https://api.github.com/repos/athrd-com/athrd", {
-          headers: { Accept: "application/vnd.github.v3+json" },
-        });
+        const res = await fetch(
+          "https://api.github.com/repos/athrd-com/athrd",
+          {
+            headers: { Accept: "application/vnd.github.v3+json" },
+          }
+        );
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && typeof data.stargazers_count === "number") {
@@ -60,6 +63,9 @@ export function Navbar() {
           </Link>
           <Link href="/pricing" className="hover:text-white transition-colors">
             Pricing
+          </Link>
+          <Link href="/tools" className="hover:text-white transition-colors">
+            Tools
           </Link>
         </div>
       </div>

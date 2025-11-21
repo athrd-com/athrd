@@ -16,3 +16,9 @@ npm login
 ```bash
 npm publish --access public
 ```
+
+4. Create a GitHub release
+```bash
+VERSION=$(node -p "require('./packages/cli/package.json').version")
+gh release create v$VERSION --generate-notes
+```

@@ -19,7 +19,7 @@ export function Navbar() {
 
     async function fetchStars() {
       try {
-        const res = await fetch("https://api.github.com/repos/athrd-com/cli", {
+        const res = await fetch("https://api.github.com/repos/athrd-com/athrd", {
           headers: { Accept: "application/vnd.github.v3+json" },
         });
         if (!res.ok) return;

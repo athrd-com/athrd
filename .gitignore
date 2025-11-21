@@ -13,6 +13,7 @@ apps/web/node_modules
 /coverage
 
 # database
+apps/web/generated/
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
 db.sqlite

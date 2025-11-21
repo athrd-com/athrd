@@ -4,11 +4,40 @@ import VSCodeThread from "@/components/vscode/vscode-thread";
 import type { ClaudeThread as ClaudeThreadType } from "@/types/claude";
 import { IDE } from "@/types/ide";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchGist } from "~/lib/github";
 
 // Enable static generation and caching
 export const revalidate = 604800; // Cache for 1 week
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const { gist } = await fetchGist(id);
+
+  if (!gist) {
+    return {
+      title: "Thread Not Found - ATHRD",
+    };
+  }
+
+  const url = `https://athrd.com/threads/${id}`;
+
+  return {
+    title: `ATHRD - ${gist.description}`,
+    robots: {
+      index: false,
+      follow: true,
+    },
+    alternates: {
+      canonical: url,
+    },
+  };
+}
 
 export default async function ThreadPage({
   params,

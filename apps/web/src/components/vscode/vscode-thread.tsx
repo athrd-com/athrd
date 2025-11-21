@@ -200,6 +200,19 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             }
 
             if (isSheelToolCall(response)) {
+              const call = toolCallRound?.toolCalls[0];
+              let shellResult: string | undefined = undefined;
+              if (call?.id) {
+                const callResult =
+                  request.result?.metadata?.toolCallResults?.[call.id];
+                if (callResult && callResult.content) {
+                  shellResult = callResult.content
+                    .map((v) => v.value)
+                    .filter(Boolean)
+                    .join("\n");
+                }
+              }
+
               renderedItems.push(
                 <ShellBlock
                   key={response.toolCallId}
@@ -208,6 +221,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                     response.toolSpecificData?.commandLine.original ??
                     ""
                   }
+                  result={shellResult}
                 />
               );
             } else if (isPatchToolCall(response)) {

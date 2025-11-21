@@ -3,6 +3,7 @@
 import { Github } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AnimatedLogo } from "./AnimatedLogo";
 
 function formatStars(n: number | null) {
   if (n === null) return "—";
@@ -43,7 +44,7 @@ export function Navbar() {
       <div className="flex items-center gap-8">
         <div className="flex items-center gap-2 font-semibold text-gray-100">
           <Link className="text-lg hover:underline" href="/">
-            athrd
+            <AnimatedLogo />
           </Link>
         </div>
         <div className="hidden md:flex gap-6 text-gray-400">

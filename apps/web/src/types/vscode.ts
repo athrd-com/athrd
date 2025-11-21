@@ -158,10 +158,7 @@ export interface ToolCallResult {
 export type CacheType = "ephemeral" | "persistent";
 
 /** Source information for tool execution */
-export interface ToolSource {
-  type: string;
-  label: string;
-}
+
 
 export interface TerminalToolData {
   kind: "terminal";
@@ -183,6 +180,46 @@ export interface TodoListToolData {
   }[];
 }
 
+export type ToolId =
+  | "copilot_createFile"
+  | "copilot_readFile"
+  | "copilot_listDirectory"
+  | "copilot_getErrors"
+  | "vscode_fetchWebPage_internal"
+  | "run_in_terminal"
+  | "replace_string_in_file"
+  | "copilot_applyPatch"
+  | "copilot_findTextInFiles"
+  | "copilot_insertEdit"
+  | "copilot_replaceString"
+  | "vscode_editFile_internal"
+  | string;
+
+export interface FileToolData {
+  kind: "file";
+  toolId: ToolId;
+  file: {
+    uri: VSCODEURI;
+    range?: Range;
+  };
+}
+
+export interface MCPToolSource {
+  type: "mcp";
+  label: string;
+  serverLabel: string;
+  collectionId: string;
+  definitionId: string;
+  instructions?: string;
+}
+
+export interface GenericToolSource {
+  type: string;
+  label: string;
+}
+
+export type ToolSource = MCPToolSource | GenericToolSource;
+
 /** Tool invocation with serialized details */
 export interface ToolInvocationSerialized {
   kind: "toolInvocationSerialized";
@@ -193,8 +230,13 @@ export interface ToolInvocationSerialized {
   isComplete: boolean;
   source: ToolSource;
   toolCallId: string;
-  toolId: string;
-  toolSpecificData?: TerminalToolData | TodoListToolData;
+  toolId: ToolId;
+  toolSpecificData?:
+  | TerminalToolData
+  | TodoListToolData
+  | FileToolData
+  | { kind: string;[key: string]: unknown };
+  resultDetails?: Record<string, unknown> | any[];
 }
 
 /** Response item representing text content */
@@ -335,7 +377,7 @@ export type ResponseItem =
   | InlineReferenceResponse
   | TextEditGroupResponse
   | ThinkingToolResponse
-  | { kind: string; [key: string]: unknown }; // fallback for unknown response types
+  | { kind: string;[key: string]: unknown }; // fallback for unknown response types
 
 /** Request from user/requester with message and response */
 export interface Request {

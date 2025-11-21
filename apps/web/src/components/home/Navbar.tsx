@@ -42,10 +42,13 @@ export function Navbar() {
   return (
     <nav className="relative z-50 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full text-sm">
       <div className="flex items-center gap-8">
-        <div className="flex items-center gap-2 font-semibold text-gray-100">
+        <div className="flex items-center gap-3 font-semibold text-gray-100">
           <Link className="text-lg hover:underline" href="/">
             <AnimatedLogo />
           </Link>
+          <span className="px-2 py-0.5 text-xs font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-full text-blue-300">
+            Beta
+          </span>
         </div>
         <div className="hidden md:flex gap-6 text-gray-400">
           <Link

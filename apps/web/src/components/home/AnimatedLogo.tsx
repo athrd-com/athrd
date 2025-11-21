@@ -23,6 +23,7 @@ const STATES: LogoState[] = [
     {
         chars: [
             { char: "a", id: "a" },
+            { char: " ", id: "space1" },
             { char: "t", id: "t" },
             { char: "h", id: "h" },
             { char: "r", id: "r" },

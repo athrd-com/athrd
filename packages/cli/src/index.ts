@@ -6,8 +6,8 @@ import { dirname, join } from "path";
 import updateNotifier from "update-notifier";
 import { fileURLToPath } from "url";
 import { authCommand } from "./commands/auth.js";
-import { createCommand } from "./commands/create.js";
-import { listCommand } from "./commands/list.js";
+
+import { shareCommand } from "./commands/share.js";
 import { logoutCommand } from "./commands/logout.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,7 +26,7 @@ program.name("@athrd/cli").description("ATHRD CLI tool").version("1.0.0");
 // Register commands
 authCommand(program);
 logoutCommand(program);
-listCommand(program);
-createCommand(program);
+shareCommand(program);
+
 
 program.parse();

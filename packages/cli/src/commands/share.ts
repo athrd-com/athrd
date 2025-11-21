@@ -13,10 +13,10 @@ import {
   getGitHubUserInfo,
 } from "../utils/github.js";
 
-export function listCommand(program: Command) {
+export function shareCommand(program: Command) {
   program
-    .command("list")
-    .description("List AI chat threads from VS Code, Cursor, and more")
+    .command("share")
+    .description("Share AI chat threads from VS Code, Cursor, and more")
     .option("-n, --number <count>", "Number of chats to display", "20")
     .action(async (options) => {
       try {
@@ -175,8 +175,7 @@ export function listCommand(program: Command) {
             gistUrls.push(response.data.html_url || "");
             console.log(
               chalk.green(
-                `✓ ${
-                  session.customTitle || "Untitled Chat"
+                `✓ ${session.customTitle || "Untitled Chat"
                 }: https://athrd.com/threads/${response.data.id}`
               )
             );
@@ -186,7 +185,7 @@ export function listCommand(program: Command) {
           process.exit(1);
         }
       } catch (error) {
-        console.error(chalk.red("List command failed:"), error);
+        console.error(chalk.red("Share command failed:"), error);
         process.exit(1);
       }
     });

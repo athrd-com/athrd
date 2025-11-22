@@ -1,6 +1,7 @@
 import type { GistOwner } from "@/lib/github";
 import type {
   InlineReferenceResponse,
+  MCPResultDetails,
   ResponseItem,
   TerminalToolData,
   TextResponse,
@@ -14,6 +15,7 @@ import type {
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
 import ThinkingBlock from "../thread/thinking-block";
+import ToolEditBlock from "../thread/tool-edit-block";
 import ToolMCPBlock from "../thread/tool-mcp-block";
 import ToolPatchBlock from "../thread/tool-patch-block";
 import ToolTodosBlock from "../thread/tool-todos-block";
@@ -73,6 +75,13 @@ function isPatchToolCall(
 ): response is ToolInvocationSerialized {
   if (!isToolCall(response)) return false;
   return response.toolId === "copilot_applyPatch";
+}
+
+function isReplaceStringToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_replaceString";
 }
 
 function isTodoList(
@@ -263,6 +272,23 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
               );
 
               renderedItems.push(<ToolPatchBlock patch={patch.input} />);
+            } else if (isReplaceStringToolCall(response)) {
+              console.log({ response, toolCallRound });
+
+              (toolCallRound?.toolCalls ?? []).forEach((call, callIndex) => {
+                const { filePath, newString, oldString } = JSON.parse(
+                  call.arguments || "{}"
+                );
+
+                renderedItems.push(
+                  <ToolEditBlock
+                    key={response.toolCallId + callIndex}
+                    filePath={filePath}
+                    oldString={oldString || ""}
+                    newString={newString || ""}
+                  />
+                );
+              });
             } else if (isTodoList(response)) {
               renderedItems.push(
                 <ToolTodosBlock
@@ -297,8 +323,12 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   key={response.toolCallId}
                   serverName={response.source.label}
                   toolName={response.pastTenseMessage?.value || response.toolId}
-                  input={response?.resultDetails?.input ?? ""}
-                  result={(response?.resultDetails?.output ?? [])
+                  input={
+                    (response?.resultDetails as MCPResultDetails)?.input ?? ""
+                  }
+                  result={(
+                    (response?.resultDetails as MCPResultDetails)?.output ?? []
+                  )
                     .map((output) => output.value)
                     .join("\n")}
                 />
@@ -308,7 +338,6 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                 <VSCodeToolCall
                   key={response.toolCallId}
                   tool={response}
-                  text={response?.pastTenseMessage?.value ?? ""}
                   toolCallRound={toolCallRound}
                 />
               );

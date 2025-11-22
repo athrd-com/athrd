@@ -49,23 +49,20 @@ export function Navbar() {
           <Link className="text-lg hover:underline" href="/">
             <AnimatedLogo />
           </Link>
-          <span className="px-2 py-0.5 text-xs font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-full text-blue-300">
+          <span className="px-2 py-0.5 text-xs font-medium bg-linear-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-full text-blue-300">
             Beta
           </span>
         </div>
         <div className="hidden md:flex gap-6 text-gray-400">
-          <Link
-            href="https://github.com/athrd-com/athrd"
-            target={"_blank"}
-            className="hover:text-white transition-colors"
-          >
-            Open Source
+          <Link href="/threads" className="hover:text-white transition-colors">
+            Threads
+          </Link>
+
+          <Link href="/tools" className="hover:text-white transition-colors">
+            Tools
           </Link>
           <Link href="/pricing" className="hover:text-white transition-colors">
             Pricing
-          </Link>
-          <Link href="/tools" className="hover:text-white transition-colors">
-            Tools
           </Link>
         </div>
       </div>

@@ -65,3 +65,29 @@ function findAthrdFile(gist: GistData): GistFile | null {
   const athrdFile = files.find((file) => file.filename.startsWith("athrd-"));
   return athrdFile || null;
 }
+
+export async function fetchUserGists(accessToken: string): Promise<GistData[]> {
+  try {
+    const response = await fetch("https://api.github.com/gists", {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      next: { revalidate: 60 }, // Revalidate every minute
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const json = (await response.json()) as GistData[];
+
+    // Filter for gists that have an athrd file
+    return json.filter((gist) =>
+      Object.keys(gist.files).some((file) => file.startsWith("athrd-"))
+    );
+  } catch (error) {
+    console.error("Error fetching user gists:", error);
+    return [];
+  }
+}

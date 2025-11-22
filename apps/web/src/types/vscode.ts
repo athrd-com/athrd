@@ -85,6 +85,7 @@ export interface ToolCall {
   name: string;
   arguments: string;
   id: string;
+  result: ToolCallResult | undefined;
 }
 
 /** Tool call round containing response, tool calls, and retry info */
@@ -93,6 +94,10 @@ export interface ToolCallRound {
   toolCalls: ToolCall[];
   toolInputRetry: number;
   id: string;
+  thinking?: {
+    id: string;
+    text: string;
+  };
 }
 
 /** Tool invocation message with URI references */
@@ -241,7 +246,7 @@ export interface ToolInvocationSerialized {
   isComplete: boolean;
   source: ToolSource;
   toolCallId: string;
-  toolId: ToolId;
+  toolId: string;
   toolSpecificData?:
     | TerminalToolData
     | TodoListToolData

@@ -30,7 +30,7 @@ export default function VSCodeToolUse({ tool, result }: VSCodeToolUseProps) {
     return (
       <ToolMCPBlock
         serverName={mcpData.serverLabel || "MCP Server"}
-        toolName={tool.pastTenseMessage?.value || mcpData.label || tool.toolId}
+        toolId={tool.pastTenseMessage?.value || mcpData.label || tool.toolId}
         input={
           resultDetails?.input ? JSON.parse(resultDetails.input) : undefined
         }

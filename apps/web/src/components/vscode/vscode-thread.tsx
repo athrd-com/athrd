@@ -6,6 +6,7 @@ import type {
   TextResponse,
   ThinkingToolResponse,
   TodoListToolData,
+  ToolCallRound,
   ToolInvocationSerialized,
   VariableFile,
   VSCodeThread,
@@ -13,12 +14,14 @@ import type {
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
 import ThinkingBlock from "../thread/thinking-block";
+import ToolMCPBlock from "../thread/tool-mcp-block";
 import ToolPatchBlock from "../thread/tool-patch-block";
 import ToolTodosBlock from "../thread/tool-todos-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import VSCodeToolCall from "./vscode-tool-call";
+import VSCodeReadFileCall from "./vscode-tool-read-file";
 
 type VSCodeThreadProps = {
   owner: GistOwner;
@@ -49,7 +52,11 @@ function isFileInlineReference(
 function isToolCall(
   response: ResponseItem
 ): response is ToolInvocationSerialized {
-  return "kind" in response && response.kind === "toolInvocationSerialized";
+  return (
+    "kind" in response &&
+    "toolId" in response &&
+    response.kind === "toolInvocationSerialized"
+  );
 }
 
 function isShellToolCall(
@@ -58,10 +65,7 @@ function isShellToolCall(
   toolSpecificData: TerminalToolData;
 } {
   if (!isToolCall(response)) return false;
-  return (
-    response.toolId == "run_in_terminal" &&
-    response.toolSpecificData?.kind === "terminal"
-  );
+  return response.toolId == "run_in_terminal";
 }
 
 function isPatchToolCall(
@@ -83,6 +87,17 @@ function isTodoList(
   );
 }
 
+function isMCPToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return (
+    "source" in response &&
+    "type" in response.source &&
+    response.source.type === "mcp"
+  );
+}
+
 function isThinkingResponse(
   response: ResponseItem
 ): response is ThinkingToolResponse {
@@ -96,13 +111,11 @@ function isGlobSearchToolCall(
   return response.toolId === "copilot_findFiles";
 }
 
-function isTextEditGroup(
+function isReadFileToolCall(
   response: ResponseItem
 ): response is ToolInvocationSerialized {
-  return (
-    "kind" in response && response.kind === "toolInvocationSerialized"
-    // response.presentation !== "hidden"
-  );
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_readFile";
 }
 
 export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
@@ -111,12 +124,29 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 overflow-x-hidden">
       <div className="space-y-6">
-        {vscodeThread.requests.map((request, index) => {
+        {vscodeThread.requests.map((request) => {
           // Track tool call index for mapping to tool call rounds
           let toolCallIndex = 0;
           const renderedItems: React.ReactNode[] = [];
           let currentText = "";
           let currentRefs: InlineReferenceResponse[] = [];
+          const toolCallsMap = new Map<string, ToolCallRound | undefined>();
+
+          (request.response ?? [])
+            .map((r) => r as ToolInvocationSerialized)
+            .filter((r) => (r.kind = "toolInvocationSerialized"))
+            .filter((r) => !!r.toolId)
+            .forEach((r, index) => {
+              const calls = request.result?.metadata.toolCallRounds?.[index];
+              if (calls?.toolCalls) {
+                calls?.toolCalls.forEach((call) => {
+                  call.result =
+                    request.result?.metadata?.toolCallResults?.[call.id];
+                });
+              }
+
+              toolCallsMap.set(`${r.kind}-${index}`, calls);
+            });
 
           const flushText = () => {
             if (!currentText) return;
@@ -197,37 +227,35 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
 
             let toolCallRound;
             if (isToolCall(response)) {
-              const rounds = request.result?.metadata.toolCallRounds;
-              toolCallRound = rounds?.[toolCallIndex];
-              toolCallIndex++;
+              toolCallRound = toolCallsMap.get(
+                `${response.kind}-${toolCallIndex}`
+              );
+
+              toolCallIndex += 1;
             }
-            console.log({ response, toolCallRound });
 
             if (isShellToolCall(response)) {
-              const call = toolCallRound?.toolCalls[0];
-              let shellResult: string | undefined = undefined;
-              if (call?.id) {
-                const callResult =
-                  request.result?.metadata?.toolCallResults?.[call.id];
-                if (callResult && callResult.content) {
-                  shellResult = callResult.content
-                    .map((v) => v.value)
-                    .filter(Boolean)
-                    .join("\n");
-                }
+              if (toolCallRound?.thinking) {
+                renderedItems.push(
+                  <ThinkingBlock
+                    key={toolCallRound.thinking.id}
+                    thinking={toolCallRound.thinking.text}
+                  />
+                );
               }
 
-              renderedItems.push(
-                <ShellBlock
-                  key={response.toolCallId}
-                  command={
-                    response.toolSpecificData?.commandLine.toolEdited ??
-                    response.toolSpecificData?.commandLine.original ??
-                    ""
-                  }
-                  result={shellResult}
-                />
-              );
+              (toolCallRound?.toolCalls ?? []).forEach((call, callIndex) => {
+                const { command } = JSON.parse(call.arguments || "{}");
+                renderedItems.push(
+                  <ShellBlock
+                    key={response.toolCallId + Date.now() + callIndex}
+                    command={command ?? "Unknown command executed in terminal"}
+                    result={
+                      call.result?.content.map((c) => c.value).join("\n") ?? ""
+                    }
+                  />
+                );
+              });
             } else if (isPatchToolCall(response)) {
               // TODO: Improve and add try catch
               const patch = JSON.parse(
@@ -254,6 +282,25 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
               renderedItems.push(
                 <ShellBlock
                   command={response.pastTenseMessage?.value || "glob search"}
+                />
+              );
+            } else if (isReadFileToolCall(response)) {
+              renderedItems.push(
+                <VSCodeReadFileCall
+                  key={response.toolCallId}
+                  toolCallRound={toolCallRound}
+                />
+              );
+            } else if (isMCPToolCall(response)) {
+              renderedItems.push(
+                <ToolMCPBlock
+                  key={response.toolCallId}
+                  serverName={response.source.label}
+                  toolName={response.pastTenseMessage?.value || response.toolId}
+                  input={response?.resultDetails?.input ?? ""}
+                  result={(response?.resultDetails?.output ?? [])
+                    .map((output) => output.value)
+                    .join("\n")}
                 />
               );
             } else if (isToolCall(response)) {

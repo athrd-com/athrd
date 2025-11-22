@@ -30,11 +30,11 @@ const GeminiWordmark = (props: SVGProps<SVGSVGElement>) => (
         y2="30.369"
         gradientUnits="userSpaceOnUse"
       >
-        <stop stop-color="#439DDF" />
-        <stop offset=".524" stop-color="#4F87ED" />
-        <stop offset=".781" stop-color="#9476C5" />
-        <stop offset=".888" stop-color="#BC688E" />
-        <stop offset="1" stop-color="#D6645D" />
+        <stop stopColor="#439DDF" />
+        <stop offset=".524" stopColor="#4F87ED" />
+        <stop offset=".781" stopColor="#9476C5" />
+        <stop offset=".888" stopColor="#BC688E" />
+        <stop offset="1" stopColor="#D6645D" />
       </linearGradient>
     </defs>
   </svg>

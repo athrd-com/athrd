@@ -203,6 +203,7 @@ export type ToolId =
   | "copilot_insertEdit"
   | "copilot_replaceString"
   | "vscode_editFile_internal"
+  | "copilot_findFiles"
   | string;
 
 export interface FileToolData {

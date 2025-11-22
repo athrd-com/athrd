@@ -89,6 +89,13 @@ function isThinkingResponse(
   return "kind" in response && response.kind === "thinking";
 }
 
+function isGlobSearchToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_findFiles";
+}
+
 function isTextEditGroup(
   response: ResponseItem
 ): response is ToolInvocationSerialized {
@@ -194,6 +201,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
               toolCallRound = rounds?.[toolCallIndex];
               toolCallIndex++;
             }
+            console.log({ response, toolCallRound });
 
             if (isShellToolCall(response)) {
               const call = toolCallRound?.toolCalls[0];
@@ -240,6 +248,12 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                         ? "completed"
                         : "pending",
                   }))}
+                />
+              );
+            } else if (isGlobSearchToolCall(response)) {
+              renderedItems.push(
+                <ShellBlock
+                  command={response.pastTenseMessage?.value || "glob search"}
                 />
               );
             } else if (isToolCall(response)) {

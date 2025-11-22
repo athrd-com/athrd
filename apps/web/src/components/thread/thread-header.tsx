@@ -13,6 +13,7 @@ import { OpenaiDark } from "../ui/svgs/openaiDark";
 import { Vscode } from "../ui/svgs/vscode";
 
 type ThreadHeaderProps = {
+  id: string;
   ide?: IDE;
   owner: GistOwner;
   title: string;
@@ -63,6 +64,7 @@ function getModelIcon(model: string) {
 }
 
 export default function ThreadHeader({
+  id,
   owner,
   createdAt,
   title,
@@ -75,7 +77,8 @@ export default function ThreadHeader({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const url = `${window.location.origin}/threads/${id}`;
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

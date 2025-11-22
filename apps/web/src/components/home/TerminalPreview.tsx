@@ -167,6 +167,7 @@ export function TerminalPreview() {
         <div className="pb-8">
           <div className="max-w-4xl mx-auto px-6 pt-8">
             <ThreadHeader
+              id="preview"
               owner={MOCK_OWNER}
               createdAt="2025-11-01T10:00:00Z"
               title="React Counter Component"

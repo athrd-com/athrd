@@ -154,11 +154,21 @@ export interface ToolCallResult {
   content: ToolResultContent[];
 }
 
+export interface MCPResultDetails {
+  input: string;
+  output: {
+    type: "embed";
+    isText: boolean;
+    value: string;
+  }[];
+  serverName: string;
+  toolName: string;
+}
+
 /** Cache type definition */
 export type CacheType = "ephemeral" | "persistent";
 
 /** Source information for tool execution */
-
 
 export interface TerminalToolData {
   kind: "terminal";
@@ -232,12 +242,19 @@ export interface ToolInvocationSerialized {
   toolCallId: string;
   toolId: ToolId;
   toolSpecificData?:
-  | TerminalToolData
-  | TodoListToolData
-  | FileToolData
-  | { kind: string;[key: string]: unknown };
-  resultDetails?: Record<string, unknown> | any[];
+    | TerminalToolData
+    | TodoListToolData
+    | FileToolData
+    | { kind: string; [key: string]: unknown };
+  resultDetails?: MCPResultDetails | Record<string, unknown> | any[];
 }
+
+// {
+//     type: "embed";
+//     isText: boolean;
+//     value: string;
+//   }[]
+// |
 
 /** Response item representing text content */
 export interface TextResponse {
@@ -377,7 +394,7 @@ export type ResponseItem =
   | InlineReferenceResponse
   | TextEditGroupResponse
   | ThinkingToolResponse
-  | { kind: string;[key: string]: unknown }; // fallback for unknown response types
+  | { kind: string; [key: string]: unknown }; // fallback for unknown response types
 
 /** Request from user/requester with message and response */
 export interface Request {

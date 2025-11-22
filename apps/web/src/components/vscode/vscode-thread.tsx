@@ -52,7 +52,7 @@ function isToolCall(
   return "kind" in response && response.kind === "toolInvocationSerialized";
 }
 
-function isSheelToolCall(
+function isShellToolCall(
   response: ResponseItem
 ): response is ToolInvocationSerialized & {
   toolSpecificData: TerminalToolData;
@@ -102,9 +102,9 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
   const vscodeThread = thread as VSCodeThread;
 
   return (
-    <div className="athrd-thread max-w-4xl mx-auto px-6 py-8 overflow-x-hidden">
+    <div className="max-w-4xl mx-auto px-6 py-8 overflow-x-hidden">
       <div className="space-y-6">
-        {vscodeThread.requests.map((request) => {
+        {vscodeThread.requests.map((request, index) => {
           // Track tool call index for mapping to tool call rounds
           let toolCallIndex = 0;
           const renderedItems: React.ReactNode[] = [];
@@ -163,6 +163,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
 
           request.response?.forEach((response) => {
             if (isThinkingResponse(response)) {
+              if (response.value.trim() === "") return;
+
               renderedItems.push(
                 <ThinkingBlock key={response.id} thinking={response.value} />
               );
@@ -187,19 +189,13 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             flushText();
 
             let toolCallRound;
-            if (
-              isToolCall(response) ||
-              isSheelToolCall(response) ||
-              isTextEditGroup(response) ||
-              isTodoList(response) ||
-              isPatchToolCall(response)
-            ) {
-              toolCallRound =
-                request.result?.metadata.toolCallRounds?.[toolCallIndex];
+            if (isToolCall(response)) {
+              const rounds = request.result?.metadata.toolCallRounds;
+              toolCallRound = rounds?.[toolCallIndex];
               toolCallIndex++;
             }
 
-            if (isSheelToolCall(response)) {
+            if (isShellToolCall(response)) {
               const call = toolCallRound?.toolCalls[0];
               let shellResult: string | undefined = undefined;
               if (call?.id) {

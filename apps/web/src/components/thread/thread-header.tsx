@@ -91,7 +91,7 @@ export default function ThreadHeader({
             {ide && (
               <div className="flex items-center gap-3 text-gray-400 font-normal">
                 {getIDEIcon(ide)}
-                <span>{getIDEName(ide)}</span>
+                <span className="inline sm:hidden">{getIDEName(ide)}</span>
                 <span className="text-gray-700">/</span>
               </div>
             )}
@@ -115,7 +115,7 @@ export default function ThreadHeader({
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-sm text-gray-500">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-500">
           {repoUrl && repoName && (
             <>
               <Link href={repoUrl} target="_blank" rel="nofollow">
@@ -127,7 +127,7 @@ export default function ThreadHeader({
                   {repoName}
                 </Badge>
               </Link>
-              <span className="text-gray-700">•</span>
+              <span className="text-gray-700 hidden sm:inline">•</span>
             </>
           )}
           <Link
@@ -144,8 +144,8 @@ export default function ThreadHeader({
           </Link>
           {modelsUsed && modelsUsed.length > 0 && (
             <>
-              <span className="text-gray-700">•</span>
-              <div className="flex items-center gap-2">
+              <span className="text-gray-700 hidden sm:inline">•</span>
+              <div className="flex flex-wrap items-center gap-2">
                 {modelsUsed.map((model) => (
                   <Badge
                     key={model}
@@ -159,7 +159,7 @@ export default function ThreadHeader({
               </div>
             </>
           )}
-          <span className="text-gray-700">•</span>
+          <span className="text-gray-700 hidden sm:inline">•</span>
           <span>
             {new Date(createdAt).toLocaleDateString(undefined, {
               year: "numeric",

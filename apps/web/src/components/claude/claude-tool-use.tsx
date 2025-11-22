@@ -48,6 +48,12 @@ export default function ClaudeToolUse({ block, result }: ClaudeToolUseProps) {
     );
   }
 
+  if (block.name === "Glob") {
+    return (
+      <ShellBlock command={`glob ${block.input.pattern}`} result={result} />
+    );
+  }
+
   if (block.name === "Grep") {
     return (
       <ShellBlock command={`grep ${block.input.pattern}`} result={result} />

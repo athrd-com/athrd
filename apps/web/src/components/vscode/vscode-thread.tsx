@@ -127,6 +127,20 @@ function isFindTextToolCall(
   return response.toolId === "copilot_findTextInFiles";
 }
 
+function isInsertEditToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_insertEdit";
+}
+
+function isEditFileToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "vscode_editFile_internal";
+}
+
 function isReadFileToolCall(
   response: ResponseItem
 ): response is ToolInvocationSerialized {
@@ -291,6 +305,29 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                     filePath={filePath}
                     oldString={oldString || ""}
                     newString={newString || ""}
+                  />
+                );
+              });
+            } else if (isEditFileToolCall(response)) {
+              // TODO
+            } else if (isInsertEditToolCall(response)) {
+              if (toolCallRound?.thinking) {
+                renderedItems.push(
+                  <ThinkingBlock
+                    key={toolCallRound.thinking.id}
+                    thinking={toolCallRound.thinking.text}
+                  />
+                );
+              }
+
+              (toolCallRound?.toolCalls ?? []).forEach((call, callIndex) => {
+                const { code, filePath } = JSON.parse(call.arguments || "{}");
+                renderedItems.push(
+                  <ToolEditBlock
+                    key={response.toolCallId + callIndex}
+                    filePath={filePath}
+                    newString={code}
+                    oldString={""}
                   />
                 );
               });

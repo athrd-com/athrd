@@ -1,19 +1,12 @@
 "use client";
 
-import type {
-  MCPResultDetails,
-  MCPToolSource,
-  TerminalToolData,
-  ToolInvocationSerialized,
-} from "@/types/vscode";
+import type { ToolInvocationSerialized } from "@/types/vscode";
 import {
   FilePlusIcon,
   FolderTreeIcon,
   Globe,
   type LucideIcon,
 } from "lucide-react";
-import ShellBlock from "../thread/sheel-block";
-import ToolMCPBlock from "../thread/tool-mcp-block";
 import ToolReadBlock from "../thread/tool-read-block";
 
 interface VSCodeToolUseProps {
@@ -22,45 +15,6 @@ interface VSCodeToolUseProps {
 }
 
 export default function VSCodeToolUse({ tool, result }: VSCodeToolUseProps) {
-  // Handle MCP Tools
-  if (tool.source?.type === "mcp") {
-    const mcpData = tool.source as unknown as MCPToolSource;
-    const resultDetails = tool.resultDetails as MCPResultDetails;
-
-    return (
-      <ToolMCPBlock
-        serverName={mcpData.serverLabel || "MCP Server"}
-        toolId={tool.pastTenseMessage?.value || mcpData.label || tool.toolId}
-        input={
-          resultDetails?.input ? JSON.parse(resultDetails.input) : undefined
-        }
-        result={
-          resultDetails?.output.map((output) => output.value).join("\n") ||
-          result
-        }
-      />
-    );
-  }
-
-  // Handle Terminal
-  if (tool.toolId === "run_in_terminal") {
-    let command = "";
-    if (
-      tool.toolSpecificData &&
-      "kind" in tool.toolSpecificData &&
-      tool.toolSpecificData.kind === "terminal"
-    ) {
-      command =
-        (tool.toolSpecificData as TerminalToolData).commandLine.original || "";
-    }
-    return (
-      <ShellBlock
-        command={command}
-        result={typeof result === "string" ? result : undefined}
-      />
-    );
-  }
-
   // Handle File Operations
   if (
     tool.toolId === "copilot_readFile" ||
@@ -111,6 +65,10 @@ export default function VSCodeToolUse({ tool, result }: VSCodeToolUseProps) {
         </div>
         <pre className="text-xs font-mono overflow-x-auto">
           {JSON.stringify(tool, null, 2)}
+        </pre>
+        <pre>---</pre>
+        <pre className="text-xs font-mono overflow-x-auto">
+          {JSON.stringify(result, null, 2)}
         </pre>
       </div>
     </div>

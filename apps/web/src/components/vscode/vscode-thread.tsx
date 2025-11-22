@@ -120,6 +120,13 @@ function isGlobSearchToolCall(
   return response.toolId === "copilot_findFiles";
 }
 
+function isFindTextToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_findTextInFiles";
+}
+
 function isReadFileToolCall(
   response: ResponseItem
 ): response is ToolInvocationSerialized {
@@ -273,8 +280,6 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
 
               renderedItems.push(<ToolPatchBlock patch={patch.input} />);
             } else if (isReplaceStringToolCall(response)) {
-              console.log({ response, toolCallRound });
-
               (toolCallRound?.toolCalls ?? []).forEach((call, callIndex) => {
                 const { filePath, newString, oldString } = JSON.parse(
                   call.arguments || "{}"
@@ -289,6 +294,19 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   />
                 );
               });
+            } else if (isFindTextToolCall(response)) {
+              renderedItems.push(
+                <ShellBlock
+                  key={response.toolCallId}
+                  command={response.pastTenseMessage?.value || ""}
+                  result={
+                    (response.resultDetails ?? [])
+                      // @ts-ignore
+                      .map(({ uri }) => uri.path)
+                      .join("\n") || ""
+                  }
+                />
+              );
             } else if (isTodoList(response)) {
               renderedItems.push(
                 <ToolTodosBlock

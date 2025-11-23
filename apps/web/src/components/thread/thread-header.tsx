@@ -94,7 +94,7 @@ export default function ThreadHeader({
             {ide && (
               <div className="flex items-center gap-3 text-gray-400 font-normal">
                 {getIDEIcon(ide)}
-                <span className="inline sm:hidden">{getIDEName(ide)}</span>
+                <span className="hidden md:inline">{getIDEName(ide)}</span>
                 <span className="text-gray-700">/</span>
               </div>
             )}

@@ -7,9 +7,13 @@ import { useState } from "react";
 
 interface ThinkingBlockProps {
   thinking: string;
+  subject?: string;
 }
 
-export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
+export default function ThinkingBlock({
+  thinking,
+  subject,
+}: ThinkingBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   if (!thinking || thinking === "") {
@@ -51,7 +55,9 @@ export default function ThinkingBlock({ thinking }: ThinkingBlockProps) {
                 !isCollapsed && "translate-x-0"
               )}
             />
-            <span className="text-gray-300 font-medium truncate">{title}</span>
+            <span className="text-gray-300 font-medium truncate">
+              {subject || title}
+            </span>
           </div>
           <div className="ml-2 hidden group-hover:flex cursor-pointer">
             {isCollapsed ? (

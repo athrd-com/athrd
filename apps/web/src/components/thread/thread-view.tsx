@@ -2,9 +2,11 @@ import ClaudeThread from "@/components/claude/claude-thread";
 import ThreadHeader from "@/components/thread/thread-header";
 import VSCodeThread from "@/components/vscode/vscode-thread";
 import type { ClaudeThread as ClaudeThreadType } from "@/types/claude";
+import type { GeminiThread as GeminiThreadType } from "@/types/gemini";
 import { IDE } from "@/types/ide";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
 import type { GistData, GistFile } from "~/lib/github";
+import GeminiThread from "../gemini/gemini-thread";
 
 interface ThreadViewProps {
   gist: GistData;
@@ -22,6 +24,8 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     content = JSON.parse(file.content || "{}");
     // @ts-ignore TODO: fix this properly later
     if (content?.__athrd?.ide === IDE.CLAUDE) ide = IDE.CLAUDE;
+    // @ts-ignore TODO: fix this properly later
+    if (content?.__athrd?.ide === IDE.GEMINI) ide = IDE.GEMINI;
 
     // @ts-ignore
     if (content?.__athrd?.githubRepo) repoName = content.__athrd.githubRepo;
@@ -41,6 +45,19 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
       if (claudeContent.requests) {
         claudeContent.requests.forEach((req) => {
           models.add(req.message.model);
+        });
+      }
+      modelsUsed = Array.from(models);
+    }
+
+    if (ide === IDE.GEMINI) {
+      const geminiContent = content as GeminiThreadType;
+      const models = new Set<string>();
+      if (geminiContent.messages) {
+        geminiContent.messages.forEach((msg) => {
+          if ("model" in msg) {
+            models.add(msg.model);
+          }
         });
       }
       modelsUsed = Array.from(models);
@@ -74,6 +91,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
       />
       {ide === IDE.VSCODE && <VSCodeThread owner={owner} thread={content} />}
       {ide === IDE.CLAUDE && <ClaudeThread owner={owner} thread={content} />}
+      {ide === IDE.GEMINI && <GeminiThread owner={owner} thread={content} />}
     </div>
   );
 }

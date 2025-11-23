@@ -55,6 +55,23 @@ export default function GeminiThread({ owner, thread }: GeminiThreadProps) {
                       oldString={""}
                     />
                   );
+                } else {
+                  renderedItems.push(
+                    <div
+                      key={toolCall.id}
+                      className="my-4 p-4 bg-white/5 border border-white/10 rounded-md"
+                    >
+                      <div className="font-medium mb-2">
+                        Tool Call: {toolCall.displayName}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {toolCall.description}
+                      </div>
+                      <div className="mt-2 text-sm">
+                        <strong>Status:</strong> {toolCall.status}
+                      </div>
+                    </div>
+                  );
                 }
               });
             }

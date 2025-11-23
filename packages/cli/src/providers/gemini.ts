@@ -18,71 +18,82 @@ export class GeminiProvider implements ChatProvider {
         const sessions: ChatSession[] = [];
 
         try {
-            const sessionDirs = fs.readdirSync(geminiTmpPath);
+            const projectDirs = fs.readdirSync(geminiTmpPath);
 
-            for (const sessionDir of sessionDirs) {
-                const sessionPath = path.join(geminiTmpPath, sessionDir);
+            for (const projectDir of projectDirs) {
+                const projectPath = path.join(geminiTmpPath, projectDir);
 
                 // Skip if not a directory
-                if (!fs.statSync(sessionPath).isDirectory()) {
+                if (!fs.statSync(projectPath).isDirectory()) {
                     continue;
                 }
 
-                const logsPath = path.join(sessionPath, "logs.json");
+                const chatsPath = path.join(projectPath, "chats");
 
-                if (fs.existsSync(logsPath)) {
+                if (fs.existsSync(chatsPath) && fs.statSync(chatsPath).isDirectory()) {
                     try {
-                        const fileContent = fs.readFileSync(logsPath, "utf-8");
-                        const entries = JSON.parse(fileContent);
+                        const chatFiles = fs.readdirSync(chatsPath);
 
-                        if (!Array.isArray(entries) || entries.length === 0) {
-                            continue;
-                        }
+                        for (const chatFile of chatFiles) {
+                            if (!chatFile.endsWith(".json")) {
+                                continue;
+                            }
 
-                        // Find first user message for title
-                        let firstUserMessage = "Gemini Chat";
-                        let lastMessageDate = 0;
-                        let messageCount = 0;
-                        let sessionId = sessionDir; // Default to dir name if not found in logs
+                            const filePath = path.join(chatsPath, chatFile);
+                            try {
+                                const fileContent = fs.readFileSync(filePath, "utf-8");
+                                const sessionData = JSON.parse(fileContent);
 
-                        for (const entry of entries) {
-                            if (entry.type === "user" || entry.type === "model") {
-                                messageCount++;
-                                if (entry.timestamp) {
-                                    const timestamp = new Date(entry.timestamp).getTime();
-                                    lastMessageDate = Math.max(lastMessageDate, timestamp);
+                                if (!sessionData.messages || !Array.isArray(sessionData.messages)) {
+                                    continue;
                                 }
-                            }
 
-                            if (entry.type === "user" && firstUserMessage === "Gemini Chat") {
-                                if (entry.message) {
-                                    firstUserMessage = entry.message.substring(0, 60);
+                                const messages = sessionData.messages;
+                                if (messages.length === 0) {
+                                    continue;
                                 }
-                            }
 
-                            if (entry.sessionId) {
-                                sessionId = entry.sessionId;
+                                // Find first user message for title
+                                let firstUserMessage = "Gemini Chat";
+                                let lastMessageDate = 0;
+
+                                if (sessionData.lastUpdated) {
+                                    lastMessageDate = new Date(sessionData.lastUpdated).getTime();
+                                } else if (sessionData.startTime) {
+                                    lastMessageDate = new Date(sessionData.startTime).getTime();
+                                }
+
+                                for (const msg of messages) {
+                                    if (msg.timestamp) {
+                                        const timestamp = new Date(msg.timestamp).getTime();
+                                        lastMessageDate = Math.max(lastMessageDate, timestamp);
+                                    }
+
+                                    if (msg.type === "user" && firstUserMessage === "Gemini Chat") {
+                                        if (msg.content) {
+                                            firstUserMessage = msg.content.substring(0, 60);
+                                        }
+                                    }
+                                }
+
+                                sessions.push({
+                                    sessionId: sessionData.sessionId || chatFile.replace(".json", ""),
+                                    creationDate: sessionData.startTime ? new Date(sessionData.startTime).getTime() : lastMessageDate,
+                                    lastMessageDate,
+                                    customTitle: firstUserMessage,
+                                    requestCount: messages.length,
+                                    filePath: filePath,
+                                    source: this.id,
+                                    workspaceName: "Gemini",
+                                });
+
+                            } catch (error) {
+                                // Skip invalid JSON
+                                continue;
                             }
                         }
-
-                        if (messageCount === 0) {
-                            continue;
-                        }
-
-                        sessions.push({
-                            sessionId,
-                            creationDate: lastMessageDate, // Approximation
-                            lastMessageDate,
-                            customTitle: firstUserMessage,
-                            requestCount: messageCount,
-                            filePath: logsPath,
-                            source: this.id,
-                            workspaceName: "Gemini", // Generic workspace for now
-                        });
-
                     } catch (error) {
-                        // Skip invalid JSON
-                        continue;
+                        // Ignore errors reading chats directory
                     }
                 }
             }
@@ -95,19 +106,20 @@ export class GeminiProvider implements ChatProvider {
 
     async parseSession(session: ChatSession): Promise<any> {
         const fileContent = fs.readFileSync(session.filePath, "utf-8");
-        const entries = JSON.parse(fileContent);
+        const sessionData = JSON.parse(fileContent);
 
         const requests: any[] = [];
 
-        for (const entry of entries) {
-            if (entry.type === "user" || entry.type === "model") {
-                requests.push({
-                    // Use messageId as ID since UUID might not be present on all entries
-                    id: entry.messageId?.toString() || Date.now().toString(),
-                    type: entry.type === "model" ? "assistant" : "user",
-                    message: entry.message,
-                    timestamp: entry.timestamp,
-                });
+        if (sessionData.messages && Array.isArray(sessionData.messages)) {
+            for (const msg of sessionData.messages) {
+                if (msg.type === "user" || msg.type === "gemini") {
+                    requests.push({
+                        id: msg.id || Date.now().toString(),
+                        type: msg.type === "gemini" ? "assistant" : "user",
+                        message: msg.content,
+                        timestamp: msg.timestamp,
+                    });
+                }
             }
         }
 

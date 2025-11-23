@@ -2,8 +2,12 @@
 
 import type { GistOwner } from "@/lib/github";
 import type { GeminiThread } from "@/types/gemini";
+import Markdown from "markdown-to-jsx";
+import ShellBlock from "../thread/sheel-block";
 import ThinkingBlock from "../thread/thinking-block";
 import ToolEditBlock from "../thread/tool-edit-block";
+import ToolReadBlock from "../thread/tool-read-block";
+import ToolTodosBlock from "../thread/tool-todos-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 
@@ -44,15 +48,85 @@ export default function GeminiThread({ owner, thread }: GeminiThreadProps) {
               });
             }
 
+            if (message.content) {
+              renderedItems.push(
+                <div>
+                  <Markdown>{message.content}</Markdown>
+                </div>
+              );
+            }
+
             if (message.toolCalls) {
               message.toolCalls.forEach((toolCall) => {
                 if (toolCall.name === "write_file") {
+                  const args = toolCall.args as Record<string, unknown>;
                   renderedItems.push(
                     <ToolEditBlock
                       key={toolCall.id}
-                      filePath={toolCall.args.file_path}
-                      newString={toolCall.args.content}
+                      filePath={args.file_path as string}
+                      newString={args.content as string}
                       oldString={""}
+                    />
+                  );
+                } else if (toolCall.name === "list_directory") {
+                  const args = toolCall.args as Record<string, unknown>;
+                  renderedItems.push(
+                    <ShellBlock
+                      key={toolCall.id}
+                      command={`List ${args.dir_path as string}`}
+                      result={toolCall.result
+                        .map((r) => r.functionResponse.response.output)
+                        .join("\n")}
+                    />
+                  );
+                } else if (toolCall.name === "read_file") {
+                  const args = toolCall.args as Record<string, unknown>;
+                  renderedItems.push(
+                    <ToolReadBlock
+                      key={toolCall.id}
+                      filePath={args.file_path as string}
+                      content={
+                        toolCall.result
+                          .map((r) => r.functionResponse.response.output)
+                          .join("\n") || ""
+                      }
+                    />
+                  );
+                } else if (toolCall.name === "write_todos") {
+                  const args = toolCall.args as Record<string, unknown>;
+                  renderedItems.push(
+                    <ToolTodosBlock
+                      key={toolCall.id}
+                      todos={(args.todos as Array<{ description: string; status: string }>).map((todo) => ({
+                        content: todo.description,
+                        status: todo.status as any,
+                      }))}
+                    />
+                  );
+                } else if (toolCall.name === "replace") {
+                  const args = toolCall.args as Record<string, unknown>;
+                  renderedItems.push(
+                    <ToolEditBlock
+                      key={toolCall.id}
+                      filePath={args.file_path as string}
+                      newString={args.new_string as string}
+                      oldString={args.old_string as string}
+                    />
+                  );
+                } else if (toolCall.name === "run_shell_command") {
+                  const args = toolCall.args as Record<string, unknown>;
+                  renderedItems.push(
+                    <ShellBlock
+                      key={toolCall.id}
+                      command={args.command as string}
+                      explanation={args.description as string}
+                      result={toolCall.result
+                        .map(
+                          (r) =>
+                            r.functionResponse.response.output ||
+                            r.functionResponse.response.error
+                        )
+                        .join("\n")}
                     />
                   );
                 } else {

@@ -26,19 +26,19 @@ interface ToolSupport {
 
 const tools: ToolSupport[] = [
   {
-    name: "Terminal",
+    name: "Shell Command",
     vscode: "complete",
     claude: "complete",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {
     name: "Read File",
-    vscode: "complete",
+    vscode: "partial",
     claude: "complete",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {
@@ -51,10 +51,10 @@ const tools: ToolSupport[] = [
   },
   {
     name: "Edit File",
-    vscode: "n/a",
+    vscode: "partial",
     claude: "complete",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {
@@ -62,7 +62,7 @@ const tools: ToolSupport[] = [
     vscode: "complete",
     claude: "n/a",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {
@@ -75,23 +75,23 @@ const tools: ToolSupport[] = [
   },
   {
     name: "Search / Grep",
-    vscode: "n/a",
+    vscode: "complete",
     claude: "complete",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {
     name: "Todo List",
-    vscode: "n/a",
+    vscode: "complete",
     claude: "complete",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {
     name: "MCP",
-    vscode: "complete",
+    vscode: "partial",
     claude: "n/a",
     cursor: "n/a",
     gemini: "n/a",

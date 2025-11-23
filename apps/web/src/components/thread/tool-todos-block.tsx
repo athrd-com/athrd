@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 import { Badge } from "../ui/badge";
 
-type TodoStatus = "pending" | "in_progress" | "completed";
+export type TodoStatus = "pending" | "in_progress" | "completed";
 
 type Todo = {
   content: string;

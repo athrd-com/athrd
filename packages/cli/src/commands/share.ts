@@ -18,6 +18,11 @@ export function shareCommand(program: Command) {
     .command("share")
     .description("Share AI chat threads from VS Code, Cursor, and more")
     .option("-n, --number <count>", "Number of chats to display", "20")
+    .option("-i, --ide <ide>", "Filter by IDE (vscode, gemini, claude, cursor)")
+    .option("--vscode", "Filter by VS Code")
+    .option("--gemini", "Filter by Gemini")
+    .option("--claude", "Filter by Claude")
+    .option("--cursor", "Filter by Cursor")
     .action(async (options) => {
       try {
         console.log(chalk.blue("📋 Finding AI chat threads...\n"));
@@ -26,7 +31,20 @@ export function shareCommand(program: Command) {
         const allSessions = await Promise.all(
           providers.map((p) => p.findSessions())
         );
-        const sessions = allSessions.flat();
+        let sessions = allSessions.flat();
+
+        // Determine filter
+        let filterIde = options.ide;
+        if (options.vscode) filterIde = "vscode";
+        if (options.gemini) filterIde = "gemini";
+        if (options.claude) filterIde = "claude";
+        if (options.cursor) filterIde = "cursor";
+
+        if (filterIde) {
+          sessions = sessions.filter(
+            (s) => s.source.toLowerCase() === filterIde.toLowerCase()
+          );
+        }
 
         if (sessions.length === 0) {
           console.log(chalk.yellow("No chat sessions found."));
@@ -63,6 +81,9 @@ export function shareCommand(program: Command) {
           const sourceLabel = chalk.dim(
             `(${provider?.name || session.source})`
           );
+
+          const shortId = session.sessionId.slice(0, 8);
+          const idLabel = chalk.dim(`[${shortId}]`);
 
           return {
             name: `${title} ${workspace} ${sourceLabel} ${dateStr} ${messages}`,

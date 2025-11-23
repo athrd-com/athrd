@@ -39,6 +39,10 @@ export class GeminiProvider implements ChatProvider {
                                 continue;
                             }
 
+                            if (chatFile === "logs.json") {
+                                continue;
+                            }
+
                             const filePath = path.join(chatsPath, chatFile);
                             try {
                                 const fileContent = fs.readFileSync(filePath, "utf-8");
@@ -106,26 +110,6 @@ export class GeminiProvider implements ChatProvider {
 
     async parseSession(session: ChatSession): Promise<any> {
         const fileContent = fs.readFileSync(session.filePath, "utf-8");
-        const sessionData = JSON.parse(fileContent);
-
-        const requests: any[] = [];
-
-        if (sessionData.messages && Array.isArray(sessionData.messages)) {
-            for (const msg of sessionData.messages) {
-                if (msg.type === "user" || msg.type === "gemini") {
-                    requests.push({
-                        id: msg.id || Date.now().toString(),
-                        type: msg.type === "gemini" ? "assistant" : "user",
-                        message: msg.content,
-                        timestamp: msg.timestamp,
-                    });
-                }
-            }
-        }
-
-        return {
-            sessionId: session.sessionId,
-            requests,
-        };
+        return JSON.parse(fileContent);
     }
 }

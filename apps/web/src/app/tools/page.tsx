@@ -6,6 +6,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ClaudeAiIcon } from "@/components/ui/svgs/claudeAiIcon";
+import { CursorDark } from "@/components/ui/svgs/cursorDark";
+import { Gemini } from "@/components/ui/svgs/gemini";
+import { OpenaiDark } from "@/components/ui/svgs/openaiDark";
+import { Vscode } from "@/components/ui/svgs/vscode";
 import { Check, Minus, X } from "lucide-react";
 
 type SupportStatus = "n/a" | "partial" | "complete";
@@ -149,11 +154,36 @@ export default function ToolsPage() {
                 <thead className="text-muted-foreground font-medium">
                   <tr>
                     <th className="px-4 py-3">Tool Name</th>
-                    <th className="px-4 py-3 text-center">VS Code</th>
-                    <th className="px-4 py-3 text-center">Claude</th>
-                    <th className="px-4 py-3 text-center">Cursor</th>
-                    <th className="px-4 py-3 text-center">Gemini</th>
-                    <th className="px-4 py-3 text-center">Codex</th>
+                    <th className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Vscode className="w-3 h-3" />
+                        VS Code
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <ClaudeAiIcon className="w-3 h-3" />
+                        Claude
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <CursorDark className="w-3 h-3" />
+                        Cursor
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Gemini className="w-3 h-3" />
+                        Gemini
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <OpenaiDark className="w-3 h-3" />
+                        Codex
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">

@@ -46,7 +46,7 @@ const tools: ToolSupport[] = [
     vscode: "complete",
     claude: "n/a",
     cursor: "n/a",
-    gemini: "n/a",
+    gemini: "complete",
     codex: "n/a",
   },
   {

@@ -64,7 +64,12 @@ export default function ToolMCPBlock({
                     {toolName}
                   </span>
                 </div>
-                <div className="ml-2">
+                <div
+                  className={cn(
+                    "ml-2 hidden group-hover:flex items-center",
+                    !isCollapsed && "flex"
+                  )}
+                >
                   {isCollapsed ? (
                     <ChevronsDownUp
                       size={14}

@@ -54,7 +54,12 @@ export default function ShellBlock({
               </span>
             </div>
             {result && (
-              <div className="ml-2">
+              <div
+                className={cn(
+                  "ml-2 hidden group-hover:flex items-center",
+                  !isCollapsed && "flex"
+                )}
+              >
                 {isCollapsed ? (
                   <ChevronsDownUp
                     size={14}

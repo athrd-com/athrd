@@ -104,7 +104,12 @@ export default function ToolTodosBlock({
               {title} ({completedCount}/{totalCount})
             </span>
           </div>
-          <div className="ml-2 hidden group-hover:flex cursor-pointer">
+          <div
+            className={cn(
+              "ml-2 hidden group-hover:flex cursor-pointer",
+              !isCollapsed && "flex"
+            )}
+          >
             {isCollapsed ? (
               <ChevronsDownUp size={14} className="text-gray-500 shrink-0" />
             ) : (

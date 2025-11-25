@@ -457,8 +457,6 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
           // Final flush
           flushText();
 
-          console.log(request.variableData);
-
           return (
             <div key={request.requestId} className="space-y-6">
               {request.message.text && (

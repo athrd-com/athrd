@@ -165,6 +165,7 @@ export interface MCPResultDetails {
     type: "embed";
     isText: boolean;
     value: string;
+    mimeType?: string;
   }[];
   serverName: string;
   toolName: string;
@@ -248,10 +249,10 @@ export interface ToolInvocationSerialized {
   toolCallId: string;
   toolId: string;
   toolSpecificData?:
-    | TerminalToolData
-    | TodoListToolData
-    | FileToolData
-    | { kind: string; [key: string]: unknown };
+  | TerminalToolData
+  | TodoListToolData
+  | FileToolData
+  | { kind: string;[key: string]: unknown };
   resultDetails?: MCPResultDetails | Record<string, unknown> | any[];
 }
 
@@ -400,7 +401,7 @@ export type ResponseItem =
   | InlineReferenceResponse
   | TextEditGroupResponse
   | ThinkingToolResponse
-  | { kind: string; [key: string]: unknown }; // fallback for unknown response types
+  | { kind: string;[key: string]: unknown }; // fallback for unknown response types
 
 /** Request from user/requester with message and response */
 export interface Request {

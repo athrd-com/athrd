@@ -22,8 +22,10 @@ import ToolTodosBlock from "../thread/tool-todos-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
+import { AlertCircle } from "lucide-react";
 import VSCodeToolCall from "./vscode-tool-call";
 import VSCodeReadFileCall from "./vscode-tool-read-file";
+import ToolGetErrorsBlock from "../thread/tool-get-errors-block";
 
 type VSCodeThreadProps = {
   owner: GistOwner;
@@ -148,6 +150,14 @@ function isReadFileToolCall(
   return response.toolId === "copilot_readFile";
 }
 
+function isGetErrorsToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_getErrors";
+}
+
+
 export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
   const vscodeThread = thread as VSCodeThread;
 
@@ -246,9 +256,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${
-                currentRefs.length - 1
-              }"></span>`;
+              currentText += `<span data-ref-index="${currentRefs.length - 1
+                }"></span>`;
               return;
             }
 
@@ -331,7 +340,25 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   />
                 );
               });
-            } else if (isFindTextToolCall(response)) {
+            }
+            else if (isGetErrorsToolCall(response)) {
+              const uris =
+                response.pastTenseMessage?.uris ??
+                response.invocationMessage?.uris ??
+                {};
+              const filePaths = Object.values(uris).map((u) => u.path);
+
+              renderedItems.push(
+                <ToolGetErrorsBlock
+                  key={response.toolCallId}
+                  filePaths={filePaths}
+                  label="Check errors in"
+                  icon={AlertCircle}
+                  content={response.pastTenseMessage?.value}
+                />
+              );
+            }
+            else if (isFindTextToolCall(response)) {
               renderedItems.push(
                 <ShellBlock
                   key={response.toolCallId}
@@ -354,8 +381,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                       t.status === "in-progress"
                         ? "in_progress"
                         : t.status === "completed"
-                        ? "completed"
-                        : "pending",
+                          ? "completed"
+                          : "pending",
                   }))}
                 />
               );

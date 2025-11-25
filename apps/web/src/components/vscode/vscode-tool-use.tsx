@@ -6,8 +6,10 @@ import {
   FolderTreeIcon,
   Globe,
   type LucideIcon,
+  AlertCircle,
 } from "lucide-react";
 import ToolReadBlock from "../thread/tool-read-block";
+import ToolGetErrorsBlock from "../thread/tool-get-errors-block";
 
 interface VSCodeToolUseProps {
   tool: ToolInvocationSerialized;
@@ -20,8 +22,24 @@ export default function VSCodeToolUse({ tool, result }: VSCodeToolUseProps) {
     tool.toolId === "copilot_readFile" ||
     tool.toolId === "vscode_fetchWebPage_internal" ||
     tool.toolId === "copilot_createFile" ||
-    tool.toolId === "copilot_listDirectory"
+    tool.toolId === "copilot_createFile" ||
+    tool.toolId === "copilot_listDirectory" ||
+    tool.toolId === "copilot_getErrors"
   ) {
+    if (tool.toolId === "copilot_getErrors") {
+      const uris = tool.pastTenseMessage?.uris ?? tool.invocationMessage?.uris ?? {};
+      const filePaths = Object.values(uris).map((u) => u.path);
+
+      return (
+        <ToolGetErrorsBlock
+          filePaths={filePaths}
+          label="Check errors"
+          icon={AlertCircle}
+          content={typeof result === "string" ? result : undefined}
+        />
+      );
+    }
+
     const keys = Object.keys(tool.pastTenseMessage?.uris ?? {});
     const key = keys[0];
     const uri = tool.pastTenseMessage?.uris?.[key ?? ""];

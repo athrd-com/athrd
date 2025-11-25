@@ -51,7 +51,7 @@ export default function ThinkingBlock({
             <BrainIcon
               size={14}
               className={cn(
-                "text-orange-400 stroke-3 shrink-0 transition-all -translate-x-3",
+                "text-gray-400 stroke-3 shrink-0 transition-all -translate-x-3",
                 !isCollapsed && "translate-x-0"
               )}
             />

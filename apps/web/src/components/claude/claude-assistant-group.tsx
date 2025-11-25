@@ -22,7 +22,7 @@ export default function ClaudeAssistantGroup({
           CL
         </AvatarFallback>
       </Avatar>
-      <div className="flex-1 space-y-4 overflow-hidden">
+      <div className="flex-1 space-y-2 overflow-hidden">
         {group.map((request) => {
           const message = request.message as RequestAssistantMessage;
           return message.content.map((block, blockIndex) => {

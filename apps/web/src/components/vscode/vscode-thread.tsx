@@ -12,20 +12,20 @@ import type {
   VariableFile,
   VSCodeThread,
 } from "@/types/vscode";
+import { AlertCircle } from "lucide-react";
 import Markdown from "markdown-to-jsx";
 import ShellBlock from "../thread/sheel-block";
 import ThinkingBlock from "../thread/thinking-block";
 import ToolEditBlock from "../thread/tool-edit-block";
+import ToolGetErrorsBlock from "../thread/tool-get-errors-block";
 import ToolMCPBlock from "../thread/tool-mcp-block";
 import ToolPatchBlock from "../thread/tool-patch-block";
 import ToolTodosBlock from "../thread/tool-todos-block";
 import UserPrompt from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
-import { AlertCircle } from "lucide-react";
 import VSCodeToolCall from "./vscode-tool-call";
 import VSCodeReadFileCall from "./vscode-tool-read-file";
-import ToolGetErrorsBlock from "../thread/tool-get-errors-block";
 
 type VSCodeThreadProps = {
   owner: GistOwner;
@@ -157,6 +157,12 @@ function isGetErrorsToolCall(
   return response.toolId === "copilot_getErrors";
 }
 
+function isSearchCodebaseToolCall(
+  response: ResponseItem
+): response is ToolInvocationSerialized {
+  if (!isToolCall(response)) return false;
+  return response.toolId === "copilot_searchCodebase";
+}
 
 export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
   const vscodeThread = thread as VSCodeThread;
@@ -256,8 +262,9 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${currentRefs.length - 1
-                }"></span>`;
+              currentText += `<span data-ref-index="${
+                currentRefs.length - 1
+              }"></span>`;
               return;
             }
 
@@ -340,8 +347,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   />
                 );
               });
-            }
-            else if (isGetErrorsToolCall(response)) {
+            } else if (isGetErrorsToolCall(response)) {
               const uris =
                 response.pastTenseMessage?.uris ??
                 response.invocationMessage?.uris ??
@@ -357,8 +363,21 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   content={response.pastTenseMessage?.value}
                 />
               );
-            }
-            else if (isFindTextToolCall(response)) {
+            } else if (isSearchCodebaseToolCall(response)) {
+              renderedItems.push(
+                <ShellBlock
+                  key={response.toolCallId}
+                  command={
+                    response.pastTenseMessage?.value || "search codebase"
+                  }
+                  result={
+                    (response.resultDetails ?? []) // @ts-ignore
+                      .map((res) => res.path)
+                      .join("\n") || ""
+                  }
+                />
+              );
+            } else if (isFindTextToolCall(response)) {
               renderedItems.push(
                 <ShellBlock
                   key={response.toolCallId}
@@ -381,8 +400,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                       t.status === "in-progress"
                         ? "in_progress"
                         : t.status === "completed"
-                          ? "completed"
-                          : "pending",
+                        ? "completed"
+                        : "pending",
                   }))}
                 />
               );
@@ -414,11 +433,14 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                     .filter((output) => output.isText)
                     .map((output) => output.value)
                     .join("\n")}
-                  imageResult={(
-                    (response?.resultDetails as MCPResultDetails)?.output ?? []
-                  )
-                    .filter((output) => output.mimeType === "image/png")
-                    .map((output) => output.value)?.[0]}
+                  imageResult={
+                    (
+                      (response?.resultDetails as MCPResultDetails)?.output ??
+                      []
+                    )
+                      .filter((output) => output.mimeType === "image/png")
+                      .map((output) => output.value)?.[0]
+                  }
                 />
               );
             } else if (isToolCall(response)) {

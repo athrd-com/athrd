@@ -435,6 +435,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
           // Final flush
           flushText();
 
+          console.log(request.variableData);
+
           return (
             <div key={request.requestId} className="space-y-6">
               {request.message.text && (
@@ -452,6 +454,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                         id: file.id,
                         name: file.name,
                         kind: file.kind,
+                        value: file.value,
                       };
                     })}
                 />

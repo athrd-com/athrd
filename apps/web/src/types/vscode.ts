@@ -47,11 +47,11 @@ export interface Message {
 }
 
 export interface VariableFile {
-  kind: "file";
+  kind: "file" | "image";
   id: string;
   name: string;
   range: Range;
-  value: InlineReference;
+  value: InlineReference | Record<number, number>;
 }
 
 export interface VariableImage {

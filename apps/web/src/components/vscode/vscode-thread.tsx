@@ -4,6 +4,7 @@ import type {
   MCPResultDetails,
   ResponseItem,
   TerminalToolData,
+  TextEditGroupResponse,
   TextResponse,
   ThinkingToolResponse,
   TodoListToolData,
@@ -164,6 +165,12 @@ function isSearchCodebaseToolCall(
   return response.toolId === "copilot_searchCodebase";
 }
 
+function isTextEditGroup(
+  response: ResponseItem
+): response is TextEditGroupResponse {
+  return "kind" in response && response.kind === "textEditGroup";
+}
+
 export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
   const vscodeThread = thread as VSCodeThread;
 
@@ -179,9 +186,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
           const toolCallsMap = new Map<string, ToolCallRound | undefined>();
 
           (request.response ?? [])
-            .map((r) => r as ToolInvocationSerialized)
-            .filter((r) => (r.kind = "toolInvocationSerialized"))
-            .filter((r) => !!r.toolId)
+            .map((r) => r as ToolInvocationSerialized | TextEditGroupResponse)
+            .filter((r) => isToolCall(r) || isTextEditGroup(r))
             .forEach((r, index) => {
               const calls = request.result?.metadata.toolCallRounds?.[index];
               if (calls?.toolCalls) {
@@ -270,6 +276,21 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
 
             // For any other type, flush text first
             flushText();
+
+            if (isTextEditGroup(response)) {
+              const newString = response.edits
+                .flat()
+                .map((e) => e.text)
+                .join("");
+              renderedItems.push(
+                <ToolEditBlock
+                  key={newString}
+                  filePath={response.uri.path}
+                  newString={newString}
+                  oldString={""}
+                />
+              );
+            }
 
             let toolCallRound;
             if (isToolCall(response)) {

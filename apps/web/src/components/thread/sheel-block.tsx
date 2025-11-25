@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, TerminalIcon } from "lucide-react";
 import { useState } from "react";
 
 interface ShellBlockProps {
@@ -38,10 +38,10 @@ export default function ShellBlock({
                 !isCollapsed && "gap-2"
               )}
             >
-              <ChevronRight
+              <TerminalIcon
                 size={14}
                 className={cn(
-                  "text-blue-500 stroke-3 shrink-0 transition-all -translate-x-2",
+                  "text-gray-400 stroke-3 shrink-0 transition-all -translate-x-2",
                   !isCollapsed && "translate-x-0"
                 )}
               />

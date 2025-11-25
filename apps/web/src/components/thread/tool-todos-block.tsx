@@ -25,7 +25,7 @@ type ToolTodosBlockProps = {
 
 export default function ToolTodosBlock({
   todos,
-  title = "Todos",
+  title = "Updated todos",
 }: ToolTodosBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
@@ -96,7 +96,7 @@ export default function ToolTodosBlock({
             <ListTodo
               size={14}
               className={cn(
-                "text-blue-400 stroke-3 transition-all -translate-x-2",
+                "text-gray-400 stroke-3 transition-all -translate-x-2",
                 !isCollapsed && "translate-x-0"
               )}
             />

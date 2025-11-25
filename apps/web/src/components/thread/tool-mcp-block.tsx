@@ -5,8 +5,8 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { cn } from "@/lib/utils";
 
-import type { MCPResultDetails } from "@/types/vscode";
 import { ChevronsDownUp, ChevronsUpDown, ServerCogIcon } from "lucide-react";
 import Markdown from "markdown-to-jsx";
 import { useState } from "react";
@@ -31,11 +31,18 @@ export default function ToolMCPBlock({
   const inputStr =
     typeof input === "string" ? input : JSON.stringify(input, null, 2);
   const resultStr =
-    typeof textResult === "string" ? textResult : JSON.stringify(textResult, null, 2);
+    typeof textResult === "string"
+      ? textResult
+      : JSON.stringify(textResult, null, 2);
 
   return (
     <div className="my-4">
-      <div className="group bg-[#111] border border-white/10 rounded-lg p-3 shadow-sm hover:border-white/20 transition-colors">
+      <div
+        className={cn(
+          "group rounded-lg p-3 flex items-center justify-between hover:bg-[#111] hover:border-white/20 transition-colors",
+          !isCollapsed && "bg-[#111] border border-white/10"
+        )}
+      >
         <div className="w-full">
           <HoverCard openDelay={200} closeDelay={100}>
             <HoverCardTrigger asChild>
@@ -44,7 +51,10 @@ export default function ToolMCPBlock({
                 onClick={() => setIsCollapsed(!isCollapsed)}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <ServerCogIcon size={14} className=" text-gray-400 shrink-0" />
+                  <ServerCogIcon
+                    size={14}
+                    className=" text-gray-400 shrink-0"
+                  />
                   <div className="flex items-center gap-2">
                     <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[10px] font-medium border border-blue-500/20 uppercase tracking-wider">
                       {serverName}
@@ -56,9 +66,15 @@ export default function ToolMCPBlock({
                 </div>
                 <div className="ml-2">
                   {isCollapsed ? (
-                    <ChevronsDownUp size={14} className="text-gray-500 shrink-0" />
+                    <ChevronsDownUp
+                      size={14}
+                      className="text-gray-500 shrink-0"
+                    />
                   ) : (
-                    <ChevronsUpDown size={14} className="text-gray-500 shrink-0" />
+                    <ChevronsUpDown
+                      size={14}
+                      className="text-gray-500 shrink-0"
+                    />
                   )}
                 </div>
               </div>

@@ -19,7 +19,12 @@ export default function ShellBlock({
 
   return (
     <div className="my-4" title={explanation}>
-      <div className="group bg-[#111] border border-white/10 rounded-lg p-3 flex items-center justify-between shadow-sm hover:border-white/20 transition-colors">
+      <div
+        className={cn(
+          "group rounded-lg p-3 flex items-center justify-between hover:bg-[#111] hover:border-white/20 transition-colors",
+          !isCollapsed && "bg-[#111] border border-white/10"
+        )}
+      >
         <div className="w-full">
           <div
             className={`flex justify-between w-full ${

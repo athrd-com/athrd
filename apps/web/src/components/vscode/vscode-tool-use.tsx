@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import ToolReadBlock from "../thread/tool-read-block";
 import ToolGetErrorsBlock from "../thread/tool-get-errors-block";
+import Link from "next/link";
 
 interface VSCodeToolUseProps {
   tool: ToolInvocationSerialized;
@@ -80,6 +81,18 @@ export default function VSCodeToolUse({ tool, result }: VSCodeToolUseProps) {
       <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md p-3">
         <div className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
           Tool Use: {tool.toolId}
+        </div>
+        <div className="text-xs text-gray-500 mb-2">
+          No dedicated component for this tool.{" "}
+          <Link
+            href="https://github.com/athrd-com/athrd/issues"
+            className="underline hover:text-gray-900 dark:hover:text-gray-100"
+            target="_blank"
+            rel="noreferrer"
+          >
+            File an issue
+          </Link>
+          .
         </div>
         <pre className="text-xs font-mono overflow-x-auto">
           {JSON.stringify(tool, null, 2)}

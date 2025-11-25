@@ -408,11 +408,17 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   input={
                     (response?.resultDetails as MCPResultDetails)?.input ?? ""
                   }
-                  result={(
+                  textResult={(
                     (response?.resultDetails as MCPResultDetails)?.output ?? []
                   )
+                    .filter((output) => output.isText)
                     .map((output) => output.value)
                     .join("\n")}
+                  imageResult={(
+                    (response?.resultDetails as MCPResultDetails)?.output ?? []
+                  )
+                    .filter((output) => output.mimeType === "image/png")
+                    .map((output) => output.value)?.[0]}
                 />
               );
             } else if (isToolCall(response)) {

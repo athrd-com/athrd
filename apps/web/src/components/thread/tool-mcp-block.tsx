@@ -1,5 +1,6 @@
 "use client";
 
+import type { MCPResultDetails } from "@/types/vscode";
 import { ChevronsDownUp, ChevronsUpDown, ServerCogIcon } from "lucide-react";
 import Markdown from "markdown-to-jsx";
 import { useState } from "react";
@@ -8,21 +9,23 @@ interface ToolMCPBlockProps {
   serverName: string;
   toolName: string;
   input?: string;
-  result?: string;
+  textResult?: string;
+  imageResult?: string;
 }
 
 export default function ToolMCPBlock({
   serverName,
   toolName,
   input,
-  result,
+  textResult,
+  imageResult,
 }: ToolMCPBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const inputStr =
     typeof input === "string" ? input : JSON.stringify(input, null, 2);
   const resultStr =
-    typeof result === "string" ? result : JSON.stringify(result, null, 2);
+    typeof textResult === "string" ? textResult : JSON.stringify(textResult, null, 2);
 
   return (
     <div className="my-4">
@@ -64,7 +67,7 @@ export default function ToolMCPBlock({
                   </pre>
                 </div>
               )}
-              {result && (
+              {textResult && (
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
                     Output
@@ -72,6 +75,20 @@ export default function ToolMCPBlock({
                   <pre className="text-xs font-mono text-gray-400 bg-black/20 p-2 rounded overflow-x-auto">
                     <Markdown>{resultStr}</Markdown>
                   </pre>
+                </div>
+              )}
+              {imageResult && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+                    Output
+                  </div>
+                  <div className="bg-black/20 p-2 rounded overflow-hidden flex justify-center items-center">
+                    <img
+                      src={`data:image/png;base64,${imageResult}`}
+                      alt="Tool output"
+                      className="max-w-full h-auto object-contain"
+                    />
+                  </div>
                 </div>
               )}
             </div>

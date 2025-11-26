@@ -2,10 +2,12 @@ import ClaudeThread from "@/components/claude/claude-thread";
 import ThreadHeader from "@/components/thread/thread-header";
 import VSCodeThread from "@/components/vscode/vscode-thread";
 import type { ClaudeThread as ClaudeThreadType } from "@/types/claude";
+import type { CodexThread as CodexThreadType } from "@/types/codex";
 import type { GeminiThread as GeminiThreadType } from "@/types/gemini";
 import { IDE } from "@/types/ide";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
 import type { GistData, GistFile } from "~/lib/github";
+import CodexThread from "../codex/codex-thread";
 import GeminiThread from "../gemini/gemini-thread";
 
 interface ThreadViewProps {
@@ -26,6 +28,8 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     if (content?.__athrd?.ide === IDE.CLAUDE) ide = IDE.CLAUDE;
     // @ts-ignore TODO: fix this properly later
     if (content?.__athrd?.ide === IDE.GEMINI) ide = IDE.GEMINI;
+    // @ts-ignore TODO: fix this properly later
+    if (content?.__athrd?.ide === IDE.CODEX) ide = IDE.CODEX;
 
     // @ts-ignore
     if (content?.__athrd?.githubRepo) repoName = content.__athrd.githubRepo;
@@ -62,6 +66,17 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
       }
       modelsUsed = Array.from(models);
     }
+
+    if (ide === IDE.CODEX) {
+      const codexThread = content as CodexThreadType;
+      const models = new Set<string>();
+      codexThread.messages.forEach((msg) => {
+        if (msg.type === "turn_context") {
+          models.add(msg.payload.model);
+        }
+      });
+      modelsUsed = Array.from(models);
+    }
   } catch (error) {
     return (
       <div className="px-4 py-8">
@@ -92,6 +107,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
       {ide === IDE.VSCODE && <VSCodeThread owner={owner} thread={content} />}
       {ide === IDE.CLAUDE && <ClaudeThread owner={owner} thread={content} />}
       {ide === IDE.GEMINI && <GeminiThread owner={owner} thread={content} />}
+      {ide === IDE.CODEX && <CodexThread owner={owner} thread={content} />}
     </div>
   );
 }

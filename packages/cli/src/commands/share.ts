@@ -18,7 +18,10 @@ export function shareCommand(program: Command) {
     .command("share")
     .description("Share AI chat threads from VS Code, Cursor, and more")
     .option("-n, --number <count>", "Number of chats to display", "20")
-    .option("-i, --ide <ide>", "Filter by IDE (vscode, gemini, claude, codex, cursor)")
+    .option(
+      "-i, --ide <ide>",
+      "Filter by IDE (vscode, gemini, claude, codex, cursor)"
+    )
     .option("--vscode", "Filter by VS Code")
     .option("--gemini", "Filter by Gemini")
     .option("--claude", "Filter by Claude")
@@ -149,9 +152,10 @@ export function shareCommand(program: Command) {
             const sessionData = await provider.parseSession(session);
 
             // Get GitHub repo for this session
+            // Use session's workspace path if available, otherwise try current working directory
             const githubRepo = session.workspacePath
               ? getGitHubRepo(session.workspacePath)
-              : null;
+              : getGitHubRepo(process.cwd());
 
             // Extract organization name from repo (format: "org/repo")
             const orgName = githubRepo?.split("/")[0];
@@ -198,7 +202,8 @@ export function shareCommand(program: Command) {
             gistUrls.push(response.data.html_url || "");
             console.log(
               chalk.green(
-                `✓ ${session.customTitle || "Untitled Chat"
+                `✓ ${
+                  session.customTitle || "Untitled Chat"
                 }: https://athrd.com/threads/${response.data.id}`
               )
             );

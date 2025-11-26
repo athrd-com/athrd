@@ -1,3 +1,4 @@
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -7,6 +8,51 @@ import { ChatSession } from "../types/index.js";
 export class GeminiProvider implements ChatProvider {
     readonly id = "gemini";
     readonly name = "Gemini";
+
+    /**
+     * Try to resolve workspace path from Gemini's SHA-256 hash directory name
+     * Gemini encodes workspace paths as SHA-256 hashes
+     */
+    private resolveWorkspacePath(projectDirHash: string): string | undefined {
+        // Try current working directory first
+        const cwd = process.cwd();
+        if (this.hashPath(cwd) === projectDirHash) {
+            return cwd;
+        }
+
+        // Try common workspace locations
+        const homeDir = os.homedir();
+        const commonPaths = [
+            path.join(homeDir, "code"),
+            path.join(homeDir, "projects"),
+            path.join(homeDir, "workspace"),
+            path.join(homeDir, "dev"),
+            path.join(homeDir, "Documents"),
+        ];
+
+        // Scan common workspace directories
+        for (const basePath of commonPaths) {
+            if (fs.existsSync(basePath)) {
+                try {
+                    const entries = fs.readdirSync(basePath);
+                    for (const entry of entries) {
+                        const fullPath = path.join(basePath, entry);
+                        if (fs.statSync(fullPath).isDirectory() && this.hashPath(fullPath) === projectDirHash) {
+                            return fullPath;
+                        }
+                    }
+                } catch {
+                    // Skip directories we can't read
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    private hashPath(dirPath: string): string {
+        return crypto.createHash("sha256").update(dirPath).digest("hex");
+    }
 
     async findSessions(): Promise<ChatSession[]> {
         const geminiTmpPath = path.join(os.homedir(), ".gemini", "tmp");
@@ -27,6 +73,10 @@ export class GeminiProvider implements ChatProvider {
                 if (!fs.statSync(projectPath).isDirectory()) {
                     continue;
                 }
+
+                // Try to resolve the actual workspace path from the hash
+                const workspacePath = this.resolveWorkspacePath(projectDir);
+                const workspaceName = workspacePath ? path.basename(workspacePath) : "Gemini";
 
                 const chatsPath = path.join(projectPath, "chats");
 
@@ -88,7 +138,8 @@ export class GeminiProvider implements ChatProvider {
                                     requestCount: messages.length,
                                     filePath: filePath,
                                     source: this.id,
-                                    workspaceName: "Gemini",
+                                    workspaceName,
+                                    workspacePath,
                                 });
 
                             } catch (error) {

@@ -85,12 +85,23 @@ export class ClaudeCodeProvider implements ChatProvider {
                                 continue;
                             }
 
-                            // Use the project directory name as workspace
-                            const workspaceName = projectDir
-                                .split("-")
-                                .slice(-1)[0]
-                                .split("/")
-                                .pop();
+                            // Parse workspace path from project directory name
+                            // Claude stores paths like: -Users-gregorymarcilhacy-code-athrd
+                            let workspacePath: string | undefined;
+                            let workspaceName: string | undefined;
+                            
+                            if (projectDir.startsWith("-")) {
+                                // Convert "-Users-gregorymarcilhacy-code-athrd" to "/Users/gregorymarcilhacy/code/athrd"
+                                workspacePath = projectDir.replace(/^-/, "/").replace(/-/g, "/");
+                                workspaceName = path.basename(workspacePath);
+                            } else {
+                                // Fallback: use the last part of the directory name
+                                workspaceName = projectDir
+                                    .split("-")
+                                    .slice(-1)[0]
+                                    .split("/")
+                                    .pop();
+                            }
 
                             // Use summary if available, otherwise use first user message, otherwise default
                             const title = summary || firstUserMessage || "Claude Chat";
@@ -104,6 +115,7 @@ export class ClaudeCodeProvider implements ChatProvider {
                                 filePath,
                                 source: this.id,
                                 workspaceName,
+                                workspacePath,
                                 metadata: {
                                     agentFiles: agentFiles.get(file.replace(".jsonl", "")) || [],
                                 },

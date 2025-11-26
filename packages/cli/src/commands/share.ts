@@ -18,11 +18,12 @@ export function shareCommand(program: Command) {
     .command("share")
     .description("Share AI chat threads from VS Code, Cursor, and more")
     .option("-n, --number <count>", "Number of chats to display", "20")
-    .option("-i, --ide <ide>", "Filter by IDE (vscode, gemini, claude, cursor)")
+    .option("-i, --ide <ide>", "Filter by IDE (vscode, gemini, claude, codex, cursor)")
     .option("--vscode", "Filter by VS Code")
     .option("--gemini", "Filter by Gemini")
     .option("--claude", "Filter by Claude")
     .option("--cursor", "Filter by Cursor")
+    .option("--codex", "Filter by Codex")
     .action(async (options) => {
       try {
         console.log(chalk.blue("📋 Finding AI chat threads...\n"));
@@ -39,6 +40,7 @@ export function shareCommand(program: Command) {
         if (options.gemini) filterIde = "gemini";
         if (options.claude) filterIde = "claude";
         if (options.cursor) filterIde = "cursor";
+        if (options.codex) filterIde = "codex";
 
         if (filterIde) {
           sessions = sessions.filter(

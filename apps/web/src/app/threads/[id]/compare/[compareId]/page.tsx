@@ -14,6 +14,11 @@ export async function generateMetadata({
 
   return {
     title: `Compare Threads ${id} vs ${compareId} - ATHRD`,
+    description: `Compare two threads side by side: ${id} and ${compareId}`,
+    openGraph: {
+      title: `Compare Threads ${id} vs ${compareId} - ATHRD`,
+      description: `Compare two threads side by side: ${id} and ${compareId}`,
+    },
     robots: {
       index: false,
       follow: true,

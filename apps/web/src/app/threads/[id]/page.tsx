@@ -24,6 +24,19 @@ export async function generateMetadata({
 
   return {
     title: `ATHRD - ${gist.description}`,
+    description: gist.description,
+    openGraph: {
+      title: `ATHRD - ${gist.description}`,
+      description: gist.description,
+      images: [
+        {
+          url: `https://athrd.com/threads/${id}/og`,
+          width: 1200,
+          height: 630,
+          alt: `ATHRD - ${gist.description}`,
+        },
+      ],
+    },
     robots: {
       index: false,
       follow: true,

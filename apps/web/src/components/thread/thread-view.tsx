@@ -104,10 +104,10 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
         modelsUsed={modelsUsed}
         repoUrl={repoName ? `https://github.com/${repoName}` : undefined}
       />
-      {ide === IDE.VSCODE && <VSCodeThread owner={owner} thread={content} />}
-      {ide === IDE.CLAUDE && <ClaudeThread owner={owner} thread={content} />}
-      {ide === IDE.GEMINI && <GeminiThread owner={owner} thread={content} />}
-      {ide === IDE.CODEX && <CodexThread owner={owner} thread={content} />}
+      {ide === IDE.VSCODE && <VSCodeThread owner={owner} thread={content as IVSCodeThread} />}
+      {ide === IDE.CLAUDE && <ClaudeThread owner={owner} thread={content as ClaudeThreadType} />}
+      {ide === IDE.GEMINI && <GeminiThread owner={owner} thread={content as GeminiThreadType} />}
+      {ide === IDE.CODEX && <CodexThread owner={owner} thread={content as CodexThreadType} />}
     </div>
   );
 }

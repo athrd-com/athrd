@@ -78,6 +78,18 @@ export interface ToolCallTodoWrite {
   input: ToolInputTodoWrite;
 }
 
+export interface ToolInputWrite {
+  file_path: string;
+  content: string;
+}
+
+export interface ToolCallWrite {
+  type: "tool_use";
+  name: "Write";
+  id: string;
+  input: ToolInputWrite;
+}
+
 export interface ToolInputGrep {
   pattern: string;
   type: string;
@@ -103,6 +115,7 @@ export type ToolCallContent =
   | ToolCallRead
   | ToolCallEdit
   | ToolCallTodoWrite
+  | ToolCallWrite
   | ToolCallGrep
   | ToolCallOther;
 

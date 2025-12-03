@@ -3,6 +3,7 @@ import ShellBlock from "../thread/sheel-block";
 import ToolEditBlock from "../thread/tool-edit-block";
 import ToolReadBlock from "../thread/tool-read-block";
 import ToolTodosBlock from "../thread/tool-todos-block";
+import { FilePlus } from "lucide-react";
 
 type ClaudeToolUseProps = {
   block: ToolCallContent;
@@ -22,6 +23,17 @@ export default function ClaudeToolUse({ block, result }: ClaudeToolUseProps) {
   if (block.name === "Read") {
     return (
       <ToolReadBlock filePath={block.input.file_path} content={result ?? ""} />
+    );
+  }
+
+  if (block.name === "Write") {
+    return (
+      <ToolReadBlock
+        filePath={block.input.file_path}
+        content={block.input.content}
+        label="Create file"
+        icon={FilePlus}
+      />
     );
   }
 

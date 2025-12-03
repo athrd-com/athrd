@@ -1,14 +1,19 @@
 import type {
-  AthrdSessionLog,
-  CodeblockUriItem,
-  CopilotResponseItem,
-  ToolCall as CopilotToolCall,
-  FileVariable,
-  InlineReferenceItem,
-  SimpleTextItem,
-  TextEditGroupItem,
-  UriLike,
-} from "./providers/copilot";
+  VSCodeThread as AthrdSessionLog,
+  ResponseItem as CopilotResponseItem,
+  ToolInvocationSerialized as CopilotToolCall,
+  VariableFile,
+  InlineReferenceResponse as InlineReferenceItem,
+  TextResponse as SimpleTextItem,
+  TextEditGroupResponse as TextEditGroupItem,
+  VSCODEURI as UriLike,
+} from "../types/vscode";
+
+interface CodeblockUriItem {
+  kind: "codeblockUri";
+  uri: UriLike;
+  isEdit?: boolean;
+}
 
 // ============================================================================
 // Types

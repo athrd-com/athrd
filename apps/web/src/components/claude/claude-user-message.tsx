@@ -17,6 +17,14 @@ export default function ClaudeUserMessage({
 
     if (typeof request.message.content === "string") {
       prompt = request.message.content;
+
+      // Check for command message format
+      const commandNameMatch = prompt.match(
+        /<command-name>(.*?)<\/command-name>/
+      );
+      if (commandNameMatch && commandNameMatch[1]) {
+        prompt = commandNameMatch[1];
+      }
     } else if (
       Array.isArray(request.message.content) &&
       !isToolResult(request.message.content)

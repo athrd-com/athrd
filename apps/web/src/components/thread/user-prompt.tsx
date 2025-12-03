@@ -1,5 +1,5 @@
 import type { GistOwner } from "@/lib/github";
-import type { IFile } from "@/lib/providers";
+
 import { File, Image } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "../ui/badge";
@@ -10,6 +10,13 @@ import {
   HoverCardTrigger,
 } from "~/components/ui/hover-card";
 import Markdown from "markdown-to-jsx";
+
+export interface IFile {
+  id: string;
+  name: string;
+  kind: "image" | "file";
+  value?: Record<string, number>;
+}
 
 interface UserPromptProps {
   owner: GistOwner;

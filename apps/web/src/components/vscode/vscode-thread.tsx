@@ -22,7 +22,7 @@ import ToolGetErrorsBlock from "../thread/tool-get-errors-block";
 import ToolMCPBlock from "../thread/tool-mcp-block";
 import ToolPatchBlock from "../thread/tool-patch-block";
 import ToolTodosBlock from "../thread/tool-todos-block";
-import UserPrompt from "../thread/user-prompt";
+import UserPrompt, { type IFile } from "../thread/user-prompt";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import VSCodeToolCall from "./vscode-tool-call";
@@ -268,9 +268,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
             if (isFileInlineReference(response)) {
               currentRefs.push(response);
               // Use a span with a data attribute to ensure it's treated as inline
-              currentText += `<span data-ref-index="${
-                currentRefs.length - 1
-              }"></span>`;
+              currentText += `<span data-ref-index="${currentRefs.length - 1
+                }"></span>`;
               return;
             }
 
@@ -421,8 +420,8 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                       t.status === "in-progress"
                         ? "in_progress"
                         : t.status === "completed"
-                        ? "completed"
-                        : "pending",
+                          ? "completed"
+                          : "pending",
                   }))}
                 />
               );
@@ -485,7 +484,7 @@ export default function VSCodeThread({ owner, thread }: VSCodeThreadProps) {
                   owner={owner}
                   prompt={request.message.text}
                   files={(
-                    (request.variableData.variables ?? []) as VariableFile[]
+                    (request.variableData.variables ?? []) as IFile[]
                   )
                     .filter(
                       (file) => file.kind === "file" || file.kind === "image"

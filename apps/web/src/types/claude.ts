@@ -4,7 +4,7 @@ export interface ClaudeThread {
 
 export interface RequestUserMessage {
   role: "user";
-  content: string | ToolResultContent[];
+  content: string | ToolResultContent[] | MessageContent[];
   model: string;
 }
 

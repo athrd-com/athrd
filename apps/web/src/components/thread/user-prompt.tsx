@@ -9,6 +9,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "~/components/ui/hover-card";
+import Markdown from "markdown-to-jsx";
 
 interface UserPromptProps {
   owner: GistOwner;
@@ -89,8 +90,8 @@ export default function UserPrompt({
               })}
             </div>
           )}
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-200">
-            {prompt}
+          <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-200 markdown-content overflow-x-auto">
+            <Markdown>{prompt}</Markdown>
           </p>
         </Card>
       </div>

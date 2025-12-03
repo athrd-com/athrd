@@ -12,11 +12,25 @@ export default function ClaudeUserMessage({
   request,
   owner,
 }: ClaudeUserMessageProps) {
-  if (
-    request.message.role === "user" &&
-    typeof request.message.content === "string"
-  ) {
-    return <UserPrompt owner={owner} prompt={request.message.content} />;
+  if (request.message.role === "user") {
+    let prompt = "";
+
+    if (typeof request.message.content === "string") {
+      prompt = request.message.content;
+    } else if (
+      Array.isArray(request.message.content) &&
+      !isToolResult(request.message.content)
+    ) {
+      // Handle array of content (e.g. text blocks)
+      prompt = request.message.content
+        .filter((c) => c.type === "text")
+        .map((c) => c.text)
+        .join("\n\n");
+    }
+
+    if (prompt) {
+      return <UserPrompt owner={owner} prompt={prompt} />;
+    }
   }
 
   // User messages (Tool Results) - Orphans only

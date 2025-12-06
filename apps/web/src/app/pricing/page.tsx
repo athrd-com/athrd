@@ -85,6 +85,10 @@ export default function PricingPage() {
               </li>
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-blue-500 mr-2" />
+                End-to-End Encryption
+              </li>
+              <li className="flex items-center text-gray-300">
+                <Check className="h-5 w-5 text-blue-500 mr-2" />
                 GitHub Organization integration
               </li>
               <li className="flex items-center text-gray-300">

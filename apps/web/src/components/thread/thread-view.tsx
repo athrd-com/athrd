@@ -8,6 +8,7 @@ import { IDE } from "@/types/ide";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
 import type { GistData, GistFile } from "~/lib/github";
 import CodexThread from "../codex/codex-thread";
+import CursorThread from "../cursor/cursor-thread";
 import GeminiThread from "../gemini/gemini-thread";
 
 interface ThreadViewProps {
@@ -30,6 +31,8 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     if (content?.__athrd?.ide === IDE.GEMINI) ide = IDE.GEMINI;
     // @ts-ignore TODO: fix this properly later
     if (content?.__athrd?.ide === IDE.CODEX) ide = IDE.CODEX;
+    // @ts-ignore TODO: fix this properly later
+    if (content?.__athrd?.ide === IDE.CURSOR) ide = IDE.CURSOR;
 
     // @ts-ignore
     if (content?.__athrd?.githubRepo) repoName = content.__athrd.githubRepo;
@@ -77,6 +80,12 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
       });
       modelsUsed = Array.from(models);
     }
+
+    if (ide === IDE.CURSOR) {
+      const codexThread = content as CodexThreadType;
+      const models = new Set<string>();
+      modelsUsed = Array.from(models);
+    }
   } catch (error) {
     return (
       <div className="px-4 py-8">
@@ -104,10 +113,21 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
         modelsUsed={modelsUsed}
         repoUrl={repoName ? `https://github.com/${repoName}` : undefined}
       />
-      {ide === IDE.VSCODE && <VSCodeThread owner={owner} thread={content as IVSCodeThread} />}
-      {ide === IDE.CLAUDE && <ClaudeThread owner={owner} thread={content as ClaudeThreadType} />}
-      {ide === IDE.GEMINI && <GeminiThread owner={owner} thread={content as GeminiThreadType} />}
-      {ide === IDE.CODEX && <CodexThread owner={owner} thread={content as CodexThreadType} />}
+      {ide === IDE.VSCODE && (
+        <VSCodeThread owner={owner} thread={content as IVSCodeThread} />
+      )}
+      {ide === IDE.CLAUDE && (
+        <ClaudeThread owner={owner} thread={content as ClaudeThreadType} />
+      )}
+      {ide === IDE.GEMINI && (
+        <GeminiThread owner={owner} thread={content as GeminiThreadType} />
+      )}
+      {ide === IDE.CODEX && (
+        <CodexThread owner={owner} thread={content as CodexThreadType} />
+      )}
+      {ide === IDE.CURSOR && (
+        <CursorThread owner={owner} thread={content as any} />
+      )}
     </div>
   );
 }

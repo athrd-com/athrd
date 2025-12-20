@@ -1,23 +1,22 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
+import { sql } from "bun";
+import { Pool } from "pg";
 import { env } from "~/env";
-import { PrismaClient } from "../../generated/prisma";
 
-const createPrismaClient = () => {
-  const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
-  const adapter = new PrismaPg(pool);
-
-  return new PrismaClient({
-    adapter,
-    log:
-      env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
+// Bun SQL client for direct queries
+const globalForDb = globalThis as unknown as {
+  sql: typeof sql | undefined;
+  pool: Pool | undefined;
 };
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: ReturnType<typeof createPrismaClient> | undefined;
-};
+// Use Bun's built-in SQL for PostgreSQL queries
+// It auto-detects PostgreSQL from DATABASE_URL environment variable
+export const db = globalForDb.sql ?? sql;
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
+// pg Pool for better-auth compatibility (better-auth requires pg.Pool)
+export const pool =
+  globalForDb.pool ?? new Pool({ connectionString: env.DATABASE_URL });
 
-if (env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+if (env.NODE_ENV !== "production") {
+  globalForDb.sql = db;
+  globalForDb.pool = pool;
+}

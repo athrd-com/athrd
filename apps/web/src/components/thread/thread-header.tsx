@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { ClaudeAiIcon } from "../ui/svgs/claudeAiIcon";
+import { CursorWordmarkLight } from "../ui/svgs/cursorWordmarkLight";
 import { Gemini } from "../ui/svgs/gemini";
 import { OpenaiDark } from "../ui/svgs/openaiDark";
 import { Vscode } from "../ui/svgs/vscode";
@@ -33,6 +34,8 @@ function getIDEIcon(ide?: IDE) {
       return <Gemini className="h-6 w-6" />;
     case IDE.CODEX:
       return <OpenaiDark className="h-6 w-6" />;
+    case IDE.CURSOR:
+      return <CursorWordmarkLight className="h-6 w-6" />;
     default:
       return null;
   }
@@ -48,6 +51,8 @@ function getIDEName(ide?: IDE) {
       return "Gemini";
     case IDE.CODEX:
       return "Codex";
+    case IDE.CURSOR:
+      return "Cursor";
     default:
       return null;
   }

@@ -1,6 +1,7 @@
 import ThreadView from "@/components/thread/thread-view";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { fetchGist } from "~/lib/github";
 
 // Enable static generation and caching
@@ -47,21 +48,42 @@ export async function generateMetadata({
   };
 }
 
+async function ThreadContent({ id }: { id: string }) {
+  const { gist, file } = await fetchGist(id);
+  if (!gist || !file) {
+    notFound();
+  }
+
+  return <ThreadView gist={gist} file={file} />;
+}
+
 export default async function ThreadPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { gist, file } = await fetchGist(id);
-  if (!gist || !file) {
-    notFound();
-  }
 
   return (
     <div className="min-h-screen w-full text-white font-sans selection:bg-blue-500/30">
       <main className="relative z-10 container mx-auto w-full px-4 py-4 sm:px-6 lg:px-8">
-        <ThreadView gist={gist} file={file} />
+        <Suspense
+          fallback={
+            <div className="animate-pulse">
+              <div className="mb-8">
+                <div className="h-8 bg-gray-800 rounded w-3/4 mb-4"></div>
+                <div className="h-4 bg-gray-800 rounded w-1/2"></div>
+              </div>
+              <div className="space-y-4">
+                <div className="h-32 bg-gray-800 rounded"></div>
+                <div className="h-24 bg-gray-800 rounded"></div>
+                <div className="h-40 bg-gray-800 rounded"></div>
+              </div>
+            </div>
+          }
+        >
+          <ThreadContent id={id} />
+        </Suspense>
       </main>
     </div>
   );

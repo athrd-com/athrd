@@ -4,6 +4,8 @@ import type {
   AthrdThinking,
   AthrdToolCall,
   AthrdUserMessage,
+  BaseToolResponse,
+  TodoStep,
 } from "@/types/athrd";
 import type {
   GeminiAssistantMessage,
@@ -19,6 +21,7 @@ import {
   createReplaceToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
+  createUpdatePlanToolCall,
   createWriteFileToolCall,
   generateId,
   mapToolName,
@@ -104,11 +107,11 @@ function parseToolCall(tc: GeminiToolCall, timestamp: string): AthrdToolCall {
   const toolId = tc.id || generateId();
 
   // Convert Gemini result format to AThrd result format
-  const result =
+  const result: Array<BaseToolResponse> =
     tc.result?.map((r) => ({
       id: r.functionResponse.id || generateId(),
       name: r.functionResponse.name,
-      output: r.functionResponse.response?.output,
+      output: { type: "text", text: r.functionResponse.response?.output ?? "" },
       error: r.functionResponse.response?.error,
     })) ?? [];
 
@@ -163,6 +166,19 @@ function parseToolCall(tc: GeminiToolCall, timestamp: string): AthrdToolCall {
             new_string: string;
           }
         ).new_string,
+        result,
+      });
+
+    case "todos":
+      return createUpdatePlanToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        plan: tc.args.todos.map(
+          (todo: { description: string; status: string }) => ({
+            step: todo.description,
+            status: todo.status as TodoStep["status"],
+          })
+        ),
         result,
       });
 

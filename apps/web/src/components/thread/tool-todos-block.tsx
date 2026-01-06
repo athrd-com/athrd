@@ -34,6 +34,8 @@ export default function ToolTodosBlock({
         return <Circle className="h-4 w-4 text-blue-500" />;
       case "pending":
         return <Circle className="h-4 w-4 text-gray-400" />;
+      case "cancelled":
+        return <Circle className="h-4 w-4 text-red-500" />;
     }
   };
 
@@ -64,6 +66,15 @@ export default function ToolTodosBlock({
             className="text-gray-400 bg-gray-500/10 border-gray-500/20 text-xs"
           >
             Pending
+          </Badge>
+        );
+      case "cancelled":
+        return (
+          <Badge
+            variant="outline"
+            className="text-red-400 bg-red-500/10 border-red-500/20 text-xs"
+          >
+            Cancelled
           </Badge>
         );
     }

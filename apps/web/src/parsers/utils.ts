@@ -84,6 +84,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     replace: "replace",
     list_directory: "ls",
     run_shell_command: "terminal_command",
+    write_todos: "todos",
   },
   [IDE.VSCODE]: {
     copilot_readFile: "read_file",

@@ -100,7 +100,7 @@ export interface MCPToolCall extends BaseToolCall {
 }
 
 export interface TodoStep {
-  status: "pending" | "in_progress" | "completed";
+  status: "pending" | "in_progress" | "completed" | "cancelled";
   step: string;
 }
 

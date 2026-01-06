@@ -1,15 +1,13 @@
-import ClaudeThread from "@/components/claude/claude-thread";
+import AThrdThread from "@/components/thread/athrd-thread";
 import ThreadHeader from "@/components/thread/thread-header";
-import VSCodeThread from "@/components/vscode/vscode-thread";
+import { detectIDE, parseThread } from "@/parsers";
+import type { AThrd } from "@/types/athrd";
 import type { ClaudeThread as ClaudeThreadType } from "@/types/claude";
 import type { CodexThread as CodexThreadType } from "@/types/codex";
 import type { GeminiThread as GeminiThreadType } from "@/types/gemini";
 import { IDE } from "@/types/ide";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
 import type { GistData, GistFile } from "~/lib/github";
-import CodexThread from "../codex/codex-thread";
-import CursorThread from "../cursor/cursor-thread";
-import GeminiThread from "../gemini/gemini-thread";
 
 interface ThreadViewProps {
   gist: GistData;
@@ -18,85 +16,57 @@ interface ThreadViewProps {
 
 export default function ThreadView({ gist, file }: ThreadViewProps) {
   const owner = gist.owner;
-  let content = {};
+  let content: Record<string, unknown> = {};
   let ide = IDE.VSCODE;
   let repoName: string | undefined;
   let modelsUsed: string[] = [];
+  let parsedThread: AThrd | null = null;
 
   try {
     content = JSON.parse(file.content || "{}");
-    // @ts-ignore TODO: fix this properly later
-    if (content?.__athrd?.ide === IDE.CLAUDE) ide = IDE.CLAUDE;
-    // @ts-ignore TODO: fix this properly later
-    if (content?.__athrd?.ide === IDE.GEMINI) ide = IDE.GEMINI;
-    // @ts-ignore TODO: fix this properly later
-    if (content?.__athrd?.ide === IDE.CODEX) ide = IDE.CODEX;
-    // @ts-ignore TODO: fix this properly later
-    if (content?.__athrd?.ide === IDE.CURSOR) ide = IDE.CURSOR;
 
-    // @ts-ignore
-    if (content?.__athrd?.githubRepo) repoName = content.__athrd.githubRepo;
-
-    if (ide === IDE.VSCODE) {
-      const vscodeContent = content as IVSCodeThread;
-      const models = new Set<string>();
-      vscodeContent.requests.forEach((req) => {
-        models.add(req.modelId);
-      });
-      modelsUsed = Array.from(models);
-    }
-
-    if (ide === IDE.CLAUDE) {
-      const claudeContent = content as ClaudeThreadType;
-      const models = new Set<string>();
-      if (claudeContent.requests) {
-        claudeContent.requests.forEach((req) => {
-          models.add(req.message.model);
-        });
+    // Detect IDE from __athrd metadata or auto-detect
+    const athrdMeta = content.__athrd as Record<string, unknown> | undefined;
+    if (athrdMeta?.ide) {
+      ide = athrdMeta.ide as IDE;
+    } else {
+      // Try auto-detection
+      const detectedIde = detectIDE(content);
+      if (detectedIde) {
+        ide = detectedIde;
       }
-      modelsUsed = Array.from(models);
     }
 
-    if (ide === IDE.GEMINI) {
-      const geminiContent = content as GeminiThreadType;
-      const models = new Set<string>();
-      if (geminiContent.messages) {
-        geminiContent.messages.forEach((msg) => {
-          if ("model" in msg) {
-            models.add(msg.model);
-          }
-        });
-      }
-      modelsUsed = Array.from(models);
+    // Extract repo name from metadata
+    if (athrdMeta?.githubRepo) {
+      repoName = athrdMeta.githubRepo as string;
     }
 
-    if (ide === IDE.CODEX) {
-      const codexThread = content as CodexThreadType;
-      const models = new Set<string>();
-      codexThread.messages.forEach((msg) => {
-        if (msg.type === "turn_context") {
-          models.add(msg.payload.model);
-        }
-      });
-      modelsUsed = Array.from(models);
-    }
+    // Extract models used (before parsing, from raw content)
+    modelsUsed = extractModelsUsed(content, ide);
 
-    if (ide === IDE.CURSOR) {
-      const codexThread = content as CodexThreadType;
-      const models = new Set<string>();
-      modelsUsed = Array.from(models);
-    }
+    // Parse the thread into unified AThrd format
+    parsedThread = parseThread(content, ide);
   } catch (error) {
     return (
       <div className="px-4 py-8">
         <h1 className="mb-4 font-bold text-3xl">Thread {gist.id}</h1>
         <p className="text-red-600">
-          Error parsing JSON from {file.filename}:{" "}
+          Error parsing thread from {file.filename}:{" "}
           {error instanceof Error ? error.message : "Unknown error"}
         </p>
         <code className="">
           <pre>{JSON.stringify(file.content, null, 2)}</pre>
         </code>
+      </div>
+    );
+  }
+
+  if (!parsedThread) {
+    return (
+      <div className="px-4 py-8">
+        <h1 className="mb-4 font-bold text-3xl">Thread {gist.id}</h1>
+        <p className="text-red-600">Unable to parse thread format.</p>
       </div>
     );
   }
@@ -113,21 +83,55 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
         modelsUsed={modelsUsed}
         repoUrl={repoName ? `https://github.com/${repoName}` : undefined}
       />
-      {ide === IDE.VSCODE && (
-        <VSCodeThread owner={owner} thread={content as IVSCodeThread} />
-      )}
-      {ide === IDE.CLAUDE && (
-        <ClaudeThread owner={owner} thread={content as ClaudeThreadType} />
-      )}
-      {ide === IDE.GEMINI && (
-        <GeminiThread owner={owner} thread={content as GeminiThreadType} />
-      )}
-      {ide === IDE.CODEX && (
-        <CodexThread owner={owner} thread={content as CodexThreadType} />
-      )}
-      {ide === IDE.CURSOR && (
-        <CursorThread owner={owner} thread={content as any} />
-      )}
+      <AThrdThread owner={owner} thread={parsedThread} />
     </div>
   );
+}
+
+/**
+ * Extract models used from raw content before parsing
+ */
+function extractModelsUsed(
+  content: Record<string, unknown>,
+  ide: IDE
+): string[] {
+  const models = new Set<string>();
+
+  try {
+    if (ide === IDE.VSCODE) {
+      const vscodeContent = content as unknown as IVSCodeThread;
+      vscodeContent.requests?.forEach((req) => {
+        if (req.modelId) models.add(req.modelId);
+      });
+    }
+
+    if (ide === IDE.CLAUDE || ide === (IDE.CLAUDE_CODE as string)) {
+      const claudeContent = content as unknown as ClaudeThreadType;
+      claudeContent.requests?.forEach((req) => {
+        if (req.message?.model) models.add(req.message.model);
+      });
+    }
+
+    if (ide === IDE.GEMINI) {
+      const geminiContent = content as unknown as GeminiThreadType;
+      geminiContent.messages?.forEach((msg) => {
+        if ("model" in msg && msg.model) models.add(msg.model);
+      });
+    }
+
+    if (ide === IDE.CODEX) {
+      const codexContent = content as unknown as CodexThreadType;
+      codexContent.messages?.forEach((msg) => {
+        if (msg.type === "turn_context" && msg.payload?.model) {
+          models.add(msg.payload.model);
+        }
+      });
+    }
+
+    // Cursor doesn't expose model info in the current type
+  } catch {
+    // Ignore errors during model extraction
+  }
+
+  return Array.from(models);
 }

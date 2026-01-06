@@ -41,7 +41,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`font-sans antialiased`}>
         <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-blue-500/30">
-          <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-900/20 blur-[120px] rounded-full pointer-events-none z-0" />
+          <div className="fixed top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-blue-900/20 blur-[120px] rounded-full pointer-events-none z-0" />
 
           <Navbar />
 

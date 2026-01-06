@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { TodoStep } from "@/types/athrd";
 import {
   CheckCircle2,
   ChevronsDownUp,
@@ -11,20 +12,13 @@ import {
 import { useState } from "react";
 import { Badge } from "../ui/badge";
 
-export type TodoStatus = "pending" | "in_progress" | "completed";
-
-type Todo = {
-  content: string;
-  status: TodoStatus;
-};
-
 type ToolTodosBlockProps = {
-  todos: Todo[];
+  todos?: TodoStep[];
   title?: string;
 };
 
 export default function ToolTodosBlock({
-  todos,
+  todos = [],
   title = "Updated todos",
 }: ToolTodosBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -32,7 +26,7 @@ export default function ToolTodosBlock({
   const completedCount = todos.filter((t) => t.status === "completed").length;
   const totalCount = todos.length;
 
-  const getStatusIcon = (status: TodoStatus) => {
+  const getStatusIcon = (status: TodoStep["status"]) => {
     switch (status) {
       case "completed":
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
@@ -43,7 +37,7 @@ export default function ToolTodosBlock({
     }
   };
 
-  const getStatusBadge = (status: TodoStatus) => {
+  const getStatusBadge = (status: TodoStep["status"]) => {
     switch (status) {
       case "completed":
         return (
@@ -126,7 +120,7 @@ export default function ToolTodosBlock({
               >
                 <div className="mt-0.5">{getStatusIcon(todo.status)}</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200">{todo.content}</p>
+                  <p className="text-sm text-gray-200">{todo.step}</p>
                 </div>
                 <div className="shrink-0">{getStatusBadge(todo.status)}</div>
               </div>

@@ -6,34 +6,75 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
+import type { BaseToolResponse } from "@/types/athrd";
 
 import { ChevronsDownUp, ChevronsUpDown, ServerCogIcon } from "lucide-react";
 import Markdown from "markdown-to-jsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface ToolMCPBlockProps {
   serverName: string;
   toolName: string;
   input?: string;
-  textResult?: string;
-  imageResult?: string;
+  results: Array<BaseToolResponse>;
 }
 
 export default function ToolMCPBlock({
   serverName,
   toolName,
   input,
-  textResult,
-  imageResult,
+  results,
 }: ToolMCPBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
+  useEffect(() => {
+    if (results.some((r) => r?.output?.type === "image")) setIsCollapsed(false);
+  }, [results]);
+
+  const hasOutput = results.some((r) => r.output || r.error);
   const inputStr =
     typeof input === "string" ? input : JSON.stringify(input, null, 2);
-  const resultStr =
-    typeof textResult === "string"
-      ? textResult
-      : JSON.stringify(textResult, null, 2);
+
+  const renderResult = (result: BaseToolResponse, index: number) => {
+    if (result.error) {
+      return (
+        <pre
+          key={index}
+          className="text-xs font-mono text-red-400 bg-black/20 p-2 rounded overflow-x-auto"
+        >
+          {result.error}
+        </pre>
+      );
+    }
+
+    if (result.output?.type === "text") {
+      return (
+        <pre
+          key={index}
+          className="text-xs font-mono text-gray-400 bg-black/20 p-2 rounded overflow-x-auto"
+        >
+          <Markdown>{result.output.text}</Markdown>
+        </pre>
+      );
+    }
+
+    if (result.output?.type === "image") {
+      return (
+        <div
+          key={index}
+          className="bg-black/20 p-2 rounded overflow-hidden flex justify-center items-center"
+        >
+          <img
+            src={`data:${result.output.mimeType};base64,${result.output.data}`}
+            alt="Tool output"
+            className="max-w-full h-auto object-contain"
+          />
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="my-4">
@@ -84,36 +125,18 @@ export default function ToolMCPBlock({
                 </div>
               </div>
             </HoverCardTrigger>
-            {isCollapsed && (textResult || imageResult) && (
+            {isCollapsed && hasOutput && (
               <HoverCardContent
                 className="w-80 p-3 bg-[#111] border-white/10 text-gray-300"
                 align="start"
               >
-                <div className="space-y-3">
-                  {textResult && (
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                        Output
-                      </div>
-                      <pre className="text-xs font-mono text-gray-400 bg-black/20 p-2 rounded overflow-x-auto max-h-60">
-                        <Markdown>{resultStr}</Markdown>
-                      </pre>
-                    </div>
-                  )}
-                  {imageResult && (
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                        Output
-                      </div>
-                      <div className="bg-black/20 p-2 rounded overflow-hidden flex justify-center items-center">
-                        <img
-                          src={`data:image/png;base64,${imageResult}`}
-                          alt="Tool output"
-                          className="max-w-full h-auto object-contain"
-                        />
-                      </div>
-                    </div>
-                  )}
+                <div className="space-y-2">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+                    Output
+                  </div>
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {results.map((result, i) => renderResult(result, i))}
+                  </div>
                 </div>
               </HoverCardContent>
             )}
@@ -131,27 +154,13 @@ export default function ToolMCPBlock({
                   </pre>
                 </div>
               )}
-              {textResult && (
+              {hasOutput && (
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
                     Output
                   </div>
-                  <pre className="text-xs font-mono text-gray-400 bg-black/20 p-2 rounded overflow-x-auto">
-                    <Markdown>{resultStr}</Markdown>
-                  </pre>
-                </div>
-              )}
-              {imageResult && (
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                    Output
-                  </div>
-                  <div className="bg-black/20 p-2 rounded overflow-hidden flex justify-center items-center">
-                    <img
-                      src={`data:image/png;base64,${imageResult}`}
-                      alt="Tool output"
-                      className="max-w-full h-auto object-contain"
-                    />
+                  <div className="space-y-2">
+                    {results.map((result, i) => renderResult(result, i))}
                   </div>
                 </div>
               )}

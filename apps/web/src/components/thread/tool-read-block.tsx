@@ -1,3 +1,4 @@
+import type { BaseToolResponse } from "@/types/athrd";
 import { FileIcon, type LucideIcon } from "lucide-react";
 import { Badge } from "../ui/badge";
 import {
@@ -8,18 +9,18 @@ import {
 
 type ToolReadBlockProps = {
   filePath: string;
-  content?: string;
   extra?: string;
   label?: string;
   icon?: LucideIcon;
+  results: Array<BaseToolResponse>;
 };
 
 export default function ToolReadBlock({
   filePath,
-  content,
   extra,
   label = "Read",
   icon: Icon = FileIcon,
+  results,
 }: ToolReadBlockProps) {
   const shortName = filePath.startsWith("http")
     ? filePath
@@ -40,15 +41,34 @@ export default function ToolReadBlock({
         <Icon className="h-4 w-4 text-gray-400 mr-2" />
         <>
           {label}{" "}
-          {content ? (
+          {results.length ? (
             <HoverCard>
               <HoverCardTrigger asChild>{badge}</HoverCardTrigger>
-              <HoverCardContent className="w-[500px] max-h-[400px] overflow-y-auto p-0">
-                <div className="p-4 bg-muted/50">
-                  <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                    {content}
-                  </pre>
-                </div>
+              <HoverCardContent className="w-125 max-h-100 overflow-y-auto p-0">
+                {results.map((res) => {
+                  if (res.output?.type === "text") {
+                    return (
+                      <div key={`text-${res.id}`} className="p-4 bg-muted/50">
+                        <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                          {res.output?.text}
+                        </pre>
+                      </div>
+                    );
+                  }
+
+                  if (res.output?.type === "image") {
+                    return (
+                      <div key={`image-${res.id}`} className="p-4 bg-muted/50">
+                        <img
+                          src={`data:${res.output.mimeType};base64,${res.output.data}`}
+                          alt="Tool output"
+                        />
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
               </HoverCardContent>
             </HoverCard>
           ) : (

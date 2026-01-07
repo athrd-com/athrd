@@ -4,10 +4,12 @@ import type {
   AthrdThinking,
   AthrdToolCall,
   AthrdUserMessage,
+  BaseToolResponse,
 } from "@/types/athrd";
 import type {
   ClaudeRequest,
   ClaudeThread,
+  ImageToolResultContent,
   MessageContent,
   RequestAssistantMessage,
   ThinkingContent,
@@ -19,6 +21,7 @@ import type { Parser } from "./base";
 import {
   createReadFileToolCall,
   createReplaceToolCall,
+  createSkillToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
   createWriteFileToolCall,
@@ -26,55 +29,6 @@ import {
   mapToolName,
   normalizeTimestamp,
 } from "./utils";
-
-/**
- * Parser for Claude Code CLI threads.
- * Claude uses a request-based structure where tool results come in subsequent user messages.
- */
-export const claudeParser: Parser<ClaudeThread> = {
-  id: IDE.CLAUDE_CODE,
-
-  canParse(rawThread: unknown): rawThread is ClaudeThread {
-    if (!rawThread || typeof rawThread !== "object") return false;
-    const thread = rawThread as Record<string, unknown>;
-
-    // Check for Claude-specific structure: requests array with message.role
-    if (!Array.isArray(thread.requests)) return false;
-    if (thread.requests.length === 0) return true;
-
-    const firstRequest = thread.requests[0] as Record<string, unknown>;
-    return (
-      firstRequest.message !== undefined &&
-      typeof (firstRequest.message as Record<string, unknown>).role === "string"
-    );
-  },
-
-  parse(rawThread: ClaudeThread): AThrd {
-    const messages: (AthrdUserMessage | AthrdAssistantMessage)[] = [];
-    const requests = rawThread.requests;
-
-    // Group consecutive assistant messages
-    const groupedRequests = groupRequests(requests);
-
-    for (const item of groupedRequests) {
-      if (Array.isArray(item)) {
-        // Group of assistant messages - merge them into one
-        const assistantMessage = parseAssistantGroup(item, requests);
-        if (assistantMessage) {
-          messages.push(assistantMessage);
-        }
-      } else {
-        // Single request
-        const msg = parseSingleRequest(item, requests);
-        if (msg) {
-          messages.push(msg);
-        }
-      }
-    }
-
-    return { messages };
-  },
-};
 
 /**
  * Check if content is a tool result array
@@ -88,40 +42,19 @@ function isToolResult(content: unknown): content is ToolResultContent[] {
 }
 
 /**
- * Group consecutive assistant messages together
+ * Filter requests, skipping tool result messages (they're handled in assistant parsing)
  */
-function groupRequests(
-  requests: ClaudeRequest[]
-): (ClaudeRequest | ClaudeRequest[])[] {
-  const groupedRequests: (ClaudeRequest | ClaudeRequest[])[] = [];
-  let currentAssistantGroup: ClaudeRequest[] = [];
-
-  for (const request of requests) {
-    if (request.message.role === "assistant") {
-      currentAssistantGroup.push(request);
-    } else if (
+function filterRequests(requests: ClaudeRequest[]): ClaudeRequest[] {
+  return requests.filter((request) => {
+    // Skip tool result messages as they're incorporated into tool calls
+    if (
       request.message.role === "user" &&
       isToolResult(request.message.content)
     ) {
-      // Tool result messages are absorbed by the tool use rendering
-      if (currentAssistantGroup.length === 0) {
-        groupedRequests.push(request);
-      }
-    } else {
-      // Normal user message
-      if (currentAssistantGroup.length > 0) {
-        groupedRequests.push([...currentAssistantGroup]);
-        currentAssistantGroup = [];
-      }
-      groupedRequests.push(request);
+      return false;
     }
-  }
-
-  if (currentAssistantGroup.length > 0) {
-    groupedRequests.push([...currentAssistantGroup]);
-  }
-
-  return groupedRequests;
+    return true;
+  });
 }
 
 /**
@@ -131,14 +64,17 @@ function findToolResult(
   toolUseId: string,
   requests: ClaudeRequest[],
   startIndex: number
-): string | undefined {
+): string | Array<ImageToolResultContent> | undefined {
   for (let i = startIndex; i < requests.length; i++) {
     const req = requests[i]!;
     if (req.message.role === "user" && isToolResult(req.message.content)) {
       const result = req.message.content.find(
         (r) => r.tool_use_id === toolUseId
       );
-      if (result) return result.content;
+      if (result && typeof result.content === "string") return result.content;
+      if (result && Array.isArray(result.content)) {
+        return result.content as Array<ImageToolResultContent>;
+      }
     }
     if (req.message.role === "user" && !isToolResult(req.message.content)) {
       break;
@@ -189,46 +125,40 @@ function parseSingleRequest(
 }
 
 /**
- * Parse a group of assistant messages into a single AthrdAssistantMessage
+ * Parse a single assistant request into an AthrdAssistantMessage
  */
-function parseAssistantGroup(
-  group: ClaudeRequest[],
+function parseAssistantRequest(
+  request: ClaudeRequest,
   allRequests: ClaudeRequest[]
 ): AthrdAssistantMessage | null {
-  if (group.length === 0) return null;
+  const assistantMsg = request.message as RequestAssistantMessage;
 
-  const firstRequest = group[0]!;
-  const assistantMsg = firstRequest.message as RequestAssistantMessage;
-
-  // Collect all content, thoughts, and tool calls from the group
+  // Collect all content, thoughts, and tool calls from this message
   const allThoughts: AthrdThinking[] = [];
   const allToolCalls: AthrdToolCall[] = [];
   const textContent: string[] = [];
 
-  for (const request of group) {
-    const msg = request.message as RequestAssistantMessage;
+  for (const content of assistantMsg.content) {
+    if (content.type === "thinking") {
+      const thinkingContent = content as ThinkingContent;
 
-    for (const content of msg.content) {
-      if (content.type === "thinking") {
-        const thinkingContent = content as ThinkingContent;
-        allThoughts.push({
-          subject: "Thinking",
-          description: thinkingContent.thinking,
-          timestamp: normalizeTimestamp(request.timestamp),
-        });
-      } else if (content.type === "text") {
-        const textMsg = content as MessageContent;
-        if (textMsg.text.trim()) {
-          textContent.push(textMsg.text);
-        }
-      } else if (content.type === "tool_use") {
-        const toolCall = parseToolCall(
-          content as ToolCallContent,
-          request,
-          allRequests
-        );
-        allToolCalls.push(toolCall);
+      allThoughts.push({
+        subject: thinkingContent.thinking || "Thinking",
+        description: thinkingContent.thinking,
+        timestamp: normalizeTimestamp(request.timestamp),
+      });
+    } else if (content.type === "text") {
+      const textMsg = content as MessageContent;
+      if (textMsg.text.trim()) {
+        textContent.push(textMsg.text);
       }
+    } else if (content.type === "tool_use") {
+      const toolCall = parseToolCall(
+        content as ToolCallContent,
+        request,
+        allRequests
+      );
+      allToolCalls.push(toolCall);
     }
   }
 
@@ -236,7 +166,7 @@ function parseAssistantGroup(
     id: assistantMsg.id || generateId(),
     type: "assistant",
     content: textContent.join("\n\n"),
-    timestamp: normalizeTimestamp(firstRequest.timestamp),
+    timestamp: normalizeTimestamp(request.timestamp),
     thoughts: allThoughts.length > 0 ? allThoughts : undefined,
     toolCalls: allToolCalls.length > 0 ? allToolCalls : undefined,
     model: assistantMsg.model,
@@ -259,17 +189,43 @@ function parseToolCall(
   const requestIndex = allRequests.indexOf(request);
   const resultContent = findToolResult(tc.id, allRequests, requestIndex + 1);
 
-  const result = resultContent
-    ? [
-        {
+  const result: Array<BaseToolResponse> = [];
+  (Array.isArray(resultContent) ? resultContent : [resultContent])
+    .map((rc) => {
+      if (typeof rc === "string") {
+        result.push({
           id: generateId(),
           name: tc.name,
-          output: resultContent,
-        },
-      ]
-    : [];
+          output: {
+            type: "text",
+            text: rc,
+          },
+        });
+      } else if (rc && typeof rc === "object" && rc.type === "image") {
+        result.push({
+          id: generateId(),
+          name: tc.name,
+          output: {
+            type: "image",
+            data: rc.source.data,
+            mimeType: rc.source.media_type,
+          },
+        });
+      }
+
+      return null;
+    })
+    .filter(Boolean);
 
   switch (canonicalName) {
+    case "skill":
+      console.log(tc);
+      return createSkillToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        skillName: tc.input.skill as string,
+        parameters: tc.input.parameters as Record<string, unknown>,
+      });
     case "read_file":
       return createReadFileToolCall({
         id: toolId,
@@ -315,5 +271,52 @@ function parseToolCall(
       });
   }
 }
+
+/**
+ * Parser for Claude Code CLI threads.
+ * Claude uses a request-based structure where tool results come in subsequent user messages.
+ */
+export const claudeParser: Parser<ClaudeThread> = {
+  id: IDE.CLAUDE_CODE,
+
+  canParse(rawThread: unknown): rawThread is ClaudeThread {
+    if (!rawThread || typeof rawThread !== "object") return false;
+    const thread = rawThread as Record<string, unknown>;
+
+    // Check for Claude-specific structure: requests array with message.role
+    if (!Array.isArray(thread.requests)) return false;
+    if (thread.requests.length === 0) return true;
+
+    const firstRequest = thread.requests[0] as Record<string, unknown>;
+    return (
+      firstRequest.message !== undefined &&
+      typeof (firstRequest.message as Record<string, unknown>).role === "string"
+    );
+  },
+
+  parse(rawThread: ClaudeThread): AThrd {
+    const messages: (AthrdUserMessage | AthrdAssistantMessage)[] = [];
+    const requests = rawThread.requests;
+
+    // Filter out tool result messages (they're handled in assistant parsing)
+    const filteredRequests = filterRequests(requests);
+
+    for (const request of filteredRequests) {
+      if (request.message.role === "assistant") {
+        const assistantMessage = parseAssistantRequest(request, requests);
+        if (assistantMessage) {
+          messages.push(assistantMessage);
+        }
+      } else {
+        const msg = parseSingleRequest(request, requests);
+        if (msg) {
+          messages.push(msg);
+        }
+      }
+    }
+
+    return { messages };
+  },
+};
 
 export default claudeParser;

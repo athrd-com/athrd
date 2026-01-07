@@ -111,6 +111,14 @@ export interface UpdatePlanToolCall extends BaseToolCall {
   };
 }
 
+export interface SkillToolCall extends BaseToolCall {
+  name: "skill";
+  args: {
+    skill_name: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
 export interface UnknownToolCall extends BaseToolCall {
   name: string;
   args: Record<string, unknown>;
@@ -124,4 +132,5 @@ export type AthrdToolCall =
   | RunShellCommandToolCall
   | MCPToolCall
   | UpdatePlanToolCall
+  | SkillToolCall
   | UnknownToolCall;

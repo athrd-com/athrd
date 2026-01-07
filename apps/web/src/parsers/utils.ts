@@ -4,6 +4,7 @@ import type {
   ReadFileToolCall,
   ReplaceToolCall,
   RunShellCommandToolCall,
+  SkillToolCall,
   TodoStep,
   UnknownToolCall,
   UpdatePlanToolCall,
@@ -56,6 +57,7 @@ export type CanonicalToolName =
   | "ls"
   | "terminal_command"
   | "mcp_tool_call"
+  | "skill"
   | "todos";
 
 /**
@@ -68,6 +70,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     Write: "write_file",
     Edit: "replace",
     Bash: "terminal_command",
+    Skill: "skill",
     run_command: "terminal_command",
     // MCP tools are detected separately
   },
@@ -166,6 +169,24 @@ export function createReadFileToolCall(params: {
       to: params.to,
     },
     result: params.result,
+  };
+}
+
+export function createSkillToolCall(params: {
+  id: string;
+  timestamp: string;
+  skillName: string;
+  parameters: Record<string, unknown>;
+}): SkillToolCall {
+  return {
+    id: params.id,
+    name: "skill",
+    timestamp: params.timestamp,
+    args: {
+      skill_name: params.skillName,
+      parameters: params.parameters,
+    },
+    result: [],
   };
 }
 

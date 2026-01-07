@@ -11,6 +11,7 @@ import type {
   ReadFileToolCall,
   ReplaceToolCall,
   RunShellCommandToolCall,
+  SkillToolCall,
   UnknownToolCall,
   UpdatePlanToolCall,
   WriteFileToolCall,
@@ -37,6 +38,7 @@ import ThinkingBlock from "./thinking-block";
 import ToolEditBlock from "./tool-edit-block";
 import ToolMCPBlock from "./tool-mcp-block";
 import ToolReadBlock from "./tool-read-block";
+import ToolSkillBlock from "./tool-skill-block";
 import ToolTodosBlock from "./tool-todos-block";
 
 interface AThrdThreadProps {
@@ -194,6 +196,10 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
   const resultError = toolCall.result?.[0]?.error;
 
   switch (toolCall.name) {
+    case "skill": {
+      const tc = toolCall as SkillToolCall;
+      return <ToolSkillBlock name={tc.args.skill_name} />;
+    }
     case "read_file": {
       const tc = toolCall as ReadFileToolCall;
       const extra =
@@ -203,7 +209,7 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
       return (
         <ToolReadBlock
           filePath={tc.args.file_path}
-          content={resultOutput?.type === "text" ? resultOutput.text : ""}
+          results={tc.result}
           extra={extra}
           label="Read"
           icon={FileIcon}

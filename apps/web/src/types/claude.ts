@@ -119,10 +119,20 @@ export type ToolCallContent =
   | ToolCallGrep
   | ToolCallOther;
 
+export interface ImageToolResultContent {
+  type: "image";
+  source: {
+    type: "base64";
+    data: string;
+    media_type: string;
+  };
+}
+
 export interface ToolResultContent {
   type: "tool_result";
+  content: string | Array<ImageToolResultContent>;
+  is_error: boolean;
   tool_use_id: string;
-  content: string;
 }
 
 export interface MessageUsage {

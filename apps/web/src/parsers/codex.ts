@@ -286,15 +286,22 @@ function parseFunctionCall(
 
   // Get the output for this call
   const output = functionOutputs.get(payload.call_id);
-  const result: BaseToolResponse[] = Array.isArray(output)
-    ? output
+  const result: BaseToolResponse[] = [];
+
+  if (Array.isArray(output)) {
+    result.push(
+      ...output
         .map((r): BaseToolResponse | null => {
-          if (r.type === "input_text")
+          if (r.type === "input_text") {
+            // Try to parse as JSON first, fallback to raw text
+            const parsedText = safeJsonParse<string>(r.text, r.text);
+
             return {
               id: generateId(),
               name: payload.name,
-              output: { type: "text", text: r.text },
+              output: { type: "text", text: parsedText },
             };
+          }
           if (r.type === "input_image") {
             const match = r.image_url.match(/^data:([^;]+);base64,(.+)$/);
             const mimeType = match?.[1] || "image/png";
@@ -310,16 +317,18 @@ function parseFunctionCall(
           return null;
         })
         .filter((item): item is BaseToolResponse => item !== null)
-    : [
-        {
-          id: generateId(),
-          name: payload.name,
-          output:
-            typeof output === "string"
-              ? { type: "text", text: JSON.stringify(output) }
-              : undefined,
-        },
-      ];
+    );
+  } else {
+    const json = safeJsonParse<string>(output || "", output || "");
+    result.push({
+      id: generateId(),
+      name: payload.name,
+      output: {
+        type: "text",
+        text: Array.isArray(json) ? json.map((j) => j.text).join("\n") : json,
+      },
+    });
+  }
 
   switch (canonicalName) {
     case "terminal_command":
@@ -338,7 +347,7 @@ function parseFunctionCall(
         result,
       });
     case "mcp_tool_call":
-      const [mcp, serverName, toolName] = payload.name.split("__");
+      const [_mcp, serverName, toolName] = payload.name.split("__");
 
       return createMCPToolCall({
         id: toolId,

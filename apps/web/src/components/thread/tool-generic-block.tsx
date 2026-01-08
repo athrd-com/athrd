@@ -132,12 +132,7 @@ export default function ToolGenericBlock({
                   )}
                 />
               )}
-              <span
-                className={cn(
-                  "text-gray-300 font-medium",
-                  isCollapsed && "truncate"
-                )}
-              >
+              <span className={cn("text-gray-300 font-medium truncate")}>
                 {label}
                 {title}
               </span>

@@ -53,6 +53,16 @@ export interface ReadFileToolCallResult extends CursorToolCallResult {
   totalLinesInFile: number;
 }
 
+export interface ListDirToolCallResult extends CursorToolCallResult {
+  directoryTreeRoot: {
+    absPath: string;
+    numFiles: number;
+    childrenFiles: Array<{
+      name: string;
+    }>;
+  };
+}
+
 export interface CursorToolCallAdditionalData {
   status?: string;
   [key: string]: any;
@@ -68,6 +78,7 @@ export interface CursorToolCall {
     | CursorToolCallResult
     | TodosToolCallResult
     | ReadFileToolCallResult
+    | ListDirToolCallResult
     | null;
   additionalData: CursorToolCallAdditionalData;
 }

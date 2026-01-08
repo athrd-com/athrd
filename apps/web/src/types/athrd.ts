@@ -2,10 +2,24 @@ export interface AThrd {
   messages: (AthrdUserMessage | AthrdAssistantMessage)[];
 }
 
+export interface AthrdUserMessageFileVariable {
+  type: "file";
+  path: string;
+}
+
+export interface AthrdUserMessageImageVariable {
+  type: "image";
+  name: string;
+  data: string;
+}
+
 export interface AthrdUserMessage {
   id: string;
   type: "user";
   content: string;
+  variables?: Array<
+    AthrdUserMessageFileVariable | AthrdUserMessageImageVariable
+  >;
 }
 
 export interface AthrdAssistantMessage {

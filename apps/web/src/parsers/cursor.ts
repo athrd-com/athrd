@@ -3,16 +3,19 @@ import type {
   AthrdAssistantMessage,
   AthrdToolCall,
   AthrdUserMessage,
+  BaseToolResponse,
 } from "@/types/athrd";
 import type {
   CursorThread,
   CursorToolCall,
+  ListDirToolCallResult,
   ReadFileToolCallParams,
   TodosToolCallResult,
 } from "@/types/cursor";
 import { IDE } from "@/types/ide";
 import type { Parser } from "./base";
 import {
+  createListDirectoryToolCall,
   createReadFileToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
@@ -164,18 +167,39 @@ function parseToolCall(
   // Extract params and result
   const params = tc.params || {};
   const resultData = tc.result || {};
-
-  // Build result array
-  const result =
-    Object.keys(resultData).length > 0
-      ? [
-          {
+  const result: Array<BaseToolResponse> = [];
+  (Array.isArray(tc.result) ? tc.result : [tc.result])
+    .map((rc) => {
+      if (rc) {
+        if (rc.contents) {
+          result.push({
             id: generateId(),
-            name: toolName,
-            output: JSON.stringify(resultData),
-          },
-        ]
-      : [];
+            name: tc.tool || "",
+            output: {
+              type: "text",
+              text: rc.contents,
+            },
+          });
+        }
+        if (rc.directoryTreeRoot) {
+          const lsResult = rc as ListDirToolCallResult;
+
+          result.push({
+            id: generateId(),
+            name: tc.tool || "",
+            output: {
+              type: "text",
+              text: lsResult.directoryTreeRoot.childrenFiles
+                .map((f) => f.name)
+                .join("\n"),
+            },
+          });
+        }
+      }
+
+      return null;
+    })
+    .filter(Boolean);
 
   switch (canonicalName) {
     case "todos":
@@ -189,6 +213,14 @@ function parseToolCall(
             step: todo.content,
             status: todo.status,
           })) || [],
+        result,
+      });
+    case "ls":
+      const lsResult = tc.result as ListDirToolCallResult;
+      return createListDirectoryToolCall({
+        id: toolId,
+        timestamp,
+        dirPath: lsResult.directoryTreeRoot.absPath,
         result,
       });
     case "read_file":

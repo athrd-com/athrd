@@ -61,7 +61,8 @@ export type CanonicalToolName =
   | "mcp_tool_call"
   | "skill"
   | "todos"
-  | "web_search";
+  | "web_search"
+  | "grep_search";
 
 /**
  * Tool name mapping from various CLI tools to canonical AThrd names.
@@ -111,6 +112,9 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     read_file: "read_file",
     write_file: "write_file",
     edit_file: "write_file",
+    apply_patch: "replace",
+    list_dir: "ls",
+    grep: "grep_search",
     run_terminal_command: "terminal_command",
     todo_write: "todos",
   },

@@ -105,10 +105,18 @@ function parseSingleRequest(
 
     // Handle string content
     if (typeof content === "string") {
+      // Extract command-name if present
+      const commandNameMatch = content.match(
+        /<command-name>(.*?)<\/command-name>/
+      );
+      const extractedContent = commandNameMatch
+        ? commandNameMatch[1]!
+        : content;
+
       return {
         id: request.id || generateId(),
         type: "user",
-        content,
+        content: extractedContent,
       };
     }
 

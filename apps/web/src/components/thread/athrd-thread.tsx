@@ -31,7 +31,7 @@ import {
   BrainCogIcon,
   FileIcon,
   FilePlusIcon,
-  FolderIcon,
+  FolderTreeIcon,
   SearchIcon,
   TerminalIcon,
   WandSparklesIcon,
@@ -81,6 +81,7 @@ function groupMessages(messages: (AthrdUserMessage | AthrdAssistantMessage)[]) {
  */
 export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
+  console.log(thread.messages);
 
   return (
     <div className="px-4 sm:px-8 md:px-16 lg:px-32 py-8 space-y-6">
@@ -253,7 +254,7 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
           title={
             toolCall.result[0]?.output?.type === "text"
               ? toolCall.result[0]?.output.text
-              : ""
+              : "Tasks"
           }
           todos={(toolCall as UpdatePlanToolCall).args.plan}
         />
@@ -276,7 +277,7 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
         <ToolGenericBlock
           title={tc.args.dir_path}
           results={tc.result ?? []}
-          icon={FolderIcon}
+          icon={FolderTreeIcon}
         />
       );
     }

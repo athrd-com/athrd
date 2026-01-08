@@ -1,9 +1,10 @@
 "use client";
 
 import type { GistOwner } from "@/lib/github";
+import { parseThread } from "@/parsers";
 import type { ClaudeRequest } from "@/types/claude";
 import { IDE } from "@/types/ide";
-import ClaudeThread from "../claude/claude-thread";
+import AThrdThread from "../thread/athrd-thread";
 import ThreadHeader from "../thread/thread-header";
 
 const MOCK_OWNER: GistOwner = {
@@ -15,7 +16,7 @@ const MOCK_OWNER: GistOwner = {
   type: "User",
 };
 
-const MOCK_REQUESTS: ClaudeRequest[] = [
+const MOCK_THREAD: ClaudeRequest[] = [
   {
     id: "req_1",
     type: "user",
@@ -162,7 +163,7 @@ export function Counter() {
 
 export function TerminalPreview() {
   return (
-    <div className="w-full max-w-[1000px] mx-auto p-px bg-linear-to-b from-gray-800 to-gray-900 rounded-xl shadow-2xl shadow-blue-900/10">
+    <div className="w-full max-w-250 mx-auto p-px bg-linear-to-b from-gray-800 to-gray-900 rounded-xl shadow-2xl shadow-blue-900/10">
       <div className="bg-white dark:bg-[#0a0b10] rounded-xl overflow-hidden border border-white/5 min-h-[400px] relative transition-all duration-500 ease-in-out">
         <div className="pb-8">
           <div className="max-w-4xl mx-auto px-6 pt-8">
@@ -177,9 +178,9 @@ export function TerminalPreview() {
               modelsUsed={["claude-3-5-sonnet-20241022"]}
             />
           </div>
-          <ClaudeThread
+          <AThrdThread
             owner={MOCK_OWNER}
-            thread={{ requests: MOCK_REQUESTS }}
+            thread={parseThread({ requests: MOCK_THREAD }, IDE.CLAUDE_CODE)}
           />
         </div>
       </div>

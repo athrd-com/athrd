@@ -14,6 +14,9 @@ import type {
   RequestAssistantMessage,
   ThinkingContent,
   ToolCallContent,
+  ToolCallTodoWrite,
+  ToolCallWebSearch,
+  ToolCallWrite,
   ToolResultContent,
 } from "@/types/claude";
 import { IDE } from "@/types/ide";
@@ -24,6 +27,8 @@ import {
   createSkillToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
+  createUpdatePlanToolCall,
+  createWebSearchToolCall,
   createWriteFileToolCall,
   generateId,
   mapToolName,
@@ -218,8 +223,26 @@ function parseToolCall(
     .filter(Boolean);
 
   switch (canonicalName) {
+    case "web_search":
+      const webSearchTool = tc as ToolCallWebSearch;
+      return createWebSearchToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        query: webSearchTool.input.query,
+        result,
+      });
+    case "todos":
+      const todosTool = tc as ToolCallTodoWrite;
+      return createUpdatePlanToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        plan: todosTool.input.todos.map((t) => ({
+          step: t.content,
+          status: t.status,
+        })),
+        result,
+      });
     case "skill":
-      console.log(tc);
       return createSkillToolCall({
         id: toolId,
         timestamp: toolTimestamp,
@@ -235,6 +258,8 @@ function parseToolCall(
       });
 
     case "write_file":
+      const writeTool = tc as ToolCallWrite;
+
       return createWriteFileToolCall({
         id: toolId,
         timestamp: toolTimestamp,

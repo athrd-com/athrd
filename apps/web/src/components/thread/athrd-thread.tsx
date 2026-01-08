@@ -14,6 +14,7 @@ import type {
   SkillToolCall,
   UnknownToolCall,
   UpdatePlanToolCall,
+  WebSearchToolCall,
   WriteFileToolCall,
 } from "@/types/athrd";
 
@@ -27,18 +28,19 @@ import {
 } from "@/components/ui/hover-card";
 import {
   Bot,
+  BrainCogIcon,
   FileIcon,
+  FilePlusIcon,
   FolderIcon,
-  PencilIcon,
+  SearchIcon,
+  TerminalIcon,
+  WandSparklesIcon,
   WrenchIcon,
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
-import ShellBlock from "./sheel-block";
-import ThinkingBlock from "./thinking-block";
 import ToolEditBlock from "./tool-edit-block";
+import ToolGenericBlock from "./tool-generic-block";
 import ToolMCPBlock from "./tool-mcp-block";
-import ToolReadBlock from "./tool-read-block";
-import ToolSkillBlock from "./tool-skill-block";
 import ToolTodosBlock from "./tool-todos-block";
 
 interface AThrdThreadProps {
@@ -168,13 +170,25 @@ function AssistantMessageContent({
   return (
     <>
       {/* Thinking blocks */}
-      {message.thoughts?.map((thought, idx) => (
-        <ThinkingBlock
-          key={`thought-${idx}`}
-          thinking={thought.description}
-          subject={thought.subject}
-        />
-      ))}
+      {message.thoughts?.map((thought, idx) => {
+        return (
+          <ToolGenericBlock
+            key={`thought-${idx}`}
+            results={[
+              {
+                id: `thought-${idx}`,
+                name: "Thought",
+                output: {
+                  type: "text",
+                  text: thought.description,
+                },
+              },
+            ]}
+            title={thought.subject}
+            icon={BrainCogIcon}
+          />
+        );
+      })}
 
       {/* Tool calls */}
       {message.toolCalls?.map((toolCall, index) => (
@@ -195,13 +209,28 @@ function AssistantMessageContent({
  * Render a tool call based on its type
  */
 function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
-  const resultOutput = toolCall.result?.[0]?.output;
-  const resultError = toolCall.result?.[0]?.error;
-
   switch (toolCall.name) {
     case "skill": {
       const tc = toolCall as SkillToolCall;
-      return <ToolSkillBlock name={tc.args.skill_name} />;
+      return (
+        <ToolGenericBlock
+          label="Launching skill"
+          title={tc.args.skill_name}
+          results={tc.result}
+          icon={WandSparklesIcon}
+        />
+      );
+    }
+    case "web_search": {
+      const tc = toolCall as WebSearchToolCall;
+      return (
+        <ToolGenericBlock
+          icon={SearchIcon}
+          label="Web Search"
+          title={tc.args.query}
+          results={tc.result}
+        />
+      );
     }
     case "read_file": {
       const tc = toolCall as ReadFileToolCall;
@@ -210,11 +239,10 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
           ? `(lines ${tc.args.from}-${tc.args.to})`
           : undefined;
       return (
-        <ToolReadBlock
-          filePath={tc.args.file_path}
+        <ToolGenericBlock
+          title={tc.args.file_path}
           results={tc.result ?? []}
           extra={extra}
-          label="Read"
           icon={FileIcon}
         />
       );
@@ -234,11 +262,10 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
     case "write_file": {
       const tc = toolCall as WriteFileToolCall;
       return (
-        <ToolReadBlock
-          filePath={tc.args.file_path}
+        <ToolGenericBlock
+          title={tc.args.file_path}
           results={tc.result ?? []}
-          label="Write"
-          icon={PencilIcon}
+          icon={FilePlusIcon}
         />
       );
     }
@@ -246,10 +273,9 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
     case "ls": {
       const tc = toolCall as ListDirectoryToolCall;
       return (
-        <ToolReadBlock
-          filePath={tc.args.dir_path}
+        <ToolGenericBlock
+          title={tc.args.dir_path}
           results={tc.result ?? []}
-          label="List"
           icon={FolderIcon}
         />
       );
@@ -269,18 +295,13 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
     case "terminal_command": {
       const tc = toolCall as RunShellCommandToolCall;
       return (
-        <ShellBlock
-          command={tc.args.command}
-          result={
-            resultError ||
-            (toolCall.result[0]?.output?.type === "text"
-              ? toolCall.result[0]?.output.text
-              : "")
-          }
+        <ToolGenericBlock
+          icon={TerminalIcon}
+          title={tc.args.command}
+          results={tc.result}
         />
       );
     }
-
     case "mcp_tool_call": {
       const tc = toolCall as MCPToolCall;
       return (

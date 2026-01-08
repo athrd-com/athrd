@@ -4,13 +4,19 @@ import type {
   AthrdToolCall,
   AthrdUserMessage,
 } from "@/types/athrd";
-import type { CursorThread, CursorToolCall } from "@/types/cursor";
+import type {
+  CursorThread,
+  CursorToolCall,
+  ReadFileToolCallParams,
+  TodosToolCallResult,
+} from "@/types/cursor";
 import { IDE } from "@/types/ide";
 import type { Parser } from "./base";
 import {
   createReadFileToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
+  createUpdatePlanToolCall,
   createWriteFileToolCall,
   generateId,
   mapToolName,
@@ -116,6 +122,10 @@ export const cursorParser: Parser<CursorThread> = {
           };
         }
 
+        if (!msg.text?.trim() && !msg.toolCall) {
+          continue;
+        }
+
         // Add text content
         if (msg.text?.trim()) {
           currentAssistant.content.push(msg.text);
@@ -168,15 +178,26 @@ function parseToolCall(
       : [];
 
   switch (canonicalName) {
+    case "todos":
+      const todosResult = resultData as TodosToolCallResult;
+      return createUpdatePlanToolCall({
+        id: toolId,
+        timestamp,
+        plan:
+          todosResult.finalTodos.map((todo) => ({
+            id: todo.id,
+            step: todo.content,
+            status: todo.status,
+          })) || [],
+        result,
+      });
     case "read_file":
+      const fileParams = tc.params as ReadFileToolCallParams;
+
       return createReadFileToolCall({
         id: toolId,
         timestamp,
-        filePath:
-          (params.path as string) ||
-          (params.filePath as string) ||
-          (params.file_path as string) ||
-          "",
+        filePath: fileParams.targetFile,
         result,
       });
 

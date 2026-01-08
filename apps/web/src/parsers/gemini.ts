@@ -173,7 +173,7 @@ function parseToolCall(tc: GeminiToolCall, timestamp: string): AthrdToolCall {
       return createUpdatePlanToolCall({
         id: toolId,
         timestamp: toolTimestamp,
-        plan: tc.args.todos.map(
+        plan: (tc.args.todos ?? []).map(
           (todo: { description: string; status: string }) => ({
             step: todo.description,
             status: todo.status as TodoStep["status"],

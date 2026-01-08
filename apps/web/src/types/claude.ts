@@ -64,6 +64,7 @@ export interface ToolCallEdit {
 
 export interface ToolInputTodo {
   content: string;
+  activeform: string;
   status: "pending" | "in_progress" | "completed";
 }
 
@@ -103,6 +104,15 @@ export interface ToolCallGrep {
   input: ToolInputGrep;
 }
 
+export interface ToolCallWebSearch {
+  type: "tool_use";
+  name: "WebSearch";
+  id: string;
+  input: {
+    query: string;
+  };
+}
+
 export interface ToolCallOther {
   type: "tool_use";
   name: string;
@@ -117,6 +127,7 @@ export type ToolCallContent =
   | ToolCallTodoWrite
   | ToolCallWrite
   | ToolCallGrep
+  | ToolCallWebSearch
   | ToolCallOther;
 
 export interface ImageToolResultContent {

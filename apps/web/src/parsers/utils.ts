@@ -1,4 +1,5 @@
 import type {
+  BaseToolResponse,
   ListDirectoryToolCall,
   MCPToolCall,
   ReadFileToolCall,
@@ -8,6 +9,7 @@ import type {
   TodoStep,
   UnknownToolCall,
   UpdatePlanToolCall,
+  WebSearchToolCall,
   WriteFileToolCall,
 } from "@/types/athrd";
 import { IDE } from "@/types/ide";
@@ -58,7 +60,8 @@ export type CanonicalToolName =
   | "terminal_command"
   | "mcp_tool_call"
   | "skill"
-  | "todos";
+  | "todos"
+  | "web_search";
 
 /**
  * Tool name mapping from various CLI tools to canonical AThrd names.
@@ -72,6 +75,8 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     Bash: "terminal_command",
     Skill: "skill",
     run_command: "terminal_command",
+    TodoWrite: "todos",
+    WebSearch: "web_search",
     // MCP tools are detected separately
   },
   // IDE.CLAUDE is an alias for IDE.CLAUDE_CODE with same value
@@ -107,6 +112,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     write_file: "write_file",
     edit_file: "write_file",
     run_terminal_command: "terminal_command",
+    todo_write: "todos",
   },
 };
 
@@ -157,7 +163,7 @@ export function createReadFileToolCall(params: {
   filePath: string;
   from?: number;
   to?: number;
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): ReadFileToolCall {
   return {
     id: params.id,
@@ -198,7 +204,7 @@ export function createWriteFileToolCall(params: {
   timestamp: string;
   filePath: string;
   content: string;
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): WriteFileToolCall {
   return {
     id: params.id,
@@ -208,7 +214,14 @@ export function createWriteFileToolCall(params: {
       file_path: params.filePath,
       content: params.content,
     },
-    result: params.result,
+    result: [
+      {
+        id: generateId(),
+        output: { type: "text", text: params.content },
+        name: "",
+      },
+      ...params.result,
+    ],
   };
 }
 
@@ -219,7 +232,7 @@ export function createListDirectoryToolCall(params: {
   id: string;
   timestamp: string;
   dirPath: string;
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): ListDirectoryToolCall {
   return {
     id: params.id,
@@ -241,7 +254,7 @@ export function createReplaceToolCall(params: {
   filePath: string;
   oldString: string;
   newString: string;
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): ReplaceToolCall {
   return {
     id: params.id,
@@ -264,7 +277,7 @@ export function createTerminalCommandToolCall(params: {
   timestamp: string;
   command: string;
   cwd?: string;
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): RunShellCommandToolCall {
   return {
     id: params.id,
@@ -288,7 +301,7 @@ export function createMCPToolCall(params: {
   toolName: string;
   input: string;
   cacheType?: "ephemeral" | "persistent";
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): MCPToolCall {
   return {
     id: params.id,
@@ -307,11 +320,31 @@ export function createMCPToolCall(params: {
 /**
  * Create an UpdatePlanToolCall (todos)
  */
+export function createWebSearchToolCall(params: {
+  id: string;
+  timestamp: string;
+  query: string;
+  result: BaseToolResponse[];
+}): WebSearchToolCall {
+  return {
+    id: params.id,
+    name: "web_search",
+    timestamp: params.timestamp,
+    args: {
+      query: params.query,
+    },
+    result: params.result,
+  };
+}
+
+/**
+ * Create an UpdatePlanToolCall (todos)
+ */
 export function createUpdatePlanToolCall(params: {
   id: string;
   timestamp: string;
   plan: TodoStep[];
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): UpdatePlanToolCall {
   return {
     id: params.id,
@@ -332,7 +365,7 @@ export function createUnknownToolCall(params: {
   timestamp: string;
   name: string;
   args: Record<string, unknown>;
-  result: BaseToolResult[];
+  result: BaseToolResponse[];
 }): UnknownToolCall {
   return {
     id: params.id,

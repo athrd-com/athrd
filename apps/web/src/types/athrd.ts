@@ -110,6 +110,12 @@ export interface UpdatePlanToolCall extends BaseToolCall {
     plan: TodoStep[];
   };
 }
+export interface WebSearchToolCall extends BaseToolCall {
+  name: "web_search";
+  args: {
+    query: string;
+  };
+}
 
 export interface SkillToolCall extends BaseToolCall {
   name: "skill";

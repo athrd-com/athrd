@@ -5,7 +5,7 @@ export interface ClaudeThread {
 export interface RequestUserMessage {
   role: "user";
   content: string | ToolResultContent[] | MessageContent[];
-  model: string;
+  model?: string;
 }
 
 export interface RequestAssistantMessage {
@@ -130,6 +130,11 @@ export type ToolCallContent =
   | ToolCallWebSearch
   | ToolCallOther;
 
+export interface TextToolResultContent {
+  type: "text";
+  text: string;
+}
+
 export interface ImageToolResultContent {
   type: "image";
   source: {
@@ -141,8 +146,8 @@ export interface ImageToolResultContent {
 
 export interface ToolResultContent {
   type: "tool_result";
-  content: string | Array<ImageToolResultContent>;
-  is_error: boolean;
+  content: string | Array<ImageToolResultContent | TextToolResultContent>;
+  is_error?: boolean;
   tool_use_id: string;
 }
 

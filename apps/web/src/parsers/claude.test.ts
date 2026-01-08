@@ -879,6 +879,63 @@ describe("claudeParser", () => {
           },
         });
       });
+
+      it("should handle MCP tool call", () => {
+        const thread: ClaudeThread = {
+          requests: [
+            {
+              id: "f6305805-1fbf-4c91-b1be-5f49271224bd",
+              type: "assistant",
+              message: {
+                model: "claude-haiku-4-5-20251001",
+                id: "msg_01WwVeY959n9GmkApyThHXo4",
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: "toolu_015VgNKaRqmQdPXKBffjrmau",
+                    name: "mcp__vercel__list_projects",
+                    input: {
+                      teamId: "team_kxkSo3HwmMoAIAK2b2Cuepsh",
+                    },
+                  },
+                ],
+                usage: createUsage(),
+              },
+              timestamp: "2026-01-08T05:42:12.329Z",
+            },
+            {
+              id: "e79f53ce-743a-418d-9414-fc1bf5b80012",
+              type: "user",
+              message: {
+                role: "user",
+                content: [
+                  {
+                    tool_use_id: "toolu_015VgNKaRqmQdPXKBffjrmau",
+                    type: "tool_result",
+                    content: [
+                      {
+                        type: "text",
+                        text: '{\n  "projects": [\n    {\n      "id": "prj_B6s1jH7Bl76sC8JOi5KC7TOCFL2M",\n      "name": "node-app",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1700843024474\n    },\n    {\n      "id": "prj_OAEkirxvQVV9akh8JricuN0YpEDP",\n      "name": "athrd",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1763519068349\n    },\n    {\n      "id": "prj_YnWOdIowlLC160aQEDbsbXnhD1P0",\n      "name": "screens-farm",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1742613614381\n    },\n    {\n      "id": "prj_D5IbGkTHhqzbSr9RC73Su228P841",\n      "name": "llm-seo",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1740376892596\n    },\n    {\n      "id": "prj_Cw6ZNXqAv71Ktg85dBB7Bublhvge",\n      "name": "agent-writer",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1745372104308\n    },\n    {\n      "id": "prj_vDnRs4MMyexc49xkEyc0JZuMz25Y",\n      "name": "x402index",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1746767776757\n    },\n    {\n      "id": "prj_U1zAXAPtSVgUeXrnb4GepUFyCZ0C",\n      "name": "agentbets",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1748058557348\n    },\n    {\n      "id": "prj_ltNbHqrNMHNLunk4icEIVQSIfHjp",\n      "name": "memora-apps-web",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1744647012539\n    },\n    {\n      "id": "prj_e1Xr4DR6pxpVzsVPXUtoEWvfHOlM",\n      "name": "ollamac-web",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1707974147841\n    },\n    {\n      "id": "prj_lT4syvAjhMGizyXHIESxo4aBqJCc",\n      "name": "short-studio",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1744230547186\n    },\n    {\n      "id": "prj_QB4mbqX5YALtmQB6vucLcFJ03l2M",\n      "name": "ytnl",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1753719681134\n    },\n    {\n      "id": "prj_Fwe7PyU5nBGzlLrstJSEJwPmOszl",\n      "name": "koro-web",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1713815943702\n    },\n    {\n      "id": "prj_qRX81pWYHfVhe65o8CCIHJOKMhpU",\n      "name": "koro-api",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1719347623009\n    },\n    {\n      "id": "prj_uK5EwbW6gFzmSf1sAtC59UaFNQ1V",\n      "name": "koroverse",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1700276425079\n    },\n    {\n      "id": "prj_nePzG26R3NMb3Shj7t4Skzbd3qnJ",\n      "name": "langchain-masterclass",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1683780123066\n    },\n    {\n      "id": "prj_lCSeaGyiQYX6F8wdfe38TmJPPJ6A",\n      "name": "embed-app",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1701309193557\n    },\n    {\n      "id": "prj_bWT0ebZ9fRBvQrhYAlnKoEMZVvAL",\n      "name": "pv3-apps-web",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1701480350681\n    },\n    {\n      "id": "prj_LSeofxt85XAY1TvBXMJtxB3GNWkp",\n      "name": "topgptsapp-web",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1699915701218\n    },\n    {\n      "id": "prj_CWAKcwpyF5URyMlLmspQ6Ial4ae6",\n      "name": "audio-transcribe-app",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1682524231732\n    },\n    {\n      "id": "prj_lzevNzqWL3L7a48fkjEF1GQIhI6R",\n      "name": "imaginemaps",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1758215189992\n    },\n    {\n      "id": "prj_GphlGKVgyPHcNghMVKuUuoqTEXHB",\n      "name": "themapunfolds.com",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1760051563495\n    },\n    {\n      "id": "prj_oxDbYfGRrVpiwrWWTY7a1TMc3Ono",\n      "name": "mars6-xyz",\n      "accountId": "team_kxkSo3HwmMoAIAK2b2Cuepsh",\n      "createdAt": 1760382045467\n    }\n  ]\n}',
+                      },
+                    ],
+                  },
+                ],
+              },
+              timestamp: "2026-01-08T05:42:15.170Z",
+            },
+          ],
+        };
+
+        const result = claudeParser.parse(thread);
+        expect(result.messages).toHaveLength(1);
+        const message = result.messages[0]! as AthrdAssistantMessage;
+        expect(message).toBeDefined();
+        expect(message.type).toBe("assistant");
+        expect(message.toolCalls!.length).toBe(1);
+        expect(message.toolCalls![0]?.name).toBe("mcp_tool_call");
+        expect(message.toolCalls![0]?.result?.length).toBe(1);
+      });
     });
   });
 

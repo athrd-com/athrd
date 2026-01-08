@@ -12,6 +12,7 @@ import type {
   ImageToolResultContent,
   MessageContent,
   RequestAssistantMessage,
+  TextToolResultContent,
   ThinkingContent,
   ToolCallContent,
   ToolCallTodoWrite,
@@ -22,6 +23,7 @@ import type {
 import { IDE } from "@/types/ide";
 import type { Parser } from "./base";
 import {
+  createMCPToolCall,
   createReadFileToolCall,
   createReplaceToolCall,
   createSkillToolCall,
@@ -69,7 +71,7 @@ function findToolResult(
   toolUseId: string,
   requests: ClaudeRequest[],
   startIndex: number
-): string | Array<ImageToolResultContent> | undefined {
+): string | Array<ImageToolResultContent | TextToolResultContent> | undefined {
   for (let i = startIndex; i < requests.length; i++) {
     const req = requests[i]!;
     if (req.message.role === "user" && isToolResult(req.message.content)) {
@@ -78,7 +80,9 @@ function findToolResult(
       );
       if (result && typeof result.content === "string") return result.content;
       if (result && Array.isArray(result.content)) {
-        return result.content as Array<ImageToolResultContent>;
+        return result.content as Array<
+          ImageToolResultContent | TextToolResultContent
+        >;
       }
     }
     if (req.message.role === "user" && !isToolResult(req.message.content)) {
@@ -224,6 +228,15 @@ function parseToolCall(
             mimeType: rc.source.media_type,
           },
         });
+      } else if (rc && typeof rc === "object" && rc.type === "text") {
+        result.push({
+          id: generateId(),
+          name: tc.name,
+          output: {
+            type: "text",
+            text: rc.text,
+          },
+        });
       }
 
       return null;
@@ -285,7 +298,6 @@ function parseToolCall(
         newString: tc.input.new_string as string,
         result,
       });
-
     case "terminal_command":
       return createTerminalCommandToolCall({
         id: toolId,
@@ -293,7 +305,18 @@ function parseToolCall(
         command: tc.input.command as string,
         result,
       });
+    case "mcp_tool_call":
+      const [_mcp, serverName, toolName] = tc.name.split("__");
 
+      return createMCPToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        serverName: serverName ?? "Unknown Server",
+        toolName: toolName ?? "Unknown Tool",
+        input: (tc.input as string) || "",
+        cacheType: "ephemeral",
+        result,
+      });
     default:
       return createUnknownToolCall({
         id: toolId,

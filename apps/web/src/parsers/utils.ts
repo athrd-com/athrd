@@ -149,7 +149,7 @@ export function mapToolName(
     return mapping[originalName] as CanonicalToolName;
   }
 
-  if (ide === IDE.CODEX) {
+  if (ide === IDE.CODEX || ide === IDE.CLAUDE_CODE) {
     if (originalName.startsWith("mcp__")) {
       return "mcp_tool_call";
     }

@@ -84,9 +84,9 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
     <div className="px-4 sm:px-8 md:px-16 lg:px-32 py-8 space-y-6">
       {messageGroups.map((group, groupIdx) => {
         if (group.type === "user") {
-          return group.messages.map((message) => (
+          return group.messages.map((message, index) => (
             <UserMessage
-              key={message.id}
+              key={`${message.id}-${groupIdx}-${index}`}
               owner={owner}
               message={message as AthrdUserMessage}
             />
@@ -146,8 +146,11 @@ function AssistantMessageGroup({
         </AvatarFallback>
       </Avatar>
       <div className="space-y-2 min-w-0 max-w-full flex-1">
-        {messages.map((message) => (
-          <AssistantMessageContent key={message.id} message={message} />
+        {messages.map((message, index) => (
+          <AssistantMessageContent
+            key={`${message.id}-${index}`}
+            message={message}
+          />
         ))}
       </div>
     </div>
@@ -174,8 +177,8 @@ function AssistantMessageContent({
       ))}
 
       {/* Tool calls */}
-      {message.toolCalls?.map((toolCall) => (
-        <ToolCallBlock key={toolCall.id} toolCall={toolCall} />
+      {message.toolCalls?.map((toolCall, index) => (
+        <ToolCallBlock key={`${toolCall.id}-${index}`} toolCall={toolCall} />
       ))}
 
       {/* Text content */}
@@ -209,7 +212,7 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
       return (
         <ToolReadBlock
           filePath={tc.args.file_path}
-          results={tc.result}
+          results={tc.result ?? []}
           extra={extra}
           label="Read"
           icon={FileIcon}
@@ -233,7 +236,7 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
       return (
         <ToolReadBlock
           filePath={tc.args.file_path}
-          content={tc.args.content}
+          results={tc.result ?? []}
           label="Write"
           icon={PencilIcon}
         />
@@ -245,7 +248,7 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
       return (
         <ToolReadBlock
           filePath={tc.args.dir_path}
-          content={resultOutput?.type === "text" ? resultOutput.text : ""}
+          results={tc.result ?? []}
           label="List"
           icon={FolderIcon}
         />

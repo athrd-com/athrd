@@ -48,6 +48,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     // Parse the thread into unified AThrd format
     parsedThread = parseThread(content, ide);
   } catch (error) {
+    console.error(error);
     return (
       <div className="px-4 py-8">
         <h1 className="mb-4 font-bold text-3xl">Thread {gist.id}</h1>

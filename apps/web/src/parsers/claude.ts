@@ -105,12 +105,12 @@ function parseSingleRequest(
 
     // Handle string content
     if (typeof content === "string") {
-      // Extract command-name if present
+      // Extract command-name if present, including any text after the tag
       const commandNameMatch = content.match(
-        /<command-name>(.*?)<\/command-name>/
+        /<command-name>(.*?)<\/command-name>(.*)/s
       );
       const extractedContent = commandNameMatch
-        ? commandNameMatch[1]!
+        ? (commandNameMatch[1]! + commandNameMatch[2]!).trim()
         : content;
 
       return {

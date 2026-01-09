@@ -83,6 +83,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
   },
   // IDE.CLAUDE is an alias for IDE.CLAUDE_CODE with same value
   [IDE.CODEX]: {
+    bash: "terminal_command",
     shell: "terminal_command",
     shell_command: "terminal_command",
     update_plan: "todos",

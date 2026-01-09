@@ -346,7 +346,7 @@ function parseFunctionCall(
         plan: (args.plan as TodoStep[]) || [],
         result,
       });
-    case "mcp_tool_call":
+    case "mcp_tool_call": {
       const [_mcp, serverName, toolName] = payload.name.split("__");
 
       return createMCPToolCall({
@@ -359,6 +359,7 @@ function parseFunctionCall(
           (args.cache_type as "ephemeral" | "persistent") || "ephemeral",
         result,
       });
+    }
     default:
       return createUnknownToolCall({
         id: toolId,
@@ -399,8 +400,10 @@ export const codexParser: Parser<CodexThread> = {
 
     for (const msg of rawThread.messages) {
       processMessage(ctx, msg);
-      flushAssistant(ctx);
     }
+
+    // Flush any remaining assistant content
+    flushAssistant(ctx);
 
     return { messages: ctx.messages };
   },

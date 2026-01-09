@@ -55,7 +55,7 @@ yarn global add @athrd/cli
 Authenticate and share your threads:
 
 ```bash
-athrd login
+athrd auth
 athrd share
 ```
 

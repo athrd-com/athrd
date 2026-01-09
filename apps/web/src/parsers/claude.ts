@@ -17,7 +17,6 @@ import type {
   ToolCallContent,
   ToolCallTodoWrite,
   ToolCallWebSearch,
-  ToolCallWrite,
   ToolResultContent,
 } from "@/types/claude";
 import { IDE } from "@/types/ide";
@@ -270,6 +269,13 @@ function parseToolCall(
         skillName: tc.input.skill as string,
         parameters: tc.input.parameters as Record<string, unknown>,
       });
+    case "ls":
+      return createTerminalCommandToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        result,
+        command: `glob ${tc.input.pattern as string}`,
+      });
     case "read_file":
       return createReadFileToolCall({
         id: toolId,
@@ -279,8 +285,6 @@ function parseToolCall(
       });
 
     case "write_file":
-      const writeTool = tc as ToolCallWrite;
-
       return createWriteFileToolCall({
         id: toolId,
         timestamp: toolTimestamp,

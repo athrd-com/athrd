@@ -97,6 +97,17 @@ export interface ToolInputGrep {
   output_mode: string;
 }
 
+export interface ToolInputGlob {
+  pattern: string;
+}
+
+export interface ToolCallGlob {
+  type: "tool_use";
+  name: "Glob";
+  id: string;
+  input: ToolInputGlob;
+}
+
 export interface ToolCallGrep {
   type: "tool_use";
   name: "Grep";
@@ -127,6 +138,7 @@ export type ToolCallContent =
   | ToolCallTodoWrite
   | ToolCallWrite
   | ToolCallGrep
+  | ToolCallGlob
   | ToolCallWebSearch
   | ToolCallOther;
 

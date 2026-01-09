@@ -75,6 +75,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     Edit: "replace",
     Bash: "terminal_command",
     Skill: "skill",
+    Glob: "ls",
     run_command: "terminal_command",
     TodoWrite: "todos",
     WebSearch: "web_search",

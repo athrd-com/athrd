@@ -183,6 +183,7 @@ export class OpenCodeProvider implements ChatProvider {
 		for (const msg of loadedMessages) {
 			const partDir = path.join(partRoot, msg.id);
 			let fullText = "";
+			const toolCalls: any[] = [];
 
 			if (fs.existsSync(partDir)) {
 				const partFiles = fs
@@ -211,21 +212,17 @@ export class OpenCodeProvider implements ChatProvider {
 					if (part.type === "text" && part.text) {
 						fullText += part.text;
 					} else if (part.type === "tool" && part.state) {
-						// Reconstruct tool call in a human-readable format
-						fullText += `\n[Tool Call: ${part.state.input.command}]\n`;
-						fullText += `Description: ${part.state.input.description}\n`;
-						if (part.state.output) {
-							fullText += `Output:\n${part.state.output}\n`;
-						}
+						toolCalls.push(part.state);
 					}
 				}
 			}
 
-			if (fullText) {
+			if (fullText || toolCalls.length > 0) {
 				messages.push({
 					type: msg.role,
 					timestamp: msg.time.created,
 					message: fullText,
+					...(toolCalls.length > 0 && { toolCalls }),
 				});
 			}
 		}

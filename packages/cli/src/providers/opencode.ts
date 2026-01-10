@@ -42,6 +42,14 @@ interface OpenCodePart {
 	messageID: string;
 	type: string;
 	text?: string;
+	state?: {
+		input: {
+			command: string;
+			description: string;
+		};
+		output: string;
+		exit: number;
+	};
 }
 
 export class OpenCodeProvider implements ChatProvider {
@@ -202,6 +210,13 @@ export class OpenCodeProvider implements ChatProvider {
 				for (const part of parts) {
 					if (part.type === "text" && part.text) {
 						fullText += part.text;
+					} else if (part.type === "tool" && part.state) {
+						// Reconstruct tool call in a human-readable format
+						fullText += `\n[Tool Call: ${part.state.input.command}]\n`;
+						fullText += `Description: ${part.state.input.description}\n`;
+						if (part.state.output) {
+							fullText += `Output:\n${part.state.output}\n`;
+						}
 					}
 				}
 			}

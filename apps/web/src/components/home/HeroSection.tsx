@@ -2,10 +2,9 @@
 
 import { ClaudeAiIcon } from "@/components/ui/svgs/claudeAiIcon";
 import { Openai } from "@/components/ui/svgs/openai";
-import { Vscode } from "@/components/ui/svgs/vscode";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { CursorDark } from "../ui/svgs/cursorDark";
+import { Gemini } from "../ui/svgs/gemini";
 
 type PackageManager = "npm" | "npx" | "pnpm" | "yarn";
 
@@ -31,11 +30,6 @@ export function HeroSection() {
 
   const brands = [
     {
-      name: "VS Code",
-      color: "from-blue-500 to-sky-500",
-      icon: <Vscode className="w-8 h-8 md:w-10 md:h-10" />,
-    },
-    {
       name: "Claude",
       color: "from-orange-500 to-red-500",
       icon: (
@@ -46,20 +40,20 @@ export function HeroSection() {
       ),
     },
     {
-      name: "Cursor",
-      color: "from-white-500 to-slate-500",
+      name: "Codex",
+      color: "from-white-500 to-slate-400",
       icon: (
-        <CursorDark
+        <Openai
           className="w-8 h-8 md:w-10 md:h-10 text-white"
           fill="currentColor"
         />
       ),
     },
     {
-      name: "Codex",
-      color: "from-white-500 to-slate-400",
+      name: "Gemini",
+      color: "from-red-500 to-blue-400",
       icon: (
-        <Openai
+        <Gemini
           className="w-8 h-8 md:w-10 md:h-10 text-white"
           fill="currentColor"
         />

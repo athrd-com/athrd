@@ -131,7 +131,7 @@ const StatusBadge = ({ status }: { status: SupportStatus }) => {
 
 export default function ToolsPage() {
   return (
-    <div className="min-h-screen max-w-7xl mx-auto w-full text-foreground p-8">
+    <div className="min-h-screen max-w-6xl mx-auto w-full text-foreground p-8">
       <div className="w-full">
         <Card className="border-0 bg-transparent">
           <CardHeader>

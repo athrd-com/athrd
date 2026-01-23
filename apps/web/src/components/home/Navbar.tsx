@@ -43,7 +43,7 @@ export function Navbar() {
   }, []);
 
   return (
-    <nav className="relative z-50 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full text-sm">
+    <nav className="relative z-50 flex items-center justify-between px-6 py-6 max-w-6xl mx-auto w-full text-sm">
       <div className="flex items-center gap-3 font-semibold text-gray-100">
         <Link className="text-lg hover:underline" href="/">
           <AnimatedLogo />

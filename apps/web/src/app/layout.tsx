@@ -45,7 +45,7 @@ export default function RootLayout({
 
           <Navbar />
 
-          <main className="relative z-10 flex flex-col items-center pb-20 px-4 sm:px-6 lg:px-8">
+          <main className="relative max-w-6xl mx-auto z-10 flex flex-col items-center pb-20">
             {children}
           </main>
 

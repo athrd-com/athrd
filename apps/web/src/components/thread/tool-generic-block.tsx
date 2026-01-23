@@ -132,9 +132,11 @@ export default function ToolGenericBlock({
                   )}
                 />
               )}
-              <span className={cn("text-gray-300 font-medium truncate")}>
-                {label}
-                {title}
+              <span
+                className={cn("text-gray-300 font-medium truncate flex gap-1")}
+              >
+                <span>{label}</span>
+                <span>{title}</span>
               </span>
             </div>
             {hasResults && (

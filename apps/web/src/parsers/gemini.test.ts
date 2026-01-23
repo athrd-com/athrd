@@ -615,6 +615,71 @@ describe("geminiParser", () => {
         });
       });
 
+      it("should parse web_fetch tool call as web_search", () => {
+        const thread = createBaseThread();
+        thread.messages = [
+          {
+            id: "assistant_1",
+            type: "gemini",
+            content: "Fetching web content...",
+            timestamp: "2024-01-07T12:00:00Z",
+            model: "gemini-2.0-flash-exp",
+            toolCalls: [
+              {
+                id: "call_1",
+                name: "web_fetch",
+                status: "success",
+                timestamp: "2024-01-07T12:00:00Z",
+                displayName: "WebFetch",
+                description: "Processes content from URL(s)",
+                renderOutputAsMarkdown: true,
+                args: {
+                  prompt:
+                    "Summarize athrd from https://athrd.com/ for a video script.",
+                },
+                result: [
+                  {
+                    functionResponse: {
+                      id: "result_1",
+                      name: "web_fetch",
+                      response: {
+                        output: "Summary from athrd.com",
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ];
+
+        const result = geminiParser.parse(thread);
+
+        expect(result.messages).toHaveLength(1);
+        const assistantMsg = result.messages[0];
+        expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
+          1
+        );
+        expect(
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+        ).toMatchObject({
+          name: "web_search",
+          args: {
+            query:
+              "Summarize athrd from https://athrd.com/ for a video script.",
+          },
+        });
+        expect(
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0]
+        ).toMatchObject({
+          name: "web_fetch",
+          output: {
+            type: "text",
+            text: "Summary from athrd.com",
+          },
+        });
+      });
+
       it("should parse unknown tool call", () => {
         const thread = createBaseThread();
         thread.messages = [

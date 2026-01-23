@@ -94,6 +94,13 @@ export interface RunShellCommandToolCall extends BaseToolCall {
   };
 }
 
+export interface WebFetchToolCall extends BaseToolCall {
+  name: "web_fetch";
+  args: {
+    prompt: string;
+  };
+}
+
 export interface UnknownToolCall extends BaseToolCall {
   name: string;
   args: Record<string, unknown>;
@@ -106,4 +113,5 @@ export type GeminiToolCall =
   | WriteTodosToolCall
   | ReplaceToolCall
   | RunShellCommandToolCall
+  | WebFetchToolCall
   | UnknownToolCall;

@@ -22,6 +22,7 @@ import {
   createTerminalCommandToolCall,
   createUnknownToolCall,
   createUpdatePlanToolCall,
+  createWebSearchToolCall,
   createWriteFileToolCall,
   generateId,
   mapToolName,
@@ -179,6 +180,17 @@ function parseToolCall(tc: GeminiToolCall, timestamp: string): AthrdToolCall {
             status: todo.status as TodoStep["status"],
           })
         ),
+        result,
+      });
+
+    case "web_search":
+      return createWebSearchToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        query:
+          (tc.args as { prompt?: string; query?: string }).prompt ??
+          (tc.args as { prompt?: string; query?: string }).query ??
+          "",
         result,
       });
 

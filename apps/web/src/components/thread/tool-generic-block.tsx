@@ -102,25 +102,25 @@ export default function ToolGenericBlock({
   }
 
   return (
-    <div className="my-4" title={label}>
+    <div className="" title={label}>
       <div
         className={cn(
           "group rounded-lg p-3 hover:bg-[#111] hover:border-white/20 transition-colors",
-          !isCollapsed && hasResults && "bg-[#111] border border-white/10"
+          !isCollapsed && hasResults && "bg-[#111] border border-white/10",
         )}
       >
         <div className="w-full">
           <div
             className={cn(
               "flex justify-between w-full",
-              hasResults && "cursor-pointer"
+              hasResults && "cursor-pointer",
             )}
             onClick={() => hasResults && setIsCollapsed(!isCollapsed)}
           >
             <div
               className={cn(
                 "flex items-center font-mono text-xs min-w-0",
-                !isCollapsed && "gap-2"
+                !isCollapsed && "gap-2",
               )}
             >
               {Icon && (
@@ -128,7 +128,7 @@ export default function ToolGenericBlock({
                   size={14}
                   className={cn(
                     "text-gray-400 stroke-3 shrink-0 transition-all -translate-x-2",
-                    !isCollapsed && "translate-x-0"
+                    !isCollapsed && "translate-x-0",
                   )}
                 />
               )}
@@ -141,7 +141,7 @@ export default function ToolGenericBlock({
               <div
                 className={cn(
                   "ml-2 hidden group-hover:flex items-center",
-                  !isCollapsed && "flex"
+                  !isCollapsed && "flex",
                 )}
               >
                 {isCollapsed ? (

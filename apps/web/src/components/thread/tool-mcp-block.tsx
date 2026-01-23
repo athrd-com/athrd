@@ -77,11 +77,11 @@ export default function ToolMCPBlock({
   };
 
   return (
-    <div className="my-4">
+    <div className="">
       <div
         className={cn(
           "group rounded-lg p-3 flex items-center justify-between hover:bg-[#111] hover:border-white/20 transition-colors",
-          !isCollapsed && "bg-[#111] border border-white/10"
+          !isCollapsed && "bg-[#111] border border-white/10",
         )}
       >
         <div className="w-full">
@@ -108,7 +108,7 @@ export default function ToolMCPBlock({
                 <div
                   className={cn(
                     "ml-2 hidden group-hover:flex items-center",
-                    !isCollapsed && "flex"
+                    !isCollapsed && "flex",
                   )}
                 >
                   {isCollapsed ? (

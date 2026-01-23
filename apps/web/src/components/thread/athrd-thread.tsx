@@ -338,7 +338,7 @@ function UnknownToolBlock({ toolCall }: { toolCall: UnknownToolCall }) {
   );
 
   return (
-    <div className="my-4">
+    <div className="">
       <div className="flex items-center text-sm">
         <WrenchIcon className="h-4 w-4 text-gray-400 mr-2" />
         <span className="text-gray-400">Tool:</span>

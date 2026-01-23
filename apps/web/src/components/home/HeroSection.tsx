@@ -104,8 +104,8 @@ export function HeroSection() {
       </h1>
 
       <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 font-light">
-        Stop screenshotting your VS Code and Claude chats. Turn your local AI
-        conversations into shareable, interactive links for your team.
+        Turn your local AI conversations into shareable, interactive links for
+        your team or anyone else.
       </p>
 
       {/* Install Command */}

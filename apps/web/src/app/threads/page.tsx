@@ -22,7 +22,6 @@ export default async function ThreadsPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">Sign in to view your threads</h1>
-        <p className="text-muted-foreground">Connect with GitHub.</p>
         <LoginButton />
       </div>
     );

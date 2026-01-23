@@ -81,7 +81,6 @@ function groupMessages(messages: (AthrdUserMessage | AthrdAssistantMessage)[]) {
  */
 export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
-  console.log(thread.messages);
 
   return (
     <div className="px-4 sm:px-8 md:px-16 lg:px-32 py-8 space-y-6">

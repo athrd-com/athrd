@@ -101,7 +101,6 @@ function parseUserRequest(request: Request): AthrdUserMessage | null {
       AthrdUserMessageFileVariable | AthrdUserMessageImageVariable
     > = [];
 
-    console.log(request.variableData.variables);
     for (const varData of request.variableData.variables!) {
       if (varData.kind === "file" && varData.value && "path" in varData.value) {
         variables.push({
@@ -123,7 +122,7 @@ function parseUserRequest(request: Request): AthrdUserMessage | null {
  * Parse the assistant response portion
  */
 function parseAssistantResponse(
-  request: Request
+  request: Request,
 ): AthrdAssistantMessage | null {
   const response = request.response;
   if (!response || response.length === 0) return null;
@@ -172,7 +171,7 @@ function parseAssistantResponse(
       const roundTools = parseToolCallRound(
         round,
         timestamp,
-        request.result.metadata.toolCallResults
+        request.result.metadata.toolCallResults,
       );
       toolCalls.push(...roundTools);
 
@@ -212,7 +211,7 @@ function parseAssistantResponse(
  */
 function parseToolInvocation(
   invocation: ToolInvocationSerialized,
-  timestamp: string
+  timestamp: string,
 ): AthrdToolCall {
   const toolId = invocation.toolCallId || generateId();
   const toolName = invocation.toolId || "";
@@ -336,7 +335,7 @@ function parseToolInvocation(
 function parseToolCallRound(
   round: ToolCallRound,
   timestamp: string,
-  toolCallResults?: Record<string, unknown>
+  toolCallResults?: Record<string, unknown>,
 ): AthrdToolCall[] {
   const toolCalls: AthrdToolCall[] = [];
 
@@ -356,7 +355,7 @@ function parseToolCallRound(
           toolName: toolName,
           input: tc.arguments,
           result: [],
-        })
+        }),
       );
       continue;
     }
@@ -385,7 +384,7 @@ function parseToolCallRound(
             timestamp,
             filePath: (args.filePath as string) || (args.path as string) || "",
             result,
-          })
+          }),
         );
         break;
 
@@ -397,7 +396,7 @@ function parseToolCallRound(
             filePath: (args.filePath as string) || (args.path as string) || "",
             content: (args.content as string) || "",
             result,
-          })
+          }),
         );
         break;
 
@@ -410,7 +409,7 @@ function parseToolCallRound(
             oldString: (args.oldString as string) || "",
             newString: (args.newString as string) || "",
             result,
-          })
+          }),
         );
         break;
 
@@ -421,7 +420,7 @@ function parseToolCallRound(
             timestamp,
             dirPath: (args.path as string) || (args.dirPath as string) || "",
             result,
-          })
+          }),
         );
         break;
 
@@ -433,7 +432,7 @@ function parseToolCallRound(
             command: (args.command as string) || "",
             cwd: args.cwd as string | undefined,
             result,
-          })
+          }),
         );
         break;
 
@@ -445,7 +444,7 @@ function parseToolCallRound(
             name: toolName,
             args,
             result,
-          })
+          }),
         );
     }
   }
@@ -465,7 +464,7 @@ function extractPathFromUri(uri: VSCODEURI | undefined): string {
  * Extract result output from tool invocation
  */
 function extractResultOutput(
-  invocation: ToolInvocationSerialized
+  invocation: ToolInvocationSerialized,
 ): string | undefined {
   // Try to get from result details
   if (invocation.resultDetails) {

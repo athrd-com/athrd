@@ -1,21 +1,30 @@
 "use client";
 
-import { authClient } from "~/server/better-auth/client";
+import { Github, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Github } from "lucide-react";
+import { authClient } from "~/server/better-auth/client";
 
 export function LoginButton() {
-    const handleLogin = async () => {
-        await authClient.signIn.social({
-            provider: "github",
-            callbackURL: "/threads",
-        });
-    };
+  const [isLoading, setIsLoading] = useState(false);
 
-    return (
-        <Button onClick={handleLogin} className="gap-2">
-            <Github className="h-4 w-4" />
-            Login with GitHub
-        </Button>
-    );
+  const handleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: "/threads",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Button onClick={handleLogin} disabled={isLoading} className="gap-2">
+      {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
+      {!isLoading && <Github className="h-4 w-4" />}
+      Login with GitHub
+    </Button>
+  );
 }

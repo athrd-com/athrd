@@ -56,8 +56,10 @@ export function Navbar() {
         <Link href="/threads" className="hover:text-white transition-colors">
           Threads
         </Link>
-
-        <Link href="/tools" className="hover:text-white transition-colors">
+        <Link
+          href="/tools"
+          className="hover:text-white transition-colors hidden"
+        >
           Tools
         </Link>
         <Link href="/enterprise" className="hover:text-white transition-colors">

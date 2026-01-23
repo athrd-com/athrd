@@ -13,7 +13,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-export default function PricingPage() {
+export default function EnterprisePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (

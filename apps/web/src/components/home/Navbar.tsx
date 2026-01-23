@@ -23,7 +23,7 @@ export function Navbar() {
           "https://api.github.com/repos/athrd-com/athrd",
           {
             headers: { Accept: "application/vnd.github.v3+json" },
-          }
+          },
         );
         if (!res.ok) return;
         const data = await res.json();
@@ -60,8 +60,8 @@ export function Navbar() {
         <Link href="/tools" className="hover:text-white transition-colors">
           Tools
         </Link>
-        <Link href="/pricing" className="hover:text-white transition-colors">
-          Pricing
+        <Link href="/enterprise" className="hover:text-white transition-colors">
+          Enterprise
         </Link>
       </div>
 

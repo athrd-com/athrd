@@ -64,7 +64,7 @@ export interface VariableImage {
 
 /** Variable data associated with a request */
 export interface VariableData {
-  variables: unknown[] | VariableFile[];
+  variables: VariableFile[];
 }
 
 /** Cache information for rendered content */

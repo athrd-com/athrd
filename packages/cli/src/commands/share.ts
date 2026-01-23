@@ -30,15 +30,7 @@ export function shareCommand(program: Command) {
 		.option("--opencode", "Filter by OpenCode")
 		.action(async (options) => {
 			try {
-				console.log(chalk.blue("📋 Finding AI chat threads...\n"));
-
-				// Find sessions from all providers
-				const allSessions = await Promise.all(
-					providers.map((p) => p.findSessions()),
-				);
-				let sessions = allSessions.flat();
-
-				// Determine filter
+				// Determine filter early to optimize search
 				let filterIde = options.ide;
 				if (options.vscode) filterIde = "vscode";
 				if (options.gemini) filterIde = "gemini";
@@ -47,11 +39,22 @@ export function shareCommand(program: Command) {
 				if (options.codex) filterIde = "codex";
 				if (options.opencode) filterIde = "opencode";
 
+				console.log(chalk.blue("📋 Finding AI chat threads...\n"));
+
+				// Select providers based on filter
+				let targetProviders = providers;
 				if (filterIde) {
-					sessions = sessions.filter(
-						(s) => s.source.toLowerCase() === filterIde.toLowerCase(),
+					const target = providers.find(
+						(p) => p.id.toLowerCase() === filterIde.toLowerCase(),
 					);
+					targetProviders = target ? [target] : [];
 				}
+
+				// Find sessions from selected providers only
+				const allSessions = await Promise.all(
+					targetProviders.map((p) => p.findSessions()),
+				);
+				let sessions = allSessions.flat();
 
 				if (sessions.length === 0) {
 					console.log(chalk.yellow("No chat sessions found."));
@@ -133,7 +136,15 @@ export function shareCommand(program: Command) {
 
 				try {
 					const token = await requireAuth();
-					const octokit = new Octokit({ auth: token });
+					const octokit = new Octokit({
+						auth: token,
+						log: {
+							debug: () => {},
+							info: () => {},
+							warn: console.warn,
+							error: console.error,
+						},
+					});
 
 					// Fetch GitHub user info once
 					const userInfo = await getGitHubUserInfo(octokit);

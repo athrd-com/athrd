@@ -4,6 +4,8 @@ import type {
   AthrdThinking,
   AthrdToolCall,
   AthrdUserMessage,
+  AthrdUserMessageFileVariable,
+  AthrdUserMessageImageVariable,
 } from "@/types/athrd";
 import { IDE } from "@/types/ide";
 import type {
@@ -71,7 +73,6 @@ export const vscodeParser: Parser<VSCodeThread> = {
     const messages: (AthrdUserMessage | AthrdAssistantMessage)[] = [];
 
     for (const request of rawThread.requests) {
-      // Parse user message
       const userMessage = parseUserRequest(request);
       if (userMessage) {
         messages.push(userMessage);
@@ -94,6 +95,22 @@ export const vscodeParser: Parser<VSCodeThread> = {
 function parseUserRequest(request: Request): AthrdUserMessage | null {
   const content = request.message?.text?.trim();
   if (!content) return null;
+
+  if (request.variableData) {
+    const variables: Array<
+      AthrdUserMessageFileVariable | AthrdUserMessageImageVariable
+    > = [];
+
+    console.log(request.variableData.variables);
+    for (const varData of request.variableData.variables!) {
+      if (varData.kind === "file" && varData.value && "path" in varData.value) {
+        variables.push({
+          type: "file",
+          path: varData.value.path,
+        });
+      }
+    }
+  }
 
   return {
     id: request.requestId || generateId(),

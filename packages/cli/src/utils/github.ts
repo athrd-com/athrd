@@ -1,14 +1,14 @@
 import { Octokit } from "@octokit/rest";
 
 export interface GitHubUserInfo {
-  username: string;
-  avatarImage: string;
+	username: string;
+	avatarImage: string;
 }
 
 export interface GitHubOrgInfo {
-  orgId: number;
-  orgName: string;
-  orgIcon: string;
+	orgId: number;
+	orgName: string;
+	orgIcon: string;
 }
 
 let cachedUserInfo: GitHubUserInfo | null = null;
@@ -18,27 +18,27 @@ let cachedUserInfo: GitHubUserInfo | null = null;
  * Results are cached to avoid multiple API calls during batch uploads
  */
 export async function getGitHubUserInfo(
-  octokit: Octokit
+	octokit: Octokit,
 ): Promise<GitHubUserInfo> {
-  if (cachedUserInfo) {
-    return cachedUserInfo;
-  }
+	if (cachedUserInfo) {
+		return cachedUserInfo;
+	}
 
-  const response = await octokit.users.getAuthenticated();
-  const userInfo: GitHubUserInfo = {
-    username: response.data.login,
-    avatarImage: response.data.avatar_url,
-  };
+	const response = await octokit.users.getAuthenticated();
+	const userInfo: GitHubUserInfo = {
+		username: response.data.login,
+		avatarImage: response.data.avatar_url,
+	};
 
-  cachedUserInfo = userInfo;
-  return userInfo;
+	cachedUserInfo = userInfo;
+	return userInfo;
 }
 
 /**
  * Reset cached user info (useful for testing or multiple sessions)
  */
 export function resetGitHubUserInfoCache(): void {
-  cachedUserInfo = null;
+	cachedUserInfo = null;
 }
 
 const cachedOrgInfos = new Map<string, GitHubOrgInfo>();
@@ -48,34 +48,41 @@ const cachedOrgInfos = new Map<string, GitHubOrgInfo>();
  * Results are cached to avoid multiple API calls during batch uploads
  */
 export async function getGitHubOrgInfo(
-  octokit: Octokit,
-  orgName: string
-): Promise<GitHubOrgInfo> {
-  if (cachedOrgInfos.has(orgName)) {
-    return cachedOrgInfos.get(orgName)!;
-  }
+	octokit: Octokit,
+	orgName: string,
+): Promise<GitHubOrgInfo | null> {
+	if (cachedOrgInfos.has(orgName)) {
+		return cachedOrgInfos.get(orgName)!;
+	}
 
-  const response = await octokit.orgs.get({ org: orgName });
-  const orgInfo: GitHubOrgInfo = {
-    orgId: response.data.id,
-    orgName: response.data.login,
-    orgIcon: response.data.avatar_url,
-  };
+	const response = await octokit.orgs.get({ org: orgName }).catch(() => {
+		return null;
+	});
 
-  cachedOrgInfos.set(orgName, orgInfo);
-  return orgInfo;
+	if (!response) {
+		return null;
+	}
+
+	const orgInfo: GitHubOrgInfo = {
+		orgId: response.data.id,
+		orgName: response.data.login,
+		orgIcon: response.data.avatar_url,
+	};
+
+	cachedOrgInfos.set(orgName, orgInfo);
+	return orgInfo;
 }
 
 /**
  * Reset cached org info (useful for testing or multiple sessions)
  */
 export function resetGitHubOrgInfoCache(): void {
-  cachedOrgInfos.clear();
+	cachedOrgInfos.clear();
 }
 
 export interface GitHubRepoInfo {
-  repoId: number;
-  name: string;
+	repoId: number;
+	name: string;
 }
 
 const cachedRepoInfos = new Map<string, GitHubRepoInfo>();
@@ -85,28 +92,28 @@ const cachedRepoInfos = new Map<string, GitHubRepoInfo>();
  * Results are cached to avoid multiple API calls during batch uploads
  */
 export async function getGitHubRepoInfo(
-  octokit: Octokit,
-  owner: string,
-  repo: string
+	octokit: Octokit,
+	owner: string,
+	repo: string,
 ): Promise<GitHubRepoInfo | null> {
-  const cacheKey = `${owner}/${repo}`;
-  if (cachedRepoInfos.has(cacheKey)) {
-    return cachedRepoInfos.get(cacheKey)!;
-  }
+	const cacheKey = `${owner}/${repo}`;
+	if (cachedRepoInfos.has(cacheKey)) {
+		return cachedRepoInfos.get(cacheKey)!;
+	}
 
-  const response = await octokit.repos.get({ owner, repo }).catch((error) => {
-    return null;
-  });
+	const response = await octokit.repos.get({ owner, repo }).catch((error) => {
+		return null;
+	});
 
-  if (!response) {
-    return null;
-  }
+	if (!response) {
+		return null;
+	}
 
-  const repoInfo: GitHubRepoInfo = {
-    repoId: response.data.id,
-    name: response.data.name,
-  };
+	const repoInfo: GitHubRepoInfo = {
+		repoId: response.data.id,
+		name: response.data.name,
+	};
 
-  cachedRepoInfos.set(cacheKey, repoInfo);
-  return repoInfo;
+	cachedRepoInfos.set(cacheKey, repoInfo);
+	return repoInfo;
 }

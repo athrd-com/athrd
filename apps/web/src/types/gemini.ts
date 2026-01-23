@@ -1,4 +1,4 @@
-import type { TodoStatus } from "@/components/thread/tool-todos-block";
+import type { TodoStep } from "@/types/athrd";
 
 export interface GeminiThread {
   messages: (GeminiUserMessage | GeminiAssistantMessage)[];
@@ -72,7 +72,7 @@ export interface WriteTodosToolCall extends BaseToolCall {
   args: {
     todos: Array<{
       description: string;
-      status: TodoStatus;
+      status: TodoStep["status"];
     }>;
   };
 }

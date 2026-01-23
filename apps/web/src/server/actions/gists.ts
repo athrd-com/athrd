@@ -22,14 +22,12 @@ export async function getUserGists() {
     return [];
   }
 
-  const accounts = (await db`
-    SELECT * FROM account 
-    WHERE "userId" = ${session.user.id} 
-    AND "providerId" = 'github' 
-    LIMIT 1
-  `) as Account[];
+  const result = await db.query<Account>(
+    'SELECT * FROM account WHERE "userId" = $1 AND "providerId" = \'github\' LIMIT 1',
+    [session.user.id],
+  );
 
-  const account = accounts[0];
+  const account = result.rows[0];
 
   if (!account || !account.accessToken) {
     return [];

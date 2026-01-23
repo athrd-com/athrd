@@ -94,7 +94,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
  */
 function extractModelsUsed(
   content: Record<string, unknown>,
-  ide: IDE
+  ide: IDE,
 ): string[] {
   const models = new Set<string>();
 
@@ -106,7 +106,7 @@ function extractModelsUsed(
       });
     }
 
-    if (ide === IDE.CLAUDE || ide === (IDE.CLAUDE_CODE as string)) {
+    if (ide === IDE.CLAUDE_CODE) {
       const claudeContent = content as unknown as ClaudeThreadType;
       claudeContent.requests?.forEach((req) => {
         if (req.message?.model) models.add(req.message.model);

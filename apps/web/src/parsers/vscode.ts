@@ -234,7 +234,10 @@ function parseToolInvocation(
             {
               id: generateId(),
               name: toolName,
-              output: resultDetails.output.map((o) => o.value).join("\n"),
+              output: {
+                type: "text",
+                text: resultDetails.output.map((o) => o.value).join("\n"),
+              },
             },
           ]
         : [],
@@ -260,7 +263,10 @@ function parseToolInvocation(
         {
           id: generateId(),
           name: toolName,
-          output: resultOutput,
+          output: {
+            type: "text" as const,
+            text: resultOutput,
+          },
         },
       ]
     : [];
@@ -371,7 +377,10 @@ function parseToolCallRound(
           {
             id: generateId(),
             name: toolName,
-            output: resultOutput,
+            output: {
+              type: "text" as const,
+              text: resultOutput,
+            },
           },
         ]
       : [];

@@ -501,6 +501,56 @@ describe("codexParser", () => {
         });
       });
 
+      it("should parse exec_command tool call as terminal_command", () => {
+        const thread = createBaseThread();
+        thread.messages = [
+          {
+            timestamp: "2024-01-07T12:00:00Z",
+            type: "response_item",
+            payload: {
+              type: "function_call",
+              name: "exec_command",
+              arguments: JSON.stringify({
+                cmd: "git status --short",
+                cwd: "/repo",
+              }),
+              call_id: "call_exec",
+            },
+          },
+          {
+            timestamp: "2024-01-07T12:00:01Z",
+            type: "response_item",
+            payload: {
+              type: "function_call_output",
+              call_id: "call_exec",
+              output: [
+                {
+                  type: "input_text",
+                  text: JSON.stringify(" M apps/web/src/parsers/utils.ts"),
+                },
+              ],
+            },
+          },
+        ];
+
+        const result = codexParser.parse(thread);
+
+        expect(result.messages).toHaveLength(1);
+        const assistantMsg = result.messages[0];
+        expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
+          1
+        );
+        expect(
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+        ).toMatchObject({
+          name: "terminal_command",
+          args: {
+            command: "git status --short",
+            cwd: "/repo",
+          },
+        });
+      });
+
       it("should parse todos tool call", () => {
         const thread = createBaseThread();
         thread.messages = [

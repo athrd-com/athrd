@@ -17,6 +17,39 @@ import {
   upsertThreadGistMapping,
 } from "../utils/sessions.js";
 
+function extractSessionIdFromHookPayload(
+  payload: string,
+  provider?: string,
+): string | null {
+  try {
+    const data = JSON.parse(payload);
+
+    if (provider === "claude") {
+      return typeof data.session_id === "string" ? data.session_id : null;
+    }
+
+    if (provider === "codex") {
+      return typeof data["thread-id"] === "string" ? data["thread-id"] : null;
+    }
+
+    if (provider === "gemini") {
+      if (typeof data.sessionId === "string") {
+        return data.sessionId;
+      }
+      return typeof data.session_id === "string" ? data.session_id : null;
+    }
+
+    const genericId =
+      (typeof data["thread-id"] === "string" && data["thread-id"]) ||
+      (typeof data.sessionId === "string" && data.sessionId) ||
+      (typeof data.session_id === "string" && data.session_id);
+
+    return genericId || null;
+  } catch {
+    return null;
+  }
+}
+
 export function shareCommand(program: Command) {
   program
     .command("share")
@@ -32,6 +65,7 @@ export function shareCommand(program: Command) {
     .option("--cursor", "Filter by Cursor")
     .option("--codex", "Filter by Codex")
     .option("--opencode", "Filter by OpenCode")
+    .option("--json <json>", "JSON payload from hook event")
     .action(async (options) => {
       try {
         // Determine filter early to optimize search
@@ -59,6 +93,21 @@ export function shareCommand(program: Command) {
           targetProviders.map((p) => p.findSessions()),
         );
         let sessions = allSessions.flat();
+
+        const hookSessionId = options.json
+          ? extractSessionIdFromHookPayload(options.json, filterIde)
+          : null;
+
+        if (options.json && !hookSessionId) {
+          console.log(
+            chalk.yellow("No session ID found in hook JSON payload."),
+          );
+          return;
+        }
+
+        if (hookSessionId) {
+          sessions = sessions.filter((s) => s.sessionId === hookSessionId);
+        }
 
         if (sessions.length === 0) {
           console.log(chalk.yellow("No chat sessions found."));
@@ -103,30 +152,37 @@ export function shareCommand(program: Command) {
           };
         });
 
-        // Show multi-select prompt
-        const answers = await inquirer.prompt([
-          {
-            type: "checkbox",
-            name: "selectedSessions",
-            message:
-              "Select chat threads (use Space to select, Enter to confirm):",
-            choices,
-            pageSize: 15,
-          },
-        ]);
+        let selectedSessions: ChatSession[] = [];
 
-        if (answers.selectedSessions.length === 0) {
+        if (hookSessionId && displaySessions.length > 0) {
+          selectedSessions = displaySessions;
+        } else {
+          // Show multi-select prompt
+          const answers = await inquirer.prompt([
+            {
+              type: "checkbox",
+              name: "selectedSessions",
+              message:
+                "Select chat threads (use Space to select, Enter to confirm):",
+              choices,
+              pageSize: 15,
+            },
+          ]);
+          selectedSessions = answers.selectedSessions;
+        }
+
+        if (selectedSessions.length === 0) {
           console.log(chalk.yellow("\nNo chats selected."));
           return;
         }
 
         console.log(
           chalk.green(
-            `\n✓ Selected ${answers.selectedSessions.length} chat thread(s):`,
+            `\n✓ Selected ${selectedSessions.length} chat thread(s):`,
           ),
         );
 
-        answers.selectedSessions.forEach((session: ChatSession) => {
+        selectedSessions.forEach((session: ChatSession) => {
           console.log(
             chalk.cyan(`  • ${session.customTitle || "Untitled Chat"}`),
           );
@@ -140,8 +196,8 @@ export function shareCommand(program: Command) {
           const octokit = new Octokit({
             auth: token,
             log: {
-              debug: () => {},
-              info: () => {},
+              debug: () => { },
+              info: () => { },
               warn: console.warn,
               error: console.error,
             },
@@ -150,7 +206,7 @@ export function shareCommand(program: Command) {
           // Fetch GitHub user info once
           const userInfo = await getGitHubUserInfo(octokit);
 
-          for (const session of answers.selectedSessions) {
+          for (const session of selectedSessions) {
             const provider = getProvider(session.source);
             if (!provider) {
               console.warn(
@@ -243,8 +299,7 @@ export function shareCommand(program: Command) {
 
             console.log(
               chalk.green(
-                `✓ ${
-                  session.customTitle || "Untitled Chat"
+                `✓ ${session.customTitle || "Untitled Chat"
                 }: (${actionLabel}) https://athrd.com/threads/${gistId}`,
               ),
             );

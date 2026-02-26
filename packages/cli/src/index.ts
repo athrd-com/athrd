@@ -9,6 +9,7 @@ import { authCommand } from "./commands/auth.js";
 import { logoutCommand } from "./commands/logout.js";
 import { meCommand } from "./commands/me.js";
 import { shareCommand } from "./commands/share.js";
+import { hooksCommand } from "./commands/hooks.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,12 +22,13 @@ updateNotifier({ pkg }).notify();
 
 const program = new Command();
 
-program.name("@athrd/cli").description("ATHRD CLI tool").version("1.0.0");
+program.name("@athrd/cli").description("ATHRD CLI tool").version(pkg.version);
 
 // Register commands
 shareCommand(program);
 authCommand(program);
 logoutCommand(program);
 meCommand(program);
+hooksCommand(program);
 
 program.parse();

@@ -1,8 +1,10 @@
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device";
 import chalk from "chalk";
 import { Command } from "commander";
+import inquirer from "inquirer";
 import open from "open";
 import { config } from "../config.js";
+import { installAllHooks } from "./hooks.js";
 import { saveCredentials } from "../utils/credentials.js";
 
 export function authCommand(program: Command) {
@@ -57,6 +59,22 @@ export function authCommand(program: Command) {
 
         // Save the token
         await saveCredentials({ token });
+
+        const { shouldInstallHooks } = await inquirer.prompt([
+          {
+            type: "confirm",
+            name: "shouldInstallHooks",
+            message: "Install hooks for automatic thread syncing?",
+            default: true,
+          },
+        ]);
+
+        if (shouldInstallHooks) {
+          installAllHooks();
+        } else {
+          console.log(chalk.yellow("Skipped hooks installation."));
+        }
+
         console.log(chalk.green("\n✓ Authentication successful!"));
         console.log(chalk.dim(`Token: ${token.substring(0, 10)}...\n`));
       } catch (error) {

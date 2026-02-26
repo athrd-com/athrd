@@ -235,6 +235,24 @@ function uninstallGeminiHook() {
     }
 }
 
+export function installAllHooks() {
+    console.log(chalk.blue("Installing hooks..."));
+    writeHookScript();
+    installClaudeHook();
+    installCodexHook();
+    installGeminiHook();
+    console.log(chalk.green("Hooks installation complete!"));
+}
+
+export function uninstallAllHooks() {
+    console.log(chalk.blue("Uninstalling hooks..."));
+    removeHookScript();
+    uninstallClaudeHook();
+    uninstallCodexHook();
+    uninstallGeminiHook();
+    console.log(chalk.green("Hooks uninstallation complete!"));
+}
+
 export function hooksCommand(program: Command) {
     const hooksCmd = program
         .command("hooks")
@@ -244,23 +262,13 @@ export function hooksCommand(program: Command) {
         .command("install")
         .description("Install hooks for supported AI CLIs (Claude, Codex, Gemini)")
         .action(() => {
-            console.log(chalk.blue("Installing hooks..."));
-            writeHookScript();
-            installClaudeHook();
-            installCodexHook();
-            installGeminiHook();
-            console.log(chalk.green("Hooks installation complete!"));
+            installAllHooks();
         });
 
     hooksCmd
         .command("uninstall")
         .description("Remove installed AI CLI hooks")
         .action(() => {
-            console.log(chalk.blue("Uninstalling hooks..."));
-            removeHookScript();
-            uninstallClaudeHook();
-            uninstallCodexHook();
-            uninstallGeminiHook();
-            console.log(chalk.green("Hooks uninstallation complete!"));
+            uninstallAllHooks();
         });
 }

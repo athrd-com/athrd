@@ -12,6 +12,7 @@ import {
   getGitHubRepoInfo,
   getGitHubUserInfo,
 } from "../utils/github.js";
+import { appendAthrdUrlMarker } from "../utils/marker.js";
 import {
   getGistIdForThread,
   upsertThreadGistMapping,
@@ -73,6 +74,7 @@ export function shareCommand(program: Command) {
     .option("--codex", "Filter by Codex")
     .option("--opencode", "Filter by OpenCode")
     .option("--json <json>", "JSON payload from hook event")
+    .option("--mark", "Write shared athrd URL to repo-root .athrd-ai-marker")
     .action(async (options) => {
       try {
         // Determine filter early to optimize search
@@ -304,10 +306,27 @@ export function shareCommand(program: Command) {
               gistId,
             });
 
+            const athrdUrl = `https://athrd.com/threads/${gistId}`;
+
+            if (options.mark) {
+              try {
+                appendAthrdUrlMarker({
+                  cwd: session.workspacePath ?? process.cwd(),
+                  url: athrdUrl,
+                });
+              } catch (error) {
+                console.warn(
+                  chalk.yellow(
+                    `⚠ Failed to write .athrd-ai-marker for session ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+                  ),
+                );
+              }
+            }
+
             console.log(
               chalk.green(
                 `✓ ${session.customTitle || "Untitled Chat"
-                }: (${actionLabel}) https://athrd.com/threads/${gistId}`,
+                }: (${actionLabel}) ${athrdUrl}`,
               ),
             );
           }

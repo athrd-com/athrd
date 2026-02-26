@@ -25,7 +25,7 @@ if [ "$PROVIDER" = "codex" ] && [ -n "$2" ]; then
 fi
 
 if [ -n "$EVENT_JSON" ]; then
-    athrd share --json "$EVENT_JSON" "--$PROVIDER" >/dev/null 2>&1 &
+    athrd share --mark --json "$EVENT_JSON" "--$PROVIDER" >/dev/null 2>&1 &
 fi
 `;
 

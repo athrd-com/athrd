@@ -29,7 +29,13 @@ function extractSessionIdFromHookPayload(
     }
 
     if (provider === "codex") {
-      return typeof data["thread-id"] === "string" ? data["thread-id"] : null;
+      if (typeof data["thread-id"] === "string") {
+        return data["thread-id"];
+      }
+      if (typeof data.thread_id === "string") {
+        return data.thread_id;
+      }
+      return typeof data.session_id === "string" ? data.session_id : null;
     }
 
     if (provider === "gemini") {
@@ -41,6 +47,7 @@ function extractSessionIdFromHookPayload(
 
     const genericId =
       (typeof data["thread-id"] === "string" && data["thread-id"]) ||
+      (typeof data.thread_id === "string" && data.thread_id) ||
       (typeof data.sessionId === "string" && data.sessionId) ||
       (typeof data.session_id === "string" && data.session_id);
 

@@ -22,7 +22,7 @@ updateNotifier({ pkg }).notify();
 
 const program = new Command();
 
-program.name("@athrd/cli").description("ATHRD CLI tool").version("1.0.0");
+program.name("@athrd/cli").description("ATHRD CLI tool").version(pkg.version);
 
 // Register commands
 shareCommand(program);

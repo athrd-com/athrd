@@ -19,9 +19,15 @@ PROVIDER=$1
 export PATH="$HOME/.bun/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
 
 INPUT=$(cat)
+EVENT_JSON="$INPUT"
 
-if [ -n "$INPUT" ]; then
-    athrd share --json "$INPUT" "--$PROVIDER" >/dev/null 2>&1 &
+# Codex sends hook data as the second argument, not stdin.
+if [ "$PROVIDER" = "codex" ] && [ -n "$2" ]; then
+    EVENT_JSON="$2"
+fi
+
+if [ -n "$EVENT_JSON" ]; then
+    athrd share --json "$EVENT_JSON" "--$PROVIDER" >/dev/null 2>&1 &
 fi
 `;
 

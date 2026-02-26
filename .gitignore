@@ -5,6 +5,7 @@
 
 # dependencies
 /node_modules
+node_modules
 /.pnp
 .pnp.js
 apps/web/node_modules
@@ -27,6 +28,13 @@ next-env.d.ts
 
 # production
 /build
+build
+/dist
+dist
+
+# caches
+.cache
+*.log
 
 # misc
 .DS_Store

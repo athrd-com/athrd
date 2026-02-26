@@ -62,3 +62,17 @@ athrd share
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+
+## GitHub PR Bot App
+
+This monorepo includes a public GitHub App service at `apps/github-pr-app`.
+It scans PR commit messages for `https://athrd.com/...` links and maintains an `Athrd links` section in the PR description.
+
+Quick start:
+
+```bash
+bun install
+bun run --cwd apps/github-pr-app dev
+```
+
+See full setup instructions in `apps/github-pr-app/README.md`.

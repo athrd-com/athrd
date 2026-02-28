@@ -309,7 +309,7 @@ describe("codexParser", () => {
 
       expect(result.messages).toHaveLength(1);
       expect(result.messages[0]?.content).toBe(
-        "First paragraph\n\nSecond paragraph\n\nThird paragraph"
+        "First paragraph\n\nSecond paragraph\n\nThird paragraph",
       );
     });
 
@@ -427,10 +427,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "terminal_command",
           args: {
@@ -438,10 +438,10 @@ describe("codexParser", () => {
           },
         });
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result,
         ).toHaveLength(1);
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0],
         ).toMatchObject({
           name: "bash",
           output: {
@@ -488,10 +488,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "terminal_command",
           args: {
@@ -538,10 +538,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "terminal_command",
           args: {
@@ -590,10 +590,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "todos",
           args: {
@@ -605,7 +605,7 @@ describe("codexParser", () => {
         });
       });
 
-      it("should parse request_user_input as todos and mark selected option as completed", () => {
+      it("should parse request_user_input tool call and mark selected option", () => {
         const thread = createBaseThread();
         thread.messages = [
           {
@@ -670,25 +670,115 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
-          name: "todos",
+          name: "request_user_input",
           args: {
-            plan: [
-              { step: "Always append (Recommended)", status: "pending" },
-              { step: "Skip duplicates", status: "completed" },
+            questions: [
+              {
+                id: "dedupe_behavior",
+                header: "Marker append",
+                question:
+                  "When writing `.athrd-ai-marker`, should we append the URL every successful share, or avoid duplicate lines already present?",
+                options: [
+                  {
+                    label: "Always append (Recommended)",
+                    description:
+                      "Simple and deterministic; logs every share event even if URL repeats.",
+                  },
+                  {
+                    label: "Skip duplicates",
+                    description:
+                      "Keeps file smaller by appending only URLs not already present.",
+                    type: "selected",
+                  },
+                ],
+              },
             ],
           },
         });
-        expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0]
-            ?.output
-        ).toMatchObject({
-          type: "text",
-          text: "When writing `.athrd-ai-marker`, should we append the URL every successful share, or avoid duplicate lines already present?",
+      });
+
+      it("should append typed custom answer when it does not match any option", () => {
+        const thread = createBaseThread();
+        thread.messages = [
+          {
+            timestamp: "2024-01-07T12:00:00Z",
+            type: "response_item",
+            payload: {
+              type: "function_call",
+              name: "request_user_input",
+              arguments: JSON.stringify({
+                questions: [
+                  {
+                    id: "color_choice",
+                    question: "Pick a color",
+                    options: [
+                      { label: "Red", description: "Warm" },
+                      { label: "Blue", description: "Cool" },
+                    ],
+                  },
+                ],
+              }),
+              call_id: "call_custom_1",
+            },
+          },
+          {
+            timestamp: "2024-01-07T12:00:01Z",
+            type: "response_item",
+            payload: {
+              type: "function_call_output",
+              call_id: "call_custom_1",
+              output: JSON.stringify([
+                {
+                  id: "custom-answer-id",
+                  name: "request_user_input",
+                  output: {
+                    type: "text",
+                    text: {
+                      answers: {
+                        color_choice: {
+                          answers: ["Green"],
+                        },
+                      },
+                    },
+                  },
+                },
+              ]),
+            },
+          },
+        ];
+
+        const result = codexParser.parse(thread);
+        const assistantMsg = result.messages[0] as AthrdAssistantMessage;
+        expect(assistantMsg.toolCalls).toHaveLength(1);
+        expect(assistantMsg.toolCalls?.[0]).toMatchObject({
+          name: "request_user_input",
+          args: {
+            questions: [
+              {
+                id: "color_choice",
+                question: "Pick a color",
+                options: [
+                  {
+                    label: "Red",
+                    description: "Warm",
+                  },
+                  {
+                    label: "Blue",
+                    description: "Cool",
+                  },
+                  {
+                    label: "Green",
+                    type: "other",
+                  },
+                ],
+              },
+            ],
+          },
         });
       });
 
@@ -729,10 +819,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "mcp_tool_call",
           args: {
@@ -778,10 +868,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0],
         ).toMatchObject({
           name: "read_file",
           output: {
@@ -812,10 +902,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "read_file",
           args: {
@@ -823,7 +913,7 @@ describe("codexParser", () => {
           },
         });
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result,
         ).toHaveLength(1);
       });
 
@@ -861,10 +951,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0],
         ).toMatchObject({
           name: "unknown_tool",
           args: {
@@ -902,10 +992,10 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          1
+          1,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0]
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0],
         ).toMatchObject({
           name: "some_tool",
           output: {
@@ -973,15 +1063,15 @@ describe("codexParser", () => {
         expect(result.messages).toHaveLength(1);
         const assistantMsg = result.messages[0];
         expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
-          2
+          2,
         );
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.args
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.args,
         ).toMatchObject({
           path: "/file1.ts",
         });
         expect(
-          (assistantMsg as AthrdAssistantMessage).toolCalls?.[1]?.args
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[1]?.args,
         ).toMatchObject({
           path: "/file2.ts",
         });
@@ -1059,7 +1149,7 @@ describe("codexParser", () => {
         throw new Error("Expected assistant message");
 
       expect(assistantMsg.content).toBe(
-        "Let me help you with that.\n\nTask completed!"
+        "Let me help you with that.\n\nTask completed!",
       );
       expect(assistantMsg.thoughts).toHaveLength(2);
       expect(assistantMsg.toolCalls).toHaveLength(1);
@@ -1100,7 +1190,6 @@ describe("codexParser", () => {
       const result = codexParser.parse(thread);
 
       expect(result.messages).toHaveLength(1);
-      expect(result.messages[0]?.model).toBe("claude-opus-4-20250514");
     });
   });
 

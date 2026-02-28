@@ -3,6 +3,8 @@ import type {
   ListDirectoryToolCall,
   MCPToolCall,
   ReadFileToolCall,
+  RequestUserInputQuestion,
+  RequestUserInputToolCall,
   ReplaceToolCall,
   RunShellCommandToolCall,
   SkillToolCall,
@@ -61,6 +63,7 @@ export type CanonicalToolName =
   | "mcp_tool_call"
   | "skill"
   | "todos"
+  | "request_user_input"
   | "web_search"
   | "grep_search";
 
@@ -89,7 +92,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     shell: "terminal_command",
     shell_command: "terminal_command",
     update_plan: "todos",
-    request_user_input: "todos",
+    request_user_input: "request_user_input",
     // Codex uses generic function_call with name field
   },
   [IDE.GEMINI]: {
@@ -362,6 +365,23 @@ export function createUpdatePlanToolCall(params: {
     timestamp: params.timestamp,
     args: {
       plan: params.plan,
+    },
+    result: params.result,
+  };
+}
+
+export function createRequestUserInputToolCall(params: {
+  id: string;
+  timestamp: string;
+  questions: RequestUserInputQuestion[];
+  result: BaseToolResponse[];
+}): RequestUserInputToolCall {
+  return {
+    id: params.id,
+    name: "request_user_input",
+    timestamp: params.timestamp,
+    args: {
+      questions: params.questions,
     },
     result: params.result,
   };

@@ -9,6 +9,7 @@ import type {
   ListDirectoryToolCall,
   MCPToolCall,
   ReadFileToolCall,
+  RequestUserInputToolCall,
   ReplaceToolCall,
   RunShellCommandToolCall,
   SkillToolCall,
@@ -41,6 +42,7 @@ import Markdown from "markdown-to-jsx";
 import ToolEditBlock from "./tool-edit-block";
 import ToolGenericBlock from "./tool-generic-block";
 import ToolMCPBlock from "./tool-mcp-block";
+import ToolRequestUserInputBlock from "./tool-request-user-input-block";
 import ToolTodosBlock from "./tool-todos-block";
 
 interface AThrdThreadProps {
@@ -256,6 +258,13 @@ function ToolCallBlock({ toolCall }: { toolCall: AthrdToolCall }) {
               : "Tasks"
           }
           todos={(toolCall as UpdatePlanToolCall).args.plan}
+        />
+      );
+    }
+    case "request_user_input": {
+      return (
+        <ToolRequestUserInputBlock
+          questions={(toolCall as RequestUserInputToolCall).args.questions}
         />
       );
     }

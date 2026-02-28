@@ -124,6 +124,25 @@ export interface UpdatePlanToolCall extends BaseToolCall {
     plan: TodoStep[];
   };
 }
+
+export interface RequestUserInputOption {
+  label: string;
+  description?: string;
+  type?: "selected" | "other";
+}
+
+export interface RequestUserInputQuestion {
+  id: string;
+  question: string;
+  options: RequestUserInputOption[];
+}
+
+export interface RequestUserInputToolCall extends BaseToolCall {
+  name: "request_user_input";
+  args: {
+    questions: RequestUserInputQuestion[];
+  };
+}
 export interface WebSearchToolCall extends BaseToolCall {
   name: "web_search";
   args: {
@@ -152,5 +171,6 @@ export type AthrdToolCall =
   | RunShellCommandToolCall
   | MCPToolCall
   | UpdatePlanToolCall
+  | RequestUserInputToolCall
   | SkillToolCall
   | UnknownToolCall;

@@ -5,6 +5,7 @@ import type {
   AthrdToolCall,
   AthrdUserMessage,
   BaseToolResponse,
+  RequestUserInputQuestion,
   TodoStep,
 } from "@/types/athrd";
 import type {
@@ -21,6 +22,7 @@ import { IDE } from "@/types/ide";
 import type { Parser } from "./base";
 import {
   createMCPToolCall,
+  createRequestUserInputToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
   createUpdatePlanToolCall,
@@ -47,17 +49,6 @@ interface ParseContext {
   functionOutputs: Map<string, CodexFunctionCallOutputPayload["output"]>;
   model: string;
   assistant: AssistantState;
-}
-
-interface RequestUserInputOption {
-  label: string;
-}
-
-interface RequestUserInputQuestion {
-  id?: string;
-  header?: string;
-  question?: string;
-  options?: RequestUserInputOption[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -280,10 +271,10 @@ function buildFunctionOutputMap(
   return outputMap;
 }
 
-function extractSelectedAnswerLabels(
+function extractAnswersByQuestionId(
   output: CodexFunctionCallOutputPayload["output"] | undefined
-): Set<string> {
-  const labels = new Set<string>();
+): Map<string, string[]> {
+  const answersByQuestionId = new Map<string, string[]>();
 
   const collectFromAnswersMap = (value: unknown) => {
     if (!value || typeof value !== "object") return;
@@ -291,12 +282,16 @@ function extractSelectedAnswerLabels(
     const answerMap = (value as { answers?: unknown }).answers;
     if (!answerMap || typeof answerMap !== "object") return;
 
-    const extracted = Object.values(
-      answerMap as Record<string, { answers?: string[] }>
-    ).flatMap((answer) => (Array.isArray(answer?.answers) ? answer.answers : []));
+    const answersRecord = answerMap as Record<string, { answers?: string[] }>;
+    for (const [questionId, answer] of Object.entries(answersRecord)) {
+      if (!Array.isArray(answer?.answers)) continue;
+      const labels = answer.answers.filter(
+        (label): label is string => typeof label === "string" && label.length > 0
+      );
+      if (labels.length === 0) continue;
 
-    for (const label of extracted) {
-      if (typeof label === "string" && label) labels.add(label);
+      const existing = answersByQuestionId.get(questionId) || [];
+      answersByQuestionId.set(questionId, [...existing, ...labels]);
     }
   };
 
@@ -311,7 +306,7 @@ function extractSelectedAnswerLabels(
     } else {
       collectFromAnswersMap(parsedOutput);
     }
-    return labels;
+    return answersByQuestionId;
   }
 
   if (Array.isArray(output)) {
@@ -322,33 +317,58 @@ function extractSelectedAnswerLabels(
     }
   }
 
-  return labels;
+  return answersByQuestionId;
 }
 
-function buildTodoPlanFromQuestions(
+type RawRequestUserInputQuestion = {
+  id?: string;
+  header?: string;
+  question?: string;
+  options?: Array<{ label?: string; description?: string }>;
+};
+
+function buildRequestUserInputQuestions(
   args: Record<string, unknown>,
   output: CodexFunctionCallOutputPayload["output"] | undefined
-): TodoStep[] {
-  if (Array.isArray(args.plan)) {
-    return args.plan as TodoStep[];
-  }
-
+): RequestUserInputQuestion[] {
   const questions = Array.isArray(args.questions)
-    ? (args.questions as RequestUserInputQuestion[])
+    ? (args.questions as RawRequestUserInputQuestion[])
     : [];
   if (questions.length === 0) return [];
 
-  const selectedLabels = extractSelectedAnswerLabels(output);
+  const answersByQuestionId = extractAnswersByQuestionId(output);
 
-  return questions.flatMap((question) => {
+  return questions.map((question, index) => {
+    const questionId = question.id || `question-${index + 1}`;
     const options = Array.isArray(question.options) ? question.options : [];
-    return options
-      .map((option) => option?.label)
-      .filter((label): label is string => !!label)
-      .map((label) => ({
-        step: label,
-        status: selectedLabels.has(label) ? "completed" : "pending",
-      }));
+    const selectedLabels = new Set(answersByQuestionId.get(questionId) || []);
+    const optionMap = options
+      .map((option) => ({
+        label: option?.label || "",
+        description: option?.description,
+      }))
+      .filter((option) => option.label.length > 0);
+    const knownLabels = new Set(optionMap.map((option) => option.label));
+    const customSelectedLabels = [...selectedLabels].filter(
+      (label) => !knownLabels.has(label)
+    );
+
+    return {
+      id: questionId,
+      header: question.header,
+      question: question.question || question.header || "Question",
+      options: [
+        ...optionMap.map((option) => ({
+          label: option.label,
+          description: option.description,
+          type: selectedLabels.has(option.label) ? ("selected" as const) : undefined,
+        })),
+        ...customSelectedLabels.map((label) => ({
+          label,
+          type: "other" as const,
+        })),
+      ],
+    };
   });
 }
 
@@ -382,55 +402,6 @@ function normalizeToolTextOutput(value: unknown): string {
   }
 }
 
-function hasAnswersMap(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const answers = (value as { answers?: unknown }).answers;
-  return !!answers && typeof answers === "object";
-}
-
-function containsRequestUserInputAnswers(value: unknown): boolean {
-  if (hasAnswersMap(value)) return true;
-  if (!Array.isArray(value)) return false;
-
-  return value.some((item) => {
-    if (!item || typeof item !== "object") return false;
-    const nestedText = (item as { output?: { text?: unknown } }).output?.text;
-    return hasAnswersMap(nestedText);
-  });
-}
-
-function getRequestUserInputQuestion(args: Record<string, unknown>): string {
-  const questions = Array.isArray(args.questions)
-    ? (args.questions as RequestUserInputQuestion[])
-    : [];
-  const firstQuestion = questions[0];
-  if (!firstQuestion) return "";
-
-  if (typeof firstQuestion.question === "string" && firstQuestion.question) {
-    return firstQuestion.question;
-  }
-
-  if (typeof firstQuestion.header === "string" && firstQuestion.header) {
-    return firstQuestion.header;
-  }
-
-  return "";
-}
-
-function formatToolResultText(
-  toolName: string,
-  value: unknown,
-  requestQuestion?: string
-): string {
-  if (
-    toolName === "request_user_input" &&
-    containsRequestUserInputAnswers(value)
-  ) {
-    return requestQuestion || "User input";
-  }
-  return normalizeToolTextOutput(value);
-}
-
 /**
  * Parse a function call into an AthrdToolCall
  */
@@ -445,7 +416,6 @@ function parseFunctionCall(
 
   // Parse arguments from JSON string
   const args = safeJsonParse<Record<string, unknown>>(payload.arguments, {});
-  const requestQuestion = getRequestUserInputQuestion(args);
 
   // Get the output for this call
   const output = functionOutputs.get(payload.call_id);
@@ -464,11 +434,7 @@ function parseFunctionCall(
               name: payload.name,
               output: {
                 type: "text",
-                text: formatToolResultText(
-                  payload.name,
-                  parsedText,
-                  requestQuestion
-                ),
+                text: normalizeToolTextOutput(parsedText),
               },
             };
           }
@@ -495,7 +461,7 @@ function parseFunctionCall(
       name: payload.name,
       output: {
         type: "text",
-        text: formatToolResultText(payload.name, json, requestQuestion),
+        text: normalizeToolTextOutput(json),
       },
     });
   }
@@ -513,7 +479,14 @@ function parseFunctionCall(
       return createUpdatePlanToolCall({
         id: toolId,
         timestamp: toolTimestamp,
-        plan: buildTodoPlanFromQuestions(args, output),
+        plan: (args.plan as TodoStep[]) || [],
+        result,
+      });
+    case "request_user_input":
+      return createRequestUserInputToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        questions: buildRequestUserInputQuestions(args, output),
         result,
       });
     case "mcp_tool_call": {

@@ -146,9 +146,7 @@ function AssistantMessageGroup({
 }: {
   messages: AthrdAssistantMessage[];
 }) {
-  const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>(
-    {},
-  );
+  const [showLeadingDetails, setShowLeadingDetails] = useState(false);
 
   type CollapsibleItem =
     | {
@@ -165,10 +163,15 @@ function AssistantMessageGroup({
 
   type AssistantRenderBlock =
     | {
-        type: "collapsible";
-        thoughtCount: number;
-        toolCallCount: number;
-        items: CollapsibleItem[];
+        type: "thought";
+        key: string;
+        subject: string;
+        description: string;
+      }
+    | {
+        type: "tool";
+        key: string;
+        toolCall: AthrdToolCall;
       }
     | {
         type: "content";
@@ -177,45 +180,53 @@ function AssistantMessageGroup({
       };
 
   const renderBlocks: AssistantRenderBlock[] = [];
-  let pendingItems: CollapsibleItem[] = [];
-  let pendingThoughtCount = 0;
-  let pendingToolCallCount = 0;
-
-  const flushPending = () => {
-    if (pendingItems.length === 0) return;
-    renderBlocks.push({
-      type: "collapsible",
-      thoughtCount: pendingThoughtCount,
-      toolCallCount: pendingToolCallCount,
-      items: pendingItems,
-    });
-    pendingItems = [];
-    pendingThoughtCount = 0;
-    pendingToolCallCount = 0;
-  };
+  const leadingItems: CollapsibleItem[] = [];
+  let leadingThoughtCount = 0;
+  let leadingToolCallCount = 0;
+  let seenContent = false;
+  const leadingSummaryParts: string[] = [];
 
   messages.forEach((message, messageIndex) => {
     message.thoughts?.forEach((thought, thoughtIndex) => {
-      pendingItems.push({
-        kind: "thought",
-        key: `thought-${message.id}-${thoughtIndex}`,
-        subject: thought.subject,
-        description: thought.description,
-      });
-      pendingThoughtCount += 1;
+      const key = `thought-${message.id}-${thoughtIndex}`;
+      if (!seenContent) {
+        leadingItems.push({
+          kind: "thought",
+          key,
+          subject: thought.subject,
+          description: thought.description,
+        });
+        leadingThoughtCount += 1;
+      } else {
+        renderBlocks.push({
+          type: "thought",
+          key,
+          subject: thought.subject,
+          description: thought.description,
+        });
+      }
     });
 
     message.toolCalls?.forEach((toolCall, toolIndex) => {
-      pendingItems.push({
-        kind: "tool",
-        key: `tool-${message.id}-${toolCall.id}-${toolIndex}`,
-        toolCall,
-      });
-      pendingToolCallCount += 1;
+      const key = `tool-${message.id}-${toolCall.id}-${toolIndex}`;
+      if (!seenContent) {
+        leadingItems.push({
+          kind: "tool",
+          key,
+          toolCall,
+        });
+        leadingToolCallCount += 1;
+      } else {
+        renderBlocks.push({
+          type: "tool",
+          key,
+          toolCall,
+        });
+      }
     });
 
     if (message.content) {
-      flushPending();
+      seenContent = true;
       renderBlocks.push({
         type: "content",
         key: `assistant-content-${message.id}-${messageIndex}`,
@@ -224,7 +235,12 @@ function AssistantMessageGroup({
     }
   });
 
-  flushPending();
+  if (leadingThoughtCount > 0) {
+    leadingSummaryParts.push(`Thinking (x${leadingThoughtCount})`);
+  }
+  if (leadingToolCallCount > 0) {
+    leadingSummaryParts.push(`Tool calls (x${leadingToolCallCount})`);
+  }
 
   return (
     <div className="flex gap-4">
@@ -234,7 +250,63 @@ function AssistantMessageGroup({
         </AvatarFallback>
       </Avatar>
       <div className="space-y-2 min-w-0 max-w-full flex-1">
-        {renderBlocks.map((block, blockIndex) => {
+        {leadingItems.length > 0 && (
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setShowLeadingDetails((prev) => !prev)}
+              className="group flex w-full items-center gap-3 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              aria-expanded={showLeadingDetails}
+              aria-label={
+                showLeadingDetails
+                  ? "Collapse thinking and tool calls"
+                  : "Expand thinking and tool calls"
+              }
+            >
+              {showLeadingDetails ? (
+                <ChevronDownIcon className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <ChevronRightIcon className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
+              <span>{leadingSummaryParts.join(" · ")}</span>
+              <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
+            </button>
+
+            <div className={cn("space-y-2 mt-2", !showLeadingDetails && "hidden")}>
+              {leadingItems.map((item) => {
+                if (item.kind === "thought") {
+                  return (
+                    <ToolGenericBlock
+                      key={item.key}
+                      results={[
+                        {
+                          id: item.key,
+                          name: "Thought",
+                          output: {
+                            type: "text",
+                            text: item.description,
+                          },
+                        },
+                      ]}
+                      title={item.subject}
+                      icon={BrainCogIcon}
+                    />
+                  );
+                }
+                return <ToolCallBlock key={item.key} toolCall={item.toolCall} />;
+              })}
+
+              <div className="flex items-center gap-4 text-xs text-gray-500 select-none pt-1">
+                <span className="h-px flex-1 bg-white/15" />
+                <span>End</span>
+                <span className="h-px flex-1 bg-white/15" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {renderBlocks.map((block) => {
           if (block.type === "content") {
             return (
               <div key={block.key} className="markdown-content text-sm text-gray-300 py-2">
@@ -243,75 +315,27 @@ function AssistantMessageGroup({
             );
           }
 
-          const isExpanded = expandedGroups[blockIndex] ?? false;
-          const summaryParts: string[] = [];
-          if (block.thoughtCount > 0) {
-            summaryParts.push(`Thinking (x${block.thoughtCount})`);
+          if (block.type === "thought") {
+            return (
+              <ToolGenericBlock
+                key={block.key}
+                results={[
+                  {
+                    id: block.key,
+                    name: "Thought",
+                    output: {
+                      type: "text",
+                      text: block.description,
+                    },
+                  },
+                ]}
+                title={block.subject}
+                icon={BrainCogIcon}
+              />
+            );
           }
-          if (block.toolCallCount > 0) {
-            summaryParts.push(`Tool calls (x${block.toolCallCount})`);
-          }
 
-          return (
-            <div key={`assistant-collapsible-${blockIndex}`} className="py-1">
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedGroups((prev) => ({
-                    ...prev,
-                    [blockIndex]: !(prev[blockIndex] ?? false),
-                  }))
-                }
-                className="group flex w-full items-center gap-3 text-xs text-gray-400 hover:text-gray-200 transition-colors"
-                aria-expanded={isExpanded}
-                aria-label={
-                  isExpanded
-                    ? "Collapse thinking and tool calls"
-                    : "Expand thinking and tool calls"
-                }
-              >
-                {isExpanded ? (
-                  <ChevronDownIcon className="h-3.5 w-3.5 shrink-0" />
-                ) : (
-                  <ChevronRightIcon className="h-3.5 w-3.5 shrink-0" />
-                )}
-                <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
-                <span>{summaryParts.join(" · ")}</span>
-                <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
-              </button>
-
-              <div className={cn("space-y-2 mt-2", !isExpanded && "hidden")}>
-                {block.items.map((item) => {
-                  if (item.kind === "thought") {
-                    return (
-                      <ToolGenericBlock
-                        key={item.key}
-                        results={[
-                          {
-                            id: item.key,
-                            name: "Thought",
-                            output: {
-                              type: "text",
-                              text: item.description,
-                            },
-                          },
-                        ]}
-                        title={item.subject}
-                        icon={BrainCogIcon}
-                      />
-                    );
-                  }
-                  return <ToolCallBlock key={item.key} toolCall={item.toolCall} />;
-                })}
-
-                <div className="flex items-center gap-4 text-xs text-gray-500 select-none pt-1">
-                  <span className="h-px flex-1 bg-white/15" />
-                  <span>End</span>
-                  <span className="h-px flex-1 bg-white/15" />
-                </div>
-              </div>
-            </div>
-          );
+          return <ToolCallBlock key={block.key} toolCall={block.toolCall} />;
         })}
       </div>
     </div>

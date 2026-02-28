@@ -16,8 +16,6 @@ const geminiConfigPath = path.join(homedir, ".gemini", "settings.json");
 const hookScriptContent = `#!/bin/bash
 PROVIDER=$1
 
-export PATH="$HOME/.bun/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
-
 INPUT=$(cat)
 EVENT_JSON="$INPUT"
 

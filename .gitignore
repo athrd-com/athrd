@@ -8,6 +8,7 @@
 /.pnp
 .pnp.js
 apps/web/node_modules
+apps/github-pr-app/node_modules
 
 # testing
 /coverage
@@ -27,6 +28,8 @@ next-env.d.ts
 
 # production
 /build
+/dist
+/apps/github-pr-app/dist
 
 # misc
 .DS_Store

@@ -20,6 +20,7 @@ jobs:
           script: |
             const START = "<!-- athrd-links:start -->";
             const END = "<!-- athrd-links:end -->";
+            const TRAILER_KEY = "Agent-Session:";
             const LINK_REGEX = /https:\/\/athrd\.com\/[^\s)>\]]+/g;
             const TRAILING_PUNCTUATION = /[.,);\]]+$/;
 
@@ -38,8 +39,20 @@ jobs:
             const links = [
               ...new Set(
                 commits.flatMap((commit) => {
-                  const matches = commit.commit.message.match(LINK_REGEX) ?? [];
-                  return matches.map((url) => url.replace(TRAILING_PUNCTUATION, ""));
+                  const message = commit.commit.message ?? "";
+                  const lines = message.split(/\r?\n/);
+
+                  const trailerUrls = lines
+                    .filter((line) => line.startsWith(TRAILER_KEY))
+                    .map((line) =>
+                      line
+                        .slice(TRAILER_KEY.length)
+                        .trim()
+                        .replace(TRAILING_PUNCTUATION, ""),
+                    )
+                    .filter(Boolean);
+
+                  return trailerUrls;
                 }),
               ),
             ];

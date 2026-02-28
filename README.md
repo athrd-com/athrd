@@ -76,6 +76,12 @@ athrd hooks uninstall
 athrd hooks install
 ```
 
+When hooks are installed:
+
+- `athrd share --mark` writes thread URLs to `.agent-session-marker` in the repo root.
+- a global Git `commit-msg` hook appends `Agent-Session: <url>` trailers from `.agent-session-marker`.
+- used entries in `.agent-session-marker` are cleared after successful commit message updates.
+
 ### GitHub Action: auto-append athrd links to PRs
 
 If you want repo-owned automation (no GitHub App install), add this workflow to the target repository:
@@ -108,6 +114,7 @@ This keeps a bot-managed section in the PR description between:
 - `<!-- athrd-links:end -->`
 
 and recomputes links from all commit messages in the PR on each sync/open/edit event.
+It reads `Agent-Session: <url>` trailers (and still supports direct athrd URLs for backward compatibility).
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).

@@ -5,6 +5,7 @@ import type {
   AthrdToolCall,
   AthrdUserMessage,
   BaseToolResponse,
+  RequestUserInputQuestion,
   TodoStep,
 } from "@/types/athrd";
 import type {
@@ -21,6 +22,7 @@ import { IDE } from "@/types/ide";
 import type { Parser } from "./base";
 import {
   createMCPToolCall,
+  createRequestUserInputToolCall,
   createTerminalCommandToolCall,
   createUnknownToolCall,
   createUpdatePlanToolCall,
@@ -269,6 +271,137 @@ function buildFunctionOutputMap(
   return outputMap;
 }
 
+function extractAnswersByQuestionId(
+  output: CodexFunctionCallOutputPayload["output"] | undefined
+): Map<string, string[]> {
+  const answersByQuestionId = new Map<string, string[]>();
+
+  const collectFromAnswersMap = (value: unknown) => {
+    if (!value || typeof value !== "object") return;
+
+    const answerMap = (value as { answers?: unknown }).answers;
+    if (!answerMap || typeof answerMap !== "object") return;
+
+    const answersRecord = answerMap as Record<string, { answers?: string[] }>;
+    for (const [questionId, answer] of Object.entries(answersRecord)) {
+      if (!Array.isArray(answer?.answers)) continue;
+      const labels = answer.answers.filter(
+        (label): label is string => typeof label === "string" && label.length > 0
+      );
+      if (labels.length === 0) continue;
+
+      const existing = answersByQuestionId.get(questionId) || [];
+      answersByQuestionId.set(questionId, [...existing, ...labels]);
+    }
+  };
+
+  if (typeof output === "string") {
+    const parsedOutput = safeJsonParse<unknown>(output, null);
+    if (Array.isArray(parsedOutput)) {
+      for (const item of parsedOutput) {
+        const outputText = (item as { output?: { text?: unknown } })?.output
+          ?.text;
+        collectFromAnswersMap(outputText);
+      }
+    } else {
+      collectFromAnswersMap(parsedOutput);
+    }
+    return answersByQuestionId;
+  }
+
+  if (Array.isArray(output)) {
+    for (const entry of output) {
+      if (entry.type !== "input_text") continue;
+      const parsedText = safeJsonParse<unknown>(entry.text, entry.text);
+      collectFromAnswersMap(parsedText);
+    }
+  }
+
+  return answersByQuestionId;
+}
+
+type RawRequestUserInputQuestion = {
+  id?: string;
+  header?: string;
+  question?: string;
+  options?: Array<{ label?: string; description?: string }>;
+};
+
+function buildRequestUserInputQuestions(
+  args: Record<string, unknown>,
+  output: CodexFunctionCallOutputPayload["output"] | undefined
+): RequestUserInputQuestion[] {
+  const questions = Array.isArray(args.questions)
+    ? (args.questions as RawRequestUserInputQuestion[])
+    : [];
+  if (questions.length === 0) return [];
+
+  const answersByQuestionId = extractAnswersByQuestionId(output);
+
+  return questions.map((question, index) => {
+    const questionId = question.id || `question-${index + 1}`;
+    const options = Array.isArray(question.options) ? question.options : [];
+    const selectedLabels = new Set(answersByQuestionId.get(questionId) || []);
+    const optionMap = options
+      .map((option) => ({
+        label: option?.label || "",
+        description: option?.description,
+      }))
+      .filter((option) => option.label.length > 0);
+    const knownLabels = new Set(optionMap.map((option) => option.label));
+    const customSelectedLabels = [...selectedLabels].filter(
+      (label) => !knownLabels.has(label)
+    );
+
+    return {
+      id: questionId,
+      header: question.header,
+      question: question.question || question.header || "Question",
+      options: [
+        ...optionMap.map((option) => ({
+          label: option.label,
+          description: option.description,
+          type: selectedLabels.has(option.label) ? ("selected" as const) : undefined,
+        })),
+        ...customSelectedLabels.map((label) => ({
+          label,
+          type: "other" as const,
+        })),
+      ],
+    };
+  });
+}
+
+function normalizeToolTextOutput(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+
+  if (Array.isArray(value)) {
+    const textItems = value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (
+          item &&
+          typeof item === "object" &&
+          "text" in item &&
+          typeof (item as { text?: unknown }).text === "string"
+        ) {
+          return (item as { text: string }).text;
+        }
+        return null;
+      })
+      .filter((item): item is string => item !== null);
+
+    if (textItems.length > 0) return textItems.join("\n");
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 /**
  * Parse a function call into an AthrdToolCall
  */
@@ -293,13 +426,16 @@ function parseFunctionCall(
       ...output
         .map((r): BaseToolResponse | null => {
           if (r.type === "input_text") {
-            // Try to parse as JSON first, fallback to raw text
-            const parsedText = safeJsonParse<string>(r.text, r.text);
+            // Try to parse as JSON first, then normalize to display-safe text
+            const parsedText = safeJsonParse<unknown>(r.text, r.text);
 
             return {
               id: generateId(),
               name: payload.name,
-              output: { type: "text", text: parsedText },
+              output: {
+                type: "text",
+                text: normalizeToolTextOutput(parsedText),
+              },
             };
           }
           if (r.type === "input_image") {
@@ -319,13 +455,13 @@ function parseFunctionCall(
         .filter((item): item is BaseToolResponse => item !== null)
     );
   } else {
-    const json = safeJsonParse<string>(output || "", output || "");
+    const json = safeJsonParse<unknown>(output || "", output || "");
     result.push({
       id: generateId(),
       name: payload.name,
       output: {
         type: "text",
-        text: Array.isArray(json) ? json.map((j) => j.text).join("\n") : json,
+        text: normalizeToolTextOutput(json),
       },
     });
   }
@@ -344,6 +480,13 @@ function parseFunctionCall(
         id: toolId,
         timestamp: toolTimestamp,
         plan: (args.plan as TodoStep[]) || [],
+        result,
+      });
+    case "request_user_input":
+      return createRequestUserInputToolCall({
+        id: toolId,
+        timestamp: toolTimestamp,
+        questions: buildRequestUserInputQuestions(args, output),
         result,
       });
     case "mcp_tool_call": {

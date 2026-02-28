@@ -86,7 +86,10 @@ export function shareCommand(program: Command) {
     .option("--codex", "Filter by Codex")
     .option("--opencode", "Filter by OpenCode")
     .option("--json <json>", "JSON payload from hook event")
-    .option("--mark", "Write shared athrd URL to repo-root .athrd-ai-marker")
+    .option(
+      "--mark",
+      "Write shared athrd URL to repo-root .agent-session-marker",
+    )
     .action(async (options) => {
       try {
         // Determine filter early to optimize search
@@ -332,7 +335,7 @@ export function shareCommand(program: Command) {
               } catch (error) {
                 console.warn(
                   chalk.yellow(
-                    `⚠ Failed to write .athrd-ai-marker for session ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+                    `⚠ Failed to write .agent-session-marker for session ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
                   ),
                 );
               }

@@ -4,6 +4,10 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import toml from "@iarna/toml";
+import {
+    installGlobalCommitMsgHook,
+    uninstallGlobalCommitMsgHook,
+} from "../utils/git-hooks.js";
 
 const homedir = os.homedir();
 const athrdDir = path.join(homedir, ".athrd");
@@ -241,6 +245,12 @@ export function installAllHooks() {
     installClaudeHook();
     installCodexHook();
     installGeminiHook();
+    try {
+        installGlobalCommitMsgHook();
+        console.log(chalk.green("✓ Global git commit-msg hook installed"));
+    } catch (err) {
+        console.error(chalk.red("Error installing global git commit-msg hook:"), err);
+    }
     console.log(chalk.green("Hooks installation complete!"));
 }
 
@@ -250,6 +260,12 @@ export function uninstallAllHooks() {
     uninstallClaudeHook();
     uninstallCodexHook();
     uninstallGeminiHook();
+    try {
+        uninstallGlobalCommitMsgHook();
+        console.log(chalk.green("✓ Global git commit-msg hook removed"));
+    } catch (err) {
+        console.error(chalk.red("Error uninstalling global git commit-msg hook:"), err);
+    }
     console.log(chalk.green("Hooks uninstallation complete!"));
 }
 

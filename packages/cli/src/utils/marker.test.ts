@@ -35,14 +35,16 @@ describe("appendAthrdUrlMarker", () => {
 
     appendAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/abc" });
 
-    const markerPath = join(root, ".athrd-ai-marker");
+    const markerPath = join(root, ".agent-session-marker");
     const gitignorePath = join(root, ".gitignore");
     expect(existsSync(markerPath)).toBeTrue();
     expect(existsSync(gitignorePath)).toBeTrue();
     expect(readFileSync(markerPath, "utf-8")).toBe(
       "https://athrd.com/threads/abc\n",
     );
-    expect(readFileSync(gitignorePath, "utf-8")).toBe(".athrd-ai-marker\n");
+    expect(readFileSync(gitignorePath, "utf-8")).toBe(
+      ".agent-session-marker\n",
+    );
   });
 
   test("skips duplicate URLs and appends unique URLs", () => {
@@ -53,7 +55,7 @@ describe("appendAthrdUrlMarker", () => {
     appendAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/abc" });
     appendAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/def" });
 
-    const markerPath = join(root, ".athrd-ai-marker");
+    const markerPath = join(root, ".agent-session-marker");
     expect(readFileSync(markerPath, "utf-8")).toBe(
       "https://athrd.com/threads/abc\nhttps://athrd.com/threads/def\n",
     );
@@ -63,7 +65,7 @@ describe("appendAthrdUrlMarker", () => {
     const root = makeTempDir("athrd-marker-newline-");
     execSync("git init", { cwd: root, stdio: "ignore" });
 
-    const markerPath = join(root, ".athrd-ai-marker");
+    const markerPath = join(root, ".agent-session-marker");
     writeFileSync(markerPath, "https://athrd.com/threads/abc", "utf-8");
 
     appendAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/def" });
@@ -84,7 +86,7 @@ describe("appendAthrdUrlMarker", () => {
     appendAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/def" });
 
     expect(readFileSync(gitignorePath, "utf-8")).toBe(
-      "node_modules\n.athrd-ai-marker\n",
+      "node_modules\n.agent-session-marker\n",
     );
   });
 
@@ -92,6 +94,6 @@ describe("appendAthrdUrlMarker", () => {
     const dir = makeTempDir("athrd-marker-no-git-");
     appendAthrdUrlMarker({ cwd: dir, url: "https://athrd.com/threads/abc" });
 
-    expect(existsSync(join(dir, ".athrd-ai-marker"))).toBeFalse();
+    expect(existsSync(join(dir, ".agent-session-marker"))).toBeFalse();
   });
 });

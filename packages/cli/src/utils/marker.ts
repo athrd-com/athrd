@@ -9,7 +9,7 @@ interface AppendAthrdUrlMarkerParams {
 
 function ensureMarkerIgnored(gitRoot: string): void {
   const gitignorePath = path.join(gitRoot, ".gitignore");
-  const markerEntry = ".athrd-ai-marker";
+  const markerEntry = ".agent-session-marker";
 
   let existingContent = "";
   if (fs.existsSync(gitignorePath)) {
@@ -37,7 +37,7 @@ export function appendAthrdUrlMarker(params: AppendAthrdUrlMarkerParams): void {
 
   ensureMarkerIgnored(gitRoot);
 
-  const markerPath = path.join(gitRoot, ".athrd-ai-marker");
+  const markerPath = path.join(gitRoot, ".agent-session-marker");
   const normalizedUrl = params.url.trim();
   if (!normalizedUrl) {
     return;

@@ -89,6 +89,7 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     shell: "terminal_command",
     shell_command: "terminal_command",
     update_plan: "todos",
+    request_user_input: "todos",
     // Codex uses generic function_call with name field
   },
   [IDE.GEMINI]: {

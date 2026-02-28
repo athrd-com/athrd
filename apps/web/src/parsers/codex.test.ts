@@ -605,6 +605,93 @@ describe("codexParser", () => {
         });
       });
 
+      it("should parse request_user_input as todos and mark selected option as completed", () => {
+        const thread = createBaseThread();
+        thread.messages = [
+          {
+            timestamp: "2024-01-07T12:00:00Z",
+            type: "response_item",
+            payload: {
+              type: "function_call",
+              name: "request_user_input",
+              arguments: JSON.stringify({
+                questions: [
+                  {
+                    header: "Marker append",
+                    id: "dedupe_behavior",
+                    question:
+                      "When writing `.athrd-ai-marker`, should we append the URL every successful share, or avoid duplicate lines already present?",
+                    options: [
+                      {
+                        label: "Always append (Recommended)",
+                        description:
+                          "Simple and deterministic; logs every share event even if URL repeats.",
+                      },
+                      {
+                        label: "Skip duplicates",
+                        description:
+                          "Keeps file smaller by appending only URLs not already present.",
+                      },
+                    ],
+                  },
+                ],
+              }),
+              call_id: "call_1",
+            },
+          },
+          {
+            timestamp: "2024-01-07T12:00:01Z",
+            type: "response_item",
+            payload: {
+              type: "function_call_output",
+              call_id: "call_1",
+              output: JSON.stringify([
+                {
+                  id: "34cd4d42-97de-4aed-8576-deb4af1c2faa",
+                  name: "request_user_input",
+                  output: {
+                    type: "text",
+                    text: {
+                      answers: {
+                        dedupe_behavior: {
+                          answers: ["Skip duplicates"],
+                        },
+                      },
+                    },
+                  },
+                },
+              ]),
+            },
+          },
+        ];
+
+        const result = codexParser.parse(thread);
+
+        expect(result.messages).toHaveLength(1);
+        const assistantMsg = result.messages[0];
+        expect((assistantMsg as AthrdAssistantMessage).toolCalls).toHaveLength(
+          1
+        );
+        expect(
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]
+        ).toMatchObject({
+          name: "todos",
+          args: {
+            plan: [
+              { step: "Always append (Recommended)", status: "pending" },
+              { step: "Skip duplicates", status: "completed" },
+            ],
+          },
+        });
+        expect(
+          (assistantMsg as AthrdAssistantMessage).toolCalls?.[0]?.result?.[0]
+            ?.output
+        ).toMatchObject({
+          type: "text",
+          text: "When writing `.athrd-ai-marker`, should we append the URL every successful share, or avoid duplicate lines already present?",
+        });
+      });
+
       it("should parse MCP tool call", () => {
         const thread = createBaseThread();
         thread.messages = [

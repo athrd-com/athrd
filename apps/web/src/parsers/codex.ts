@@ -49,6 +49,17 @@ interface ParseContext {
   assistant: AssistantState;
 }
 
+interface RequestUserInputOption {
+  label: string;
+}
+
+interface RequestUserInputQuestion {
+  id?: string;
+  header?: string;
+  question?: string;
+  options?: RequestUserInputOption[];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Assistant State Management
 // ─────────────────────────────────────────────────────────────────────────────
@@ -269,6 +280,157 @@ function buildFunctionOutputMap(
   return outputMap;
 }
 
+function extractSelectedAnswerLabels(
+  output: CodexFunctionCallOutputPayload["output"] | undefined
+): Set<string> {
+  const labels = new Set<string>();
+
+  const collectFromAnswersMap = (value: unknown) => {
+    if (!value || typeof value !== "object") return;
+
+    const answerMap = (value as { answers?: unknown }).answers;
+    if (!answerMap || typeof answerMap !== "object") return;
+
+    const extracted = Object.values(
+      answerMap as Record<string, { answers?: string[] }>
+    ).flatMap((answer) => (Array.isArray(answer?.answers) ? answer.answers : []));
+
+    for (const label of extracted) {
+      if (typeof label === "string" && label) labels.add(label);
+    }
+  };
+
+  if (typeof output === "string") {
+    const parsedOutput = safeJsonParse<unknown>(output, null);
+    if (Array.isArray(parsedOutput)) {
+      for (const item of parsedOutput) {
+        const outputText = (item as { output?: { text?: unknown } })?.output
+          ?.text;
+        collectFromAnswersMap(outputText);
+      }
+    } else {
+      collectFromAnswersMap(parsedOutput);
+    }
+    return labels;
+  }
+
+  if (Array.isArray(output)) {
+    for (const entry of output) {
+      if (entry.type !== "input_text") continue;
+      const parsedText = safeJsonParse<unknown>(entry.text, entry.text);
+      collectFromAnswersMap(parsedText);
+    }
+  }
+
+  return labels;
+}
+
+function buildTodoPlanFromQuestions(
+  args: Record<string, unknown>,
+  output: CodexFunctionCallOutputPayload["output"] | undefined
+): TodoStep[] {
+  if (Array.isArray(args.plan)) {
+    return args.plan as TodoStep[];
+  }
+
+  const questions = Array.isArray(args.questions)
+    ? (args.questions as RequestUserInputQuestion[])
+    : [];
+  if (questions.length === 0) return [];
+
+  const selectedLabels = extractSelectedAnswerLabels(output);
+
+  return questions.flatMap((question) => {
+    const options = Array.isArray(question.options) ? question.options : [];
+    return options
+      .map((option) => option?.label)
+      .filter((label): label is string => !!label)
+      .map((label) => ({
+        step: label,
+        status: selectedLabels.has(label) ? "completed" : "pending",
+      }));
+  });
+}
+
+function normalizeToolTextOutput(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+
+  if (Array.isArray(value)) {
+    const textItems = value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (
+          item &&
+          typeof item === "object" &&
+          "text" in item &&
+          typeof (item as { text?: unknown }).text === "string"
+        ) {
+          return (item as { text: string }).text;
+        }
+        return null;
+      })
+      .filter((item): item is string => item !== null);
+
+    if (textItems.length > 0) return textItems.join("\n");
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function hasAnswersMap(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const answers = (value as { answers?: unknown }).answers;
+  return !!answers && typeof answers === "object";
+}
+
+function containsRequestUserInputAnswers(value: unknown): boolean {
+  if (hasAnswersMap(value)) return true;
+  if (!Array.isArray(value)) return false;
+
+  return value.some((item) => {
+    if (!item || typeof item !== "object") return false;
+    const nestedText = (item as { output?: { text?: unknown } }).output?.text;
+    return hasAnswersMap(nestedText);
+  });
+}
+
+function getRequestUserInputQuestion(args: Record<string, unknown>): string {
+  const questions = Array.isArray(args.questions)
+    ? (args.questions as RequestUserInputQuestion[])
+    : [];
+  const firstQuestion = questions[0];
+  if (!firstQuestion) return "";
+
+  if (typeof firstQuestion.question === "string" && firstQuestion.question) {
+    return firstQuestion.question;
+  }
+
+  if (typeof firstQuestion.header === "string" && firstQuestion.header) {
+    return firstQuestion.header;
+  }
+
+  return "";
+}
+
+function formatToolResultText(
+  toolName: string,
+  value: unknown,
+  requestQuestion?: string
+): string {
+  if (
+    toolName === "request_user_input" &&
+    containsRequestUserInputAnswers(value)
+  ) {
+    return requestQuestion || "User input";
+  }
+  return normalizeToolTextOutput(value);
+}
+
 /**
  * Parse a function call into an AthrdToolCall
  */
@@ -283,6 +445,7 @@ function parseFunctionCall(
 
   // Parse arguments from JSON string
   const args = safeJsonParse<Record<string, unknown>>(payload.arguments, {});
+  const requestQuestion = getRequestUserInputQuestion(args);
 
   // Get the output for this call
   const output = functionOutputs.get(payload.call_id);
@@ -293,13 +456,20 @@ function parseFunctionCall(
       ...output
         .map((r): BaseToolResponse | null => {
           if (r.type === "input_text") {
-            // Try to parse as JSON first, fallback to raw text
-            const parsedText = safeJsonParse<string>(r.text, r.text);
+            // Try to parse as JSON first, then normalize to display-safe text
+            const parsedText = safeJsonParse<unknown>(r.text, r.text);
 
             return {
               id: generateId(),
               name: payload.name,
-              output: { type: "text", text: parsedText },
+              output: {
+                type: "text",
+                text: formatToolResultText(
+                  payload.name,
+                  parsedText,
+                  requestQuestion
+                ),
+              },
             };
           }
           if (r.type === "input_image") {
@@ -319,13 +489,13 @@ function parseFunctionCall(
         .filter((item): item is BaseToolResponse => item !== null)
     );
   } else {
-    const json = safeJsonParse<string>(output || "", output || "");
+    const json = safeJsonParse<unknown>(output || "", output || "");
     result.push({
       id: generateId(),
       name: payload.name,
       output: {
         type: "text",
-        text: Array.isArray(json) ? json.map((j) => j.text).join("\n") : json,
+        text: formatToolResultText(payload.name, json, requestQuestion),
       },
     });
   }
@@ -343,7 +513,7 @@ function parseFunctionCall(
       return createUpdatePlanToolCall({
         id: toolId,
         timestamp: toolTimestamp,
-        plan: (args.plan as TodoStep[]) || [],
+        plan: buildTodoPlanFromQuestions(args, output),
         result,
       });
     case "mcp_tool_call": {

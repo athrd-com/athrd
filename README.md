@@ -59,6 +59,39 @@ athrd auth
 athrd share
 ```
 
+### GitHub Action: auto-append athrd links to PRs
+
+If you want repo-owned automation (no GitHub App install), add this workflow to the target repository:
+
+```yaml
+name: Sync Athrd Links In PR Body
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  sync-athrd-links:
+    if: github.event.pull_request.state != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            // See .github/workflows/athrd-pr-links.yml in this repo for full script.
+```
+
+This keeps a bot-managed section in the PR description between:
+
+- `<!-- athrd-links:start -->`
+- `<!-- athrd-links:end -->`
+
+and recomputes links from all commit messages in the PR on each sync/open/edit event.
+
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).

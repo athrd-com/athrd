@@ -3,10 +3,10 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import {
-  homeCommandPrompt,
-  homeCommandRow,
-  homePanelSurface,
-  homeSectionContainer,
+  HomeCommandPrompt,
+  HomeCommandRow,
+  HomePanel,
+  HomeSection,
 } from "./sharedStyles";
 
 const commands = ["npm install -g @athrd/cli", "athrd auth"];
@@ -23,8 +23,8 @@ export function CtaSection() {
   };
 
   return (
-    <section className={`${homeSectionContainer} mt-20`}>
-      <div className={`${homePanelSurface} rounded-3xl p-8 md:p-12`}>
+    <HomeSection className="mt-20">
+      <HomePanel className="rounded-3xl p-8 md:p-12">
         <div className="pointer-events-none absolute -top-24 -right-10 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-amber-500/20 blur-3xl" />
 
@@ -40,9 +40,9 @@ export function CtaSection() {
 
             <div className="mt-5 grid gap-2 text-sm text-gray-300">
               {commands.map((command) => (
-                <div key={command} className={`${homeCommandRow} justify-between`}>
+                <HomeCommandRow key={command} className="justify-between">
                   <div className="flex items-center gap-2 overflow-x-auto">
-                    <span className={homeCommandPrompt}>&gt;</span>
+                    <HomeCommandPrompt />
                     <span>{command}</span>
                   </div>
                   <button
@@ -57,12 +57,12 @@ export function CtaSection() {
                       <Copy size={14} />
                     )}
                   </button>
-                </div>
+                </HomeCommandRow>
               ))}
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </HomePanel>
+    </HomeSection>
   );
 }

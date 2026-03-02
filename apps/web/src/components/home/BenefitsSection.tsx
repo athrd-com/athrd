@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { GitPullRequestCreate, GraduationCap, ShieldCheck } from "lucide-react";
-import { homePanelSurface, homeSectionContainer } from "./sharedStyles";
+import { HomePanel, HomeSection } from "./sharedStyles";
 
 type Benefit = {
   icon: LucideIcon;
@@ -53,7 +53,7 @@ const benefits: Benefit[] = [
 
 export function BenefitsSection() {
   return (
-    <section className={`${homeSectionContainer} mt-24`}>
+    <HomeSection className="mt-24">
       <div className="text-center max-w-3xl mx-auto">
         <span className="inline-flex items-center rounded-full border border-sky-300/30 bg-sky-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">
           Why teams adopt athrd
@@ -69,10 +69,7 @@ export function BenefitsSection() {
 
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         {benefits.map((benefit) => (
-          <article
-            key={benefit.title}
-            className={`${homePanelSurface} rounded-2xl p-6`}
-          >
+          <HomePanel key={benefit.title} className="rounded-2xl p-6">
             <div
               className={`pointer-events-none absolute inset-0 bg-linear-to-br ${benefit.glowClass}`}
             />
@@ -98,9 +95,9 @@ export function BenefitsSection() {
                 ))}
               </ul>
             </div>
-          </article>
+          </HomePanel>
         ))}
       </div>
-    </section>
+    </HomeSection>
   );
 }

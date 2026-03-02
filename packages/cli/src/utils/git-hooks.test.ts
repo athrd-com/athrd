@@ -173,7 +173,7 @@ describe("commit-msg script behavior", () => {
     expect(readFileSync(markerFile, "utf-8")).toBe("");
   });
 
-  test("respects .athrdrc opt-out and leaves message/marker unchanged", () => {
+  test("respects .athrdrc disabled=true opt-out and leaves message/marker unchanged", () => {
     installGlobalCommitMsgHook();
 
     const home = process.env.HOME!;
@@ -187,7 +187,7 @@ describe("commit-msg script behavior", () => {
 
     writeFileSync(msgFile, "feat: skip trailers\n", "utf-8");
     writeFileSync(markerFile, "https://athrd.com/threads/skipped\n", "utf-8");
-    writeFileSync(rcFile, "commit_msg_hook=false\n", "utf-8");
+    writeFileSync(rcFile, "disabled=true\n", "utf-8");
 
     execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
 
@@ -197,7 +197,7 @@ describe("commit-msg script behavior", () => {
     );
   });
 
-  test("honors case-insensitive false value in .athrdrc", () => {
+  test("honors case-insensitive true value in .athrdrc disabled key", () => {
     installGlobalCommitMsgHook();
 
     const home = process.env.HOME!;
@@ -211,7 +211,7 @@ describe("commit-msg script behavior", () => {
 
     writeFileSync(msgFile, "feat: skip trailers off\n", "utf-8");
     writeFileSync(markerFile, "https://athrd.com/threads/skipped-off\n", "utf-8");
-    writeFileSync(rcFile, "commit_msg_hook=OFF\n", "utf-8");
+    writeFileSync(rcFile, "disabled=ON\n", "utf-8");
 
     execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
 
@@ -221,7 +221,7 @@ describe("commit-msg script behavior", () => {
     );
   });
 
-  test("keeps hook enabled when .athrdrc sets commit_msg_hook=true", () => {
+  test("keeps hook enabled when .athrdrc sets disabled=false", () => {
     installGlobalCommitMsgHook();
 
     const home = process.env.HOME!;
@@ -235,7 +235,7 @@ describe("commit-msg script behavior", () => {
 
     writeFileSync(msgFile, "feat: keep trailers\n", "utf-8");
     writeFileSync(markerFile, "https://athrd.com/threads/enabled\n", "utf-8");
-    writeFileSync(rcFile, "commit_msg_hook=true\n", "utf-8");
+    writeFileSync(rcFile, "disabled=false\n", "utf-8");
 
     execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
 

@@ -114,7 +114,7 @@ if [ -f "$CONFIG_FILE" ]; then
       if (eq == 0) next
       key = substr($0, 1, eq - 1)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
-      if (key != "commit_msg_hook") next
+      if (key != "disabled") next
 
       value = substr($0, eq + 1)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
@@ -123,7 +123,7 @@ if [ -f "$CONFIG_FILE" ]; then
   ' "$CONFIG_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
 
   case "$HOOK_SETTING" in
-    false|0|no|off)
+    true|1|yes|on)
       exit 0
       ;;
   esac

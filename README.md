@@ -82,12 +82,12 @@ When hooks are installed:
 - a global Git `commit-msg` hook appends `Agent-Session: <url>` trailers from `.agent-session-marker`.
 - used entries in `.agent-session-marker` are cleared after successful commit message updates.
 
-Per-repo opt-out for the global `commit-msg` behavior:
+Per-repo opt-out:
 
 Create a `.athrdrc` file at the repository root and commit:
 
 ```bash
-commit_msg_hook=false
+disabled=true
 ```
 
 This disables ATHRD trailer injection for that repository for all contributors who use the global ATHRD hook.
@@ -125,6 +125,7 @@ This keeps a bot-managed section in the PR description between:
 
 and recomputes links from all commit messages in the PR on each sync/open/edit event.
 It reads `Agent-Session: <url>` trailers (and still supports direct athrd URLs for backward compatibility).
+
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).

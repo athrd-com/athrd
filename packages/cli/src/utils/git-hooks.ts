@@ -104,6 +104,31 @@ if [ -z "$REPO_ROOT" ]; then
   exit 0
 fi
 
+CONFIG_FILE="$REPO_ROOT/.athrdrc"
+if [ -f "$CONFIG_FILE" ]; then
+  HOOK_SETTING=$(awk '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*$/ { next }
+    {
+      eq = index($0, "=")
+      if (eq == 0) next
+      key = substr($0, 1, eq - 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+      if (key != "commit_msg_hook") next
+
+      value = substr($0, eq + 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      print value
+    }
+  ' "$CONFIG_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+
+  case "$HOOK_SETTING" in
+    false|0|no|off)
+      exit 0
+      ;;
+  esac
+fi
+
 LEGACY_HOOK="$REPO_ROOT/.git/hooks/commit-msg"
 SELF_PATH="$0"
 

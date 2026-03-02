@@ -87,6 +87,28 @@ describe("global git hook install/uninstall", () => {
 });
 
 describe("commit-msg script behavior", () => {
+  test("applies marker links when .athrdrc is missing", () => {
+    installGlobalCommitMsgHook();
+
+    const home = process.env.HOME!;
+    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const repo = makeTempDir("athrd-repo-no-rc-");
+    runGit(["init"], repo);
+
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+
+    writeFileSync(msgFile, "feat: no rc file\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/no-rc\n", "utf-8");
+
+    execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(readFileSync(msgFile, "utf-8")).toContain(
+      "Agent-Session: https://athrd.com/threads/no-rc",
+    );
+    expect(readFileSync(markerFile, "utf-8")).toBe("");
+  });
+
   test("appends marker links as Agent-Session trailers and clears marker", () => {
     installGlobalCommitMsgHook();
 
@@ -147,6 +169,78 @@ describe("commit-msg script behavior", () => {
     expect(updatedMessage.match(/threads\/a/g)?.length).toBe(1);
     expect(updatedMessage).toContain(
       "Agent-Session: https://athrd.com/threads/c",
+    );
+    expect(readFileSync(markerFile, "utf-8")).toBe("");
+  });
+
+  test("respects .athrdrc opt-out and leaves message/marker unchanged", () => {
+    installGlobalCommitMsgHook();
+
+    const home = process.env.HOME!;
+    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const repo = makeTempDir("athrd-repo-optout-");
+    runGit(["init"], repo);
+
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+    const rcFile = join(repo, ".athrdrc");
+
+    writeFileSync(msgFile, "feat: skip trailers\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/skipped\n", "utf-8");
+    writeFileSync(rcFile, "commit_msg_hook=false\n", "utf-8");
+
+    execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(readFileSync(msgFile, "utf-8")).toBe("feat: skip trailers\n");
+    expect(readFileSync(markerFile, "utf-8")).toBe(
+      "https://athrd.com/threads/skipped\n",
+    );
+  });
+
+  test("honors case-insensitive false value in .athrdrc", () => {
+    installGlobalCommitMsgHook();
+
+    const home = process.env.HOME!;
+    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const repo = makeTempDir("athrd-repo-optout-off-");
+    runGit(["init"], repo);
+
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+    const rcFile = join(repo, ".athrdrc");
+
+    writeFileSync(msgFile, "feat: skip trailers off\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/skipped-off\n", "utf-8");
+    writeFileSync(rcFile, "commit_msg_hook=OFF\n", "utf-8");
+
+    execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(readFileSync(msgFile, "utf-8")).toBe("feat: skip trailers off\n");
+    expect(readFileSync(markerFile, "utf-8")).toBe(
+      "https://athrd.com/threads/skipped-off\n",
+    );
+  });
+
+  test("keeps hook enabled when .athrdrc sets commit_msg_hook=true", () => {
+    installGlobalCommitMsgHook();
+
+    const home = process.env.HOME!;
+    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const repo = makeTempDir("athrd-repo-optin-");
+    runGit(["init"], repo);
+
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+    const rcFile = join(repo, ".athrdrc");
+
+    writeFileSync(msgFile, "feat: keep trailers\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/enabled\n", "utf-8");
+    writeFileSync(rcFile, "commit_msg_hook=true\n", "utf-8");
+
+    execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(readFileSync(msgFile, "utf-8")).toContain(
+      "Agent-Session: https://athrd.com/threads/enabled",
     );
     expect(readFileSync(markerFile, "utf-8")).toBe("");
   });

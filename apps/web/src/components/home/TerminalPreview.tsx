@@ -159,6 +159,104 @@ export function Counter() {
       ],
     },
   },
+  {
+    id: "req_6",
+    type: "assistant",
+    timestamp: "2024-01-01T10:00:20Z",
+    message: {
+      role: "assistant",
+      id: "msg_4",
+      model: "claude-3-5-sonnet-20241022",
+      usage: {
+        input_tokens: 20,
+        output_tokens: 30,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation: {
+          ephemeral_1h_input_tokens: 0,
+          ephemeral_5m_input_tokens: 0,
+        },
+        service_tier: "default",
+      },
+      content: [
+        {
+          type: "text",
+          text: "The React counter component has been created successfully and is ready for use.",
+        },
+      ],
+    },
+  },
+  {
+    id: "req_7",
+    type: "user",
+    timestamp: "2024-01-01T10:00:25Z",
+    message: {
+      model: "claude-3-5-sonnet-20241022",
+      role: "user",
+      content: "Please add unit tests for the counter component.",
+    },
+  },
+  {
+    id: "req_8",
+    type: "assistant",
+    timestamp: "2024-01-01T10:00:30Z",
+    message: {
+      role: "assistant",
+      id: "msg_5",
+      model: "claude-3-5-sonnet-20241022",
+      usage: {
+        input_tokens: 50,
+        output_tokens: 50,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation: {
+          ephemeral_1h_input_tokens: 0,
+          ephemeral_5m_input_tokens: 0,
+        },
+        service_tier: "default",
+      },
+      content: [
+        {
+          type: "tool_use",
+          name: "Edit",
+          id: "tool_3",
+          input: {
+            file_path: "src/components/Counter.test.tsx",
+            old_string: "",
+            new_string:
+              "import { render, screen, fireEvent } from '@testing-library/react';\nimport { Counter } from './Counter';\n\ndescribe('Counter component', () => {\n  it('should display initial count as 0', () => {\n    render(<Counter />);\n    expect(screen.getByText('0')).toBeInTheDocument();\n  });\n\n  it('increments the count when plus button is clicked', () => {\n    render(<Counter />);\n    const plusButton = screen.getByRole('button', { name: /plus/i });\n    fireEvent.click(plusButton);\n    expect(screen.getByText('1')).toBeInTheDocument();\n  });\n\n  it('decrements the count when minus button is clicked', () => {\n    render(<Counter />);\n    const minusButton = screen.getByRole('button', { name: /minus/i });\n    fireEvent.click(minusButton);\n    expect(screen.getByText('-1')).toBeInTheDocument();\n  });\n});",
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: "req_9",
+    type: "assistant",
+    timestamp: "2024-01-01T10:00:20Z",
+    message: {
+      role: "assistant",
+      id: "msg_9",
+      model: "claude-3-5-sonnet-20241022",
+      usage: {
+        input_tokens: 20,
+        output_tokens: 30,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation: {
+          ephemeral_1h_input_tokens: 0,
+          ephemeral_5m_input_tokens: 0,
+        },
+        service_tier: "default",
+      },
+      content: [
+        {
+          type: "text",
+          text: "Unit tests for the Counter component have been added successfully.",
+        },
+      ],
+    },
+  },
 ];
 
 export function TerminalPreview() {

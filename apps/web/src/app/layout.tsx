@@ -9,9 +9,9 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ATHRD - Share AI Coding Threads",
+  title: "ATHRD - AI Traceability for Pull Requests",
   description:
-    "Share your AI conversations from VS Code and Claude with teammates. No more screenshots—just share a link.",
+    "Attach AI coding sessions to commits and pull requests so teams can understand why code changed and review faster.",
   generator: "v0.app",
   icons: {
     icon: [

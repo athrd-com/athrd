@@ -79,7 +79,7 @@ export function HeroSection() {
   return (
     <div className="flex flex-col items-center text-center max-w-4xl mx-auto mt-12 mb-24">
       <h1 className="text-5xl md:text-7xl font-medium tracking-tight text-white mb-6 leading-[1.1]">
-        Share your
+        Trace your
         <span className="inline-flex items-center gap-3 md:gap-5 mx-4">
           <span className="relative group inline-flex">
             <div
@@ -94,12 +94,12 @@ export function HeroSection() {
           <span>{currentBrand!.name}</span>
         </span>
         <br />
-        coding threads
+        sessions in every PR
       </h1>
 
       <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 font-light">
-        Turn your local AI conversations into shareable, interactive links for
-        your team or anyone else.
+        Attach AI coding context to commits and pull requests so your team can
+        understand what changed, why it changed, and review with confidence.
       </p>
 
       {/* Install Command */}

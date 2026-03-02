@@ -14,14 +14,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Sync athrd links block in PR body
+      - name: Sync Agent-Session trailers in PR body
         uses: actions/github-script@v8
         with:
           script: |
-            const START = "<!-- athrd-links:start -->";
-            const END = "<!-- athrd-links:end -->";
             const TRAILER_KEY = "Agent-Session:";
-            const LINK_REGEX = /https:\/\/athrd\.com\/[^\s)>\]]+/g;
+            const SECTION_DIVIDER = "---";
+            const SECTION_HEADING = "# Agent Session(s)";
             const TRAILING_PUNCTUATION = /[.,);\]]+$/;
 
             const owner = context.repo.owner;
@@ -57,35 +56,58 @@ jobs:
               ),
             ];
 
-            const renderSection = (urls) => {
-              const rows = urls.map((url) => `- ${url}`).join("\n");
-              return `${START}\n## Athrd links\n${rows}\n${END}`;
-            };
-
-            const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const sectionPattern = new RegExp(
-              `${escapeRegex(START)}[\\s\\S]*?${escapeRegex(END)}\\n?`,
-              "m",
-            );
-
             let nextBody = currentBody;
+            const lines = currentBody.split(/\r?\n/);
+            const trailerLineMatcher = new RegExp(`^\\s*${TRAILER_KEY}\\s*`);
+            const sectionHeadingMatcher = /^\s{0,3}#\s*Agent Session\(s\)\s*$/m;
+            const trailerLineIndexes = lines
+              .map((line, index) => ({ line, index }))
+              .filter(({ line }) => trailerLineMatcher.test(line))
+              .map(({ index }) => index);
 
             if (links.length === 0) {
-              nextBody = currentBody
-                .replace(sectionPattern, "")
-                .replace(/\n{3,}/g, "\n\n")
-                .trimEnd();
+              if (trailerLineIndexes.length > 0) {
+                nextBody = lines
+                  .filter((_, index) => !trailerLineIndexes.includes(index))
+                  .join("\n")
+                  .replace(/\n{3,}/g, "\n\n")
+                  .trimEnd();
+              }
             } else {
-              const section = renderSection(links);
-              if (sectionPattern.test(currentBody)) {
-                nextBody = currentBody
-                  .replace(sectionPattern, `${section}\n`)
+              const trailerLines = links.map((url) => `${TRAILER_KEY} ${url}`);
+              const hasSectionHeading = sectionHeadingMatcher.test(currentBody);
+
+              if (trailerLineIndexes.length > 0) {
+                const firstTrailerLine = trailerLineIndexes[0];
+                const linesWithoutTrailers = lines.filter(
+                  (_, index) => !trailerLineIndexes.includes(index),
+                );
+                const insertionIndex =
+                  firstTrailerLine -
+                  trailerLineIndexes.filter((index) => index < firstTrailerLine).length;
+                const sectionLines = hasSectionHeading
+                  ? []
+                  : [SECTION_DIVIDER, SECTION_HEADING];
+
+                linesWithoutTrailers.splice(
+                  insertionIndex,
+                  0,
+                  ...sectionLines,
+                  ...trailerLines,
+                );
+                nextBody = linesWithoutTrailers
+                  .join("\n")
                   .replace(/\n{3,}/g, "\n\n")
                   .trimEnd();
               } else if (currentBody.trim().length === 0) {
-                nextBody = section;
+                const sectionLines = [SECTION_DIVIDER, SECTION_HEADING];
+                nextBody = [...sectionLines, ...trailerLines].join("\n");
               } else {
-                nextBody = `${currentBody.trimEnd()}\n\n${section}`;
+                const sectionLines = hasSectionHeading
+                  ? []
+                  : [SECTION_DIVIDER, SECTION_HEADING];
+                const appendedLines = [...sectionLines, ...trailerLines];
+                nextBody = `${currentBody.trimEnd()}\n\n${appendedLines.join("\n")}`;
               }
             }
 
@@ -101,4 +123,6 @@ jobs:
               body: nextBody,
             });
 
-            core.info(`Updated PR #${pullNumber} with ${links.length} unique athrd link(s).`);
+            core.info(
+              `Updated PR #${pullNumber} with ${links.length} Agent-Session trailer link(s).`,
+            );

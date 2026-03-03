@@ -146,20 +146,7 @@ function AssistantMessageGroup({
 }: {
   messages: AthrdAssistantMessage[];
 }) {
-  const [showLeadingDetails, setShowLeadingDetails] = useState(false);
-
-  type CollapsibleItem =
-    | {
-        kind: "thought";
-        key: string;
-        subject: string;
-        description: string;
-      }
-    | {
-        kind: "tool";
-        key: string;
-        toolCall: AthrdToolCall;
-      };
+  const [showPreviousDetails, setShowPreviousDetails] = useState(false);
 
   type AssistantRenderBlock =
     | {
@@ -180,53 +167,26 @@ function AssistantMessageGroup({
       };
 
   const renderBlocks: AssistantRenderBlock[] = [];
-  const leadingItems: CollapsibleItem[] = [];
-  let leadingThoughtCount = 0;
-  let leadingToolCallCount = 0;
-  let seenContent = false;
-  const leadingSummaryParts: string[] = [];
 
   messages.forEach((message, messageIndex) => {
     message.thoughts?.forEach((thought, thoughtIndex) => {
-      const key = `thought-${message.id}-${thoughtIndex}`;
-      if (!seenContent) {
-        leadingItems.push({
-          kind: "thought",
-          key,
-          subject: thought.subject,
-          description: thought.description,
-        });
-        leadingThoughtCount += 1;
-      } else {
-        renderBlocks.push({
-          type: "thought",
-          key,
-          subject: thought.subject,
-          description: thought.description,
-        });
-      }
+      renderBlocks.push({
+        type: "thought",
+        key: `thought-${message.id}-${thoughtIndex}`,
+        subject: thought.subject,
+        description: thought.description,
+      });
     });
 
     message.toolCalls?.forEach((toolCall, toolIndex) => {
-      const key = `tool-${message.id}-${toolCall.id}-${toolIndex}`;
-      if (!seenContent) {
-        leadingItems.push({
-          kind: "tool",
-          key,
-          toolCall,
-        });
-        leadingToolCallCount += 1;
-      } else {
-        renderBlocks.push({
-          type: "tool",
-          key,
-          toolCall,
-        });
-      }
+      renderBlocks.push({
+        type: "tool",
+        key: `tool-${message.id}-${toolCall.id}-${toolIndex}`,
+        toolCall,
+      });
     });
 
     if (message.content) {
-      seenContent = true;
       renderBlocks.push({
         type: "content",
         key: `assistant-content-${message.id}-${messageIndex}`,
@@ -235,11 +195,25 @@ function AssistantMessageGroup({
     }
   });
 
-  if (leadingThoughtCount > 0) {
-    leadingSummaryParts.push(`Thinking (x${leadingThoughtCount})`);
+  const lastBlockIndex = renderBlocks.length - 1;
+  const hiddenBlocks = renderBlocks.slice(0, lastBlockIndex);
+  const hiddenThoughtCount = hiddenBlocks.filter(
+    (block) => block.type === "thought"
+  ).length;
+  const hiddenToolCallCount = hiddenBlocks.filter(
+    (block) => block.type === "tool"
+  ).length;
+  const hiddenCount = hiddenBlocks.length;
+  const hiddenSummaryParts: string[] = [];
+
+  if (hiddenThoughtCount > 0) {
+    hiddenSummaryParts.push(`Thinking (x${hiddenThoughtCount})`);
   }
-  if (leadingToolCallCount > 0) {
-    leadingSummaryParts.push(`Tool calls (x${leadingToolCallCount})`);
+  if (hiddenToolCallCount > 0) {
+    hiddenSummaryParts.push(`Tool calls (x${hiddenToolCallCount})`);
+  }
+  if (hiddenSummaryParts.length === 0 && hiddenCount > 0) {
+    hiddenSummaryParts.push(`Previous messages (x${hiddenCount})`);
   }
 
   return (
@@ -250,66 +224,43 @@ function AssistantMessageGroup({
         </AvatarFallback>
       </Avatar>
       <div className="space-y-2 min-w-0 max-w-full flex-1">
-        {leadingItems.length > 0 && (
+        {hiddenCount > 0 && (
           <div className="py-1">
             <button
               type="button"
-              onClick={() => setShowLeadingDetails((prev) => !prev)}
+              onClick={() => setShowPreviousDetails((prev) => !prev)}
               className="group flex w-full items-center gap-3 text-xs text-gray-400 hover:text-gray-200 transition-colors"
-              aria-expanded={showLeadingDetails}
+              aria-expanded={showPreviousDetails}
               aria-label={
-                showLeadingDetails
-                  ? "Collapse thinking and tool calls"
-                  : "Expand thinking and tool calls"
+                showPreviousDetails
+                  ? "Collapse previous assistant messages"
+                  : "Expand previous assistant messages"
               }
             >
-              {showLeadingDetails ? (
+              {showPreviousDetails ? (
                 <ChevronDownIcon className="h-3.5 w-3.5 shrink-0" />
               ) : (
                 <ChevronRightIcon className="h-3.5 w-3.5 shrink-0" />
               )}
               <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
-              <span>{leadingSummaryParts.join(" · ")}</span>
+              <span>{hiddenSummaryParts.join(" · ")}</span>
               <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
             </button>
-
-            <div className={cn("space-y-2 mt-2", !showLeadingDetails && "hidden")}>
-              {leadingItems.map((item) => {
-                if (item.kind === "thought") {
-                  return (
-                    <ToolGenericBlock
-                      key={item.key}
-                      results={[
-                        {
-                          id: item.key,
-                          name: "Thought",
-                          output: {
-                            type: "text",
-                            text: item.description,
-                          },
-                        },
-                      ]}
-                      title={item.subject}
-                      icon={BrainCogIcon}
-                    />
-                  );
-                }
-                return <ToolCallBlock key={item.key} toolCall={item.toolCall} />;
-              })}
-
-              <div className="flex items-center gap-4 text-xs text-gray-500 select-none pt-1">
-                <span className="h-px flex-1 bg-white/15" />
-                <span>End</span>
-                <span className="h-px flex-1 bg-white/15" />
-              </div>
-            </div>
           </div>
         )}
 
-        {renderBlocks.map((block) => {
+        {renderBlocks.map((block, blockIndex) => {
+          const shouldHide = !showPreviousDetails && blockIndex < lastBlockIndex;
+
           if (block.type === "content") {
             return (
-              <div key={block.key} className="markdown-content text-sm text-gray-300 py-2">
+              <div
+                key={block.key}
+                className={cn(
+                  "markdown-content text-sm text-gray-300 py-2",
+                  shouldHide && "hidden"
+                )}
+              >
                 <Markdown>{block.content}</Markdown>
               </div>
             );
@@ -317,25 +268,30 @@ function AssistantMessageGroup({
 
           if (block.type === "thought") {
             return (
-              <ToolGenericBlock
-                key={block.key}
-                results={[
-                  {
-                    id: block.key,
-                    name: "Thought",
-                    output: {
-                      type: "text",
-                      text: block.description,
+              <div key={block.key} className={cn(shouldHide && "hidden")}>
+                <ToolGenericBlock
+                  results={[
+                    {
+                      id: block.key,
+                      name: "Thought",
+                      output: {
+                        type: "text",
+                        text: block.description,
+                      },
                     },
-                  },
-                ]}
-                title={block.subject}
-                icon={BrainCogIcon}
-              />
+                  ]}
+                  title={block.subject}
+                  icon={BrainCogIcon}
+                />
+              </div>
             );
           }
 
-          return <ToolCallBlock key={block.key} toolCall={block.toolCall} />;
+          return (
+            <div key={block.key} className={cn(shouldHide && "hidden")}>
+              <ToolCallBlock toolCall={block.toolCall} />
+            </div>
+          );
         })}
       </div>
     </div>

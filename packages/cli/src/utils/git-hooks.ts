@@ -50,6 +50,36 @@ function getCurrentGlobalHooksPath(): string | null {
   }
 }
 
+function getRepoRoot(cwd?: string): string | null {
+  try {
+    const value = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+function getLocalHooksPath(cwd?: string): string | null {
+  try {
+    const value = execFileSync(
+      "git",
+      ["config", "--local", "--get", "core.hooksPath"],
+      {
+        cwd,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
+      },
+    ).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
 function setGlobalHooksPath(hooksPath: string): void {
   execFileSync("git", ["config", "--global", "core.hooksPath", hooksPath], {
     stdio: ["pipe", "pipe", "pipe"],
@@ -161,6 +191,13 @@ if [ -z "$REPO_ROOT" ]; then
   exit 0
 fi
 
+LEGACY_HOOK="$REPO_ROOT/.git/hooks/commit-msg"
+run_hook_if_present "$LEGACY_HOOK" "$@"
+LEGACY_STATUS=$?
+if [ $LEGACY_STATUS -ne 0 ]; then
+  exit $LEGACY_STATUS
+fi
+
 CONFIG_FILE="$REPO_ROOT/.athrdrc"
 if [ -f "$CONFIG_FILE" ]; then
   HOOK_SETTING=$(awk '
@@ -184,13 +221,6 @@ if [ -f "$CONFIG_FILE" ]; then
       exit 0
       ;;
   esac
-fi
-
-LEGACY_HOOK="$REPO_ROOT/.git/hooks/commit-msg"
-run_hook_if_present "$LEGACY_HOOK" "$@"
-LEGACY_STATUS=$?
-if [ $LEGACY_STATUS -ne 0 ]; then
-  exit $LEGACY_STATUS
 fi
 
 MARKER_FILE="$REPO_ROOT/.agent-session-marker"
@@ -361,4 +391,33 @@ export function uninstallGlobalCommitMsgHook(): void {
   ) {
     fs.rmdirSync(globalHooksDir);
   }
+}
+
+export function ensureRepoCommitMsgHookCompatibility(cwd?: string): void {
+  const repoRoot = getRepoRoot(cwd);
+  if (!repoRoot) {
+    return;
+  }
+
+  const localHooksPath = getLocalHooksPath(cwd);
+  if (!localHooksPath) {
+    return;
+  }
+
+  const resolvedHooksDir = path.isAbsolute(localHooksPath)
+    ? localHooksPath
+    : path.resolve(repoRoot, localHooksPath);
+
+  const hookPath = getCommitMsgHookPathForDir(resolvedHooksDir);
+  if (isAthrdManagedHook(hookPath)) {
+    return;
+  }
+
+  let backupHookPath: string | null = null;
+  if (fs.existsSync(hookPath)) {
+    backupHookPath = `${hookPath}.athrd-backup-${Date.now()}`;
+    fs.renameSync(hookPath, backupHookPath);
+  }
+
+  writeCommitMsgHook(resolvedHooksDir, backupHookPath);
 }

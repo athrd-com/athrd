@@ -3,6 +3,7 @@ import { execFileSync } from "child_process";
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -12,6 +13,7 @@ import {
 import { tmpdir } from "os";
 import { join } from "path";
 import {
+  ensureRepoCommitMsgHookCompatibility,
   installGlobalCommitMsgHook,
   uninstallGlobalCommitMsgHook,
 } from "./git-hooks.js";
@@ -324,6 +326,69 @@ describe("commit-msg script behavior", () => {
     expect(existsSync(flagFile)).toBeTrue();
     expect(readFileSync(msgFile, "utf-8")).toContain(
       "Agent-Session: https://athrd.com/threads/chained",
+    );
+  });
+
+  test("installs compatibility hook in repo-local hooksPath and preserves existing hook", () => {
+    const repo = makeTempDir("athrd-repo-local-hooks-");
+    runGit(["init"], repo);
+    runGit(["config", "--local", "core.hooksPath", ".husky"], repo);
+
+    const hooksDir = join(repo, ".husky");
+    const existingHook = join(hooksDir, "commit-msg");
+    const flagFile = join(repo, "local-hook-ran.txt");
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+
+    mkdirSync(hooksDir, { recursive: true });
+    writeFileSync(
+      existingHook,
+      `#!/bin/bash\necho ran > "${flagFile}"\nexit 0\n`,
+      "utf-8",
+    );
+    chmodSync(existingHook, 0o755);
+
+    ensureRepoCommitMsgHookCompatibility(repo);
+    writeFileSync(msgFile, "feat: local hooks\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/local\n", "utf-8");
+
+    execFileSync(existingHook, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(existsSync(flagFile)).toBeTrue();
+    expect(readFileSync(msgFile, "utf-8")).toContain(
+      "Agent-Session: https://athrd.com/threads/local",
+    );
+  });
+
+  test("disabled=true still runs legacy hook but skips athrd trailer injection", () => {
+    installGlobalCommitMsgHook();
+
+    const hookPath = getInstalledCommitMsgHookPath();
+    const repo = makeTempDir("athrd-repo-disabled-legacy-");
+    runGit(["init"], repo);
+
+    const legacyHook = join(repo, ".git", "hooks", "commit-msg");
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+    const rcFile = join(repo, ".athrdrc");
+    const flagFile = join(repo, "legacy-ran.txt");
+
+    writeFileSync(
+      legacyHook,
+      `#!/bin/bash\necho ran > "${flagFile}"\nexit 0\n`,
+      "utf-8",
+    );
+    chmodSync(legacyHook, 0o755);
+    writeFileSync(msgFile, "feat: disabled mode\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/should-skip\n", "utf-8");
+    writeFileSync(rcFile, "disabled=true\n", "utf-8");
+
+    execFileSync(hookPath, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(existsSync(flagFile)).toBeTrue();
+    expect(readFileSync(msgFile, "utf-8")).toBe("feat: disabled mode\n");
+    expect(readFileSync(markerFile, "utf-8")).toBe(
+      "https://athrd.com/threads/should-skip\n",
     );
   });
 });

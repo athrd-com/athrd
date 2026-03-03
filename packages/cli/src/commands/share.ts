@@ -6,6 +6,7 @@ import { getProvider, providers } from "../providers/index.js";
 import { ChatSession } from "../types/index.js";
 import { requireAuth } from "../utils/auth.js";
 import { formatDate } from "../utils/date.js";
+import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
 import { getGitHubRepo } from "../utils/git.js";
 import {
   getGitHubOrgInfo,
@@ -223,8 +224,8 @@ export function shareCommand(program: Command) {
           const octokit = new Octokit({
             auth: token,
             log: {
-              debug: () => { },
-              info: () => { },
+              debug: () => {},
+              info: () => {},
               warn: console.warn,
               error: console.error,
             },
@@ -332,6 +333,7 @@ export function shareCommand(program: Command) {
                   cwd: repoCwd,
                   url: athrdUrl,
                 });
+                ensureRepoCommitMsgHookCompatibility(repoCwd);
               } catch (error) {
                 console.warn(
                   chalk.yellow(
@@ -343,7 +345,8 @@ export function shareCommand(program: Command) {
 
             console.log(
               chalk.green(
-                `✓ ${session.customTitle || "Untitled Chat"
+                `✓ ${
+                  session.customTitle || "Untitled Chat"
                 }: (${actionLabel}) ${athrdUrl}`,
               ),
             );

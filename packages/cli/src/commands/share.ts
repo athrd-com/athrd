@@ -14,6 +14,7 @@ import {
   getGitHubUserInfo,
 } from "../utils/github.js";
 import { appendAthrdUrlMarker } from "../utils/marker.js";
+import { maybeBackfillHookDrivenCommit } from "../utils/hook-share-backfill.js";
 import {
   getGistIdForThread,
   upsertThreadGistMapping,
@@ -334,6 +335,12 @@ export function shareCommand(program: Command) {
                   url: athrdUrl,
                 });
                 ensureRepoCommitMsgHookCompatibility(repoCwd);
+                maybeBackfillHookDrivenCommit({
+                  cwd: repoCwd,
+                  mark: options.mark === true,
+                  hookPayloadJson: options.json,
+                  url: athrdUrl,
+                });
               } catch (error) {
                 console.warn(
                   chalk.yellow(

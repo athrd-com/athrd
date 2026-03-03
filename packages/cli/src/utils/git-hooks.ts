@@ -5,7 +5,10 @@ import * as path from "path";
 
 interface GitHookState {
   managedByAthrd: true;
+  updatedGlobalHooksPath: boolean;
   previousHooksPath: string | null;
+  targetHooksPath: string;
+  backupHookPath: string | null;
 }
 
 function getAthrdDir(): string {
@@ -25,6 +28,10 @@ function getCommitMsgHookPath(): string {
 
 function getStatePath(): string {
   return path.join(getGlobalHooksDir(), "state.json");
+}
+
+function getCommitMsgHookPathForDir(hooksDir: string): string {
+  return path.join(hooksDir, "commit-msg");
 }
 
 function getCurrentGlobalHooksPath(): string | null {
@@ -66,10 +73,17 @@ function loadState(): GitHookState | null {
     if (parsed?.managedByAthrd === true) {
       return {
         managedByAthrd: true,
+        updatedGlobalHooksPath: parsed.updatedGlobalHooksPath === true,
         previousHooksPath:
           typeof parsed.previousHooksPath === "string"
             ? parsed.previousHooksPath
             : null,
+        targetHooksPath:
+          typeof parsed.targetHooksPath === "string"
+            ? parsed.targetHooksPath
+            : getGlobalHooksDir(),
+        backupHookPath:
+          typeof parsed.backupHookPath === "string" ? parsed.backupHookPath : null,
       };
     }
     return null;
@@ -90,13 +104,56 @@ function removeState(): void {
   }
 }
 
-function getCommitMsgHookScriptContent(): string {
+function isAthrdManagedHook(hookPath: string): boolean {
+  if (!fs.existsSync(hookPath)) {
+    return false;
+  }
+  try {
+    const content = fs.readFileSync(hookPath, "utf-8");
+    return content.includes("# ATHRD_MANAGED_COMMIT_MSG");
+  } catch {
+    return false;
+  }
+}
+
+function toBashSingleQuoted(value: string): string {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function getCommitMsgHookScriptContent(backupHookPath: string | null): string {
+  const backupHookValue = backupHookPath ? toBashSingleQuoted(backupHookPath) : "''";
   return `#!/bin/bash
+# ATHRD_MANAGED_COMMIT_MSG
 MSG_FILE="$1"
 TRAILER_KEY="Agent-Session:"
+BACKUP_HOOK=${backupHookValue}
 
 if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
   exit 0
+fi
+
+run_hook_if_present() {
+  HOOK_PATH="$1"
+  if [ -z "$HOOK_PATH" ] || [ ! -x "$HOOK_PATH" ]; then
+    return 0
+  fi
+
+  HOOK_REAL=$(realpath "$HOOK_PATH" 2>/dev/null || echo "$HOOK_PATH")
+  SELF_REAL=$(realpath "$0" 2>/dev/null || echo "$0")
+  if [ "$HOOK_REAL" = "$SELF_REAL" ]; then
+    return 0
+  fi
+
+  "$HOOK_PATH" "$@"
+  return $?
+}
+
+if [ -n "$BACKUP_HOOK" ]; then
+  run_hook_if_present "$BACKUP_HOOK" "$@"
+  BACKUP_STATUS=$?
+  if [ $BACKUP_STATUS -ne 0 ]; then
+    exit $BACKUP_STATUS
+  fi
 fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
@@ -130,18 +187,10 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 LEGACY_HOOK="$REPO_ROOT/.git/hooks/commit-msg"
-SELF_PATH="$0"
-
-if [ -x "$LEGACY_HOOK" ]; then
-  LEGACY_REAL=$(realpath "$LEGACY_HOOK" 2>/dev/null || echo "$LEGACY_HOOK")
-  SELF_REAL=$(realpath "$SELF_PATH" 2>/dev/null || echo "$SELF_PATH")
-  if [ "$LEGACY_REAL" != "$SELF_REAL" ]; then
-    "$LEGACY_HOOK" "$@"
-    LEGACY_STATUS=$?
-    if [ $LEGACY_STATUS -ne 0 ]; then
-      exit $LEGACY_STATUS
-    fi
-  fi
+run_hook_if_present "$LEGACY_HOOK" "$@"
+LEGACY_STATUS=$?
+if [ $LEGACY_STATUS -ne 0 ]; then
+  exit $LEGACY_STATUS
 fi
 
 MARKER_FILE="$REPO_ROOT/.agent-session-marker"
@@ -225,48 +274,74 @@ exit 0
 `;
 }
 
-function writeCommitMsgHook(): void {
-  const hooksDir = getGlobalHooksDir();
-  const hookPath = getCommitMsgHookPath();
+function writeCommitMsgHook(
+  hooksDir: string,
+  backupHookPath: string | null,
+): void {
+  const hookPath = getCommitMsgHookPathForDir(hooksDir);
   fs.mkdirSync(hooksDir, { recursive: true });
-  fs.writeFileSync(hookPath, getCommitMsgHookScriptContent(), { mode: 0o755 });
+  fs.writeFileSync(hookPath, getCommitMsgHookScriptContent(backupHookPath), {
+    mode: 0o755,
+  });
 }
 
 export function installGlobalCommitMsgHook(): void {
   const globalHooksDir = getGlobalHooksDir();
   const currentHooksPath = getCurrentGlobalHooksPath();
   const state = loadState();
-
-  writeCommitMsgHook();
+  let updatedGlobalHooksPath = false;
+  let previousHooksPath: string | null = null;
+  let targetHooksPath = currentHooksPath ?? globalHooksDir;
+  let backupHookPath: string | null = null;
 
   if (state?.managedByAthrd) {
-    if (currentHooksPath !== globalHooksDir) {
+    writeCommitMsgHook(state.targetHooksPath, state.backupHookPath);
+    if (state.updatedGlobalHooksPath && currentHooksPath !== globalHooksDir) {
       setGlobalHooksPath(globalHooksDir);
     }
     return;
   }
 
+  if (!currentHooksPath) {
+    setGlobalHooksPath(globalHooksDir);
+    updatedGlobalHooksPath = true;
+    previousHooksPath = null;
+    targetHooksPath = globalHooksDir;
+  }
+
+  const targetHookPath = getCommitMsgHookPathForDir(targetHooksPath);
+  if (fs.existsSync(targetHookPath) && !isAthrdManagedHook(targetHookPath)) {
+    backupHookPath = `${targetHookPath}.athrd-backup-${Date.now()}`;
+    fs.renameSync(targetHookPath, backupHookPath);
+  }
+
+  writeCommitMsgHook(targetHooksPath, backupHookPath);
+
   saveState({
     managedByAthrd: true,
-    previousHooksPath:
-      currentHooksPath && currentHooksPath !== globalHooksDir
-        ? currentHooksPath
-        : null,
+    updatedGlobalHooksPath,
+    previousHooksPath,
+    targetHooksPath,
+    backupHookPath,
   });
-
-  if (currentHooksPath !== globalHooksDir) {
-    setGlobalHooksPath(globalHooksDir);
-  }
 }
 
 export function uninstallGlobalCommitMsgHook(): void {
   const globalHooksDir = getGlobalHooksDir();
-  const hookPath = getCommitMsgHookPath();
   const state = loadState();
   const currentHooksPath = getCurrentGlobalHooksPath();
 
   if (state?.managedByAthrd) {
-    if (currentHooksPath === globalHooksDir) {
+    const hookPath = getCommitMsgHookPathForDir(state.targetHooksPath);
+    if (fs.existsSync(hookPath) && isAthrdManagedHook(hookPath)) {
+      fs.unlinkSync(hookPath);
+    }
+
+    if (state.backupHookPath && fs.existsSync(state.backupHookPath)) {
+      fs.renameSync(state.backupHookPath, hookPath);
+    }
+
+    if (state.updatedGlobalHooksPath && currentHooksPath === globalHooksDir) {
       if (state.previousHooksPath) {
         setGlobalHooksPath(state.previousHooksPath);
       } else {
@@ -280,12 +355,10 @@ export function uninstallGlobalCommitMsgHook(): void {
     removeState();
   }
 
-  if (fs.existsSync(hookPath)) {
-    fs.unlinkSync(hookPath);
-  }
-
-  const hooksDir = getGlobalHooksDir();
-  if (fs.existsSync(hooksDir) && fs.readdirSync(hooksDir).length === 0) {
-    fs.rmdirSync(hooksDir);
+  if (
+    fs.existsSync(globalHooksDir) &&
+    fs.readdirSync(globalHooksDir).length === 0
+  ) {
+    fs.rmdirSync(globalHooksDir);
   }
 }

@@ -37,6 +37,14 @@ function runGit(args: string[], cwd?: string): string {
   }).trim();
 }
 
+function getConfiguredHooksPath(): string {
+  return runGit(["config", "--global", "--get", "core.hooksPath"]);
+}
+
+function getInstalledCommitMsgHookPath(): string {
+  return join(getConfiguredHooksPath(), "commit-msg");
+}
+
 beforeEach(() => {
   const home = makeTempDir("athrd-githooks-home-");
   process.env.HOME = home;
@@ -61,27 +69,40 @@ describe("global git hook install/uninstall", () => {
     installGlobalCommitMsgHook();
 
     const home = process.env.HOME!;
-    const hooksDir = join(home, ".athrd", "git-hooks");
-    const hookPath = join(hooksDir, "commit-msg");
-    const statePath = join(hooksDir, "state.json");
+    const hookPath = getInstalledCommitMsgHookPath();
+    const statePath = join(home, ".athrd", "git-hooks", "state.json");
 
     expect(existsSync(hookPath)).toBeTrue();
     expect(existsSync(statePath)).toBeTrue();
     expect(statSync(hookPath).mode & 0o111).toBeGreaterThan(0);
-    expect(runGit(["config", "--global", "--get", "core.hooksPath"])).toBe(
-      hooksDir,
-    );
+    expect(getConfiguredHooksPath().length).toBeGreaterThan(0);
   });
 
-  test("uninstall restores previous hooksPath", () => {
+  test("install does not replace existing global hooksPath", () => {
     const previousHooksPath = makeTempDir("athrd-prev-hooks-");
     runGit(["config", "--global", "core.hooksPath", previousHooksPath]);
 
     installGlobalCommitMsgHook();
-    uninstallGlobalCommitMsgHook();
 
     expect(runGit(["config", "--global", "--get", "core.hooksPath"])).toBe(
       previousHooksPath,
+    );
+  });
+
+  test("uninstall restores previous commit-msg hook in existing hooksPath", () => {
+    const hooksDir = makeTempDir("athrd-existing-hooks-");
+    const existingHook = join(hooksDir, "commit-msg");
+    runGit(["config", "--global", "core.hooksPath", hooksDir]);
+    writeFileSync(existingHook, "#!/bin/bash\nexit 0\n", "utf-8");
+    chmodSync(existingHook, 0o755);
+
+    installGlobalCommitMsgHook();
+    uninstallGlobalCommitMsgHook();
+
+    expect(existsSync(existingHook)).toBeTrue();
+    expect(readFileSync(existingHook, "utf-8")).toBe("#!/bin/bash\nexit 0\n");
+    expect(runGit(["config", "--global", "--get", "core.hooksPath"])).toBe(
+      hooksDir,
     );
   });
 });
@@ -90,8 +111,7 @@ describe("commit-msg script behavior", () => {
   test("applies marker links when .athrdrc is missing", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-no-rc-");
     runGit(["init"], repo);
 
@@ -112,8 +132,7 @@ describe("commit-msg script behavior", () => {
   test("appends marker links as Agent-Session trailers and clears marker", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-");
     runGit(["init"], repo);
 
@@ -139,8 +158,7 @@ describe("commit-msg script behavior", () => {
   test("appends new links into existing trailers without duplicates", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-block-");
     runGit(["init"], repo);
 
@@ -176,8 +194,7 @@ describe("commit-msg script behavior", () => {
   test("respects .athrdrc disabled=true opt-out and leaves message/marker unchanged", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-optout-");
     runGit(["init"], repo);
 
@@ -200,8 +217,7 @@ describe("commit-msg script behavior", () => {
   test("honors case-insensitive true value in .athrdrc disabled key", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-optout-off-");
     runGit(["init"], repo);
 
@@ -224,8 +240,7 @@ describe("commit-msg script behavior", () => {
   test("keeps hook enabled when .athrdrc sets disabled=false", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-optin-");
     runGit(["init"], repo);
 
@@ -248,8 +263,7 @@ describe("commit-msg script behavior", () => {
   test("runs legacy repo hook first and propagates its failure", () => {
     installGlobalCommitMsgHook();
 
-    const home = process.env.HOME!;
-    const hookPath = join(home, ".athrd", "git-hooks", "commit-msg");
+    const hookPath = getInstalledCommitMsgHookPath();
     const repo = makeTempDir("athrd-repo-legacy-");
     runGit(["init"], repo);
 
@@ -278,6 +292,38 @@ describe("commit-msg script behavior", () => {
     expect(readFileSync(msgFile, "utf-8")).toBe("feat: blocked commit\n");
     expect(readFileSync(markerFile, "utf-8")).toContain(
       "https://athrd.com/threads/blocked",
+    );
+  });
+
+  test("chains existing global commit-msg hook when hooksPath already exists", () => {
+    const hooksDir = makeTempDir("athrd-global-hooks-");
+    runGit(["config", "--global", "core.hooksPath", hooksDir]);
+    const existingHook = join(hooksDir, "commit-msg");
+    const flagFile = join(hooksDir, "existing-hook-ran.txt");
+
+    writeFileSync(
+      existingHook,
+      `#!/bin/bash\necho ran > "${flagFile}"\nexit 0\n`,
+      "utf-8",
+    );
+    chmodSync(existingHook, 0o755);
+
+    installGlobalCommitMsgHook();
+
+    const repo = makeTempDir("athrd-repo-global-chain-");
+    runGit(["init"], repo);
+    const msgFile = join(repo, "COMMIT_EDITMSG");
+    const markerFile = join(repo, ".agent-session-marker");
+    const managedHook = join(hooksDir, "commit-msg");
+
+    writeFileSync(msgFile, "feat: chain global hook\n", "utf-8");
+    writeFileSync(markerFile, "https://athrd.com/threads/chained\n", "utf-8");
+
+    execFileSync(managedHook, [msgFile], { cwd: repo, stdio: "ignore" });
+
+    expect(existsSync(flagFile)).toBeTrue();
+    expect(readFileSync(msgFile, "utf-8")).toContain(
+      "Agent-Session: https://athrd.com/threads/chained",
     );
   });
 });

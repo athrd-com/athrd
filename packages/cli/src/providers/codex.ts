@@ -204,32 +204,44 @@ export class CodexProvider implements ChatProvider {
     }
 
     if (Array.isArray(content)) {
+      const previews: string[] = [];
       for (const item of content) {
         if (typeof item === "string") {
           const preview = this.normalizePreview(item);
           if (preview) {
-            return preview;
+            previews.push(preview);
           }
         } else if (item && typeof item === "object") {
           const preview = this.extractTextFromContent(item.text ?? item.content);
           if (preview) {
-            return preview;
+            previews.push(preview);
           }
         }
       }
-      return undefined;
+      return previews.length > 0 ? previews.join("\n") : undefined;
     }
 
     if (typeof content === "object") {
+      const previews: string[] = [];
       if (typeof content.text === "string") {
-        return this.normalizePreview(content.text);
+        const preview = this.normalizePreview(content.text);
+        if (preview) {
+          previews.push(preview);
+        }
       }
       if (typeof content.message === "string") {
-        return this.normalizePreview(content.message);
+        const preview = this.normalizePreview(content.message);
+        if (preview) {
+          previews.push(preview);
+        }
       }
       if (Array.isArray(content.content)) {
-        return this.extractTextFromContent(content.content);
+        const nested = this.extractTextFromContent(content.content);
+        if (nested) {
+          previews.push(nested);
+        }
       }
+      return previews.length > 0 ? previews.join("\n") : undefined;
     }
 
     return undefined;

@@ -7,6 +7,11 @@ interface AppendAthrdUrlMarkerParams {
   url: string;
 }
 
+interface RemoveAthrdUrlMarkerParams {
+  cwd?: string;
+  url: string;
+}
+
 function ensureMarkerIgnored(gitRoot: string): void {
   const gitignorePath = path.join(gitRoot, ".gitignore");
   const markerEntry = ".agent-session-marker";
@@ -61,4 +66,43 @@ export function appendAthrdUrlMarker(params: AppendAthrdUrlMarkerParams): void {
   const contentToAppend = `${needsLeadingNewline ? "\n" : ""}${normalizedUrl}\n`;
 
   fs.appendFileSync(markerPath, contentToAppend, "utf-8");
+}
+
+export function removeAthrdUrlMarker(params: RemoveAthrdUrlMarkerParams): void {
+  const gitRoot = getGitRepoRoot(params.cwd);
+  if (!gitRoot) {
+    return;
+  }
+
+  const markerPath = path.join(gitRoot, ".agent-session-marker");
+  if (!fs.existsSync(markerPath)) {
+    return;
+  }
+
+  const targetUrl = params.url.trim();
+  if (!targetUrl) {
+    return;
+  }
+
+  const existingContent = fs.readFileSync(markerPath, "utf-8");
+  const existingUrls = existingContent
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (existingUrls.length === 0) {
+    return;
+  }
+
+  const nextUrls = existingUrls.filter((url) => url !== targetUrl);
+  if (nextUrls.length === existingUrls.length) {
+    return;
+  }
+
+  if (nextUrls.length === 0) {
+    fs.writeFileSync(markerPath, "", "utf-8");
+    return;
+  }
+
+  fs.writeFileSync(markerPath, `${nextUrls.join("\n")}\n`, "utf-8");
 }

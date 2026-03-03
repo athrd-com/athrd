@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "os";
 import { join } from "path";
 import { execSync } from "child_process";
-import { appendAthrdUrlMarker } from "./marker.js";
+import { appendAthrdUrlMarker, removeAthrdUrlMarker } from "./marker.js";
 
 const tempDirs: string[] = [];
 
@@ -95,5 +95,51 @@ describe("appendAthrdUrlMarker", () => {
     appendAthrdUrlMarker({ cwd: dir, url: "https://athrd.com/threads/abc" });
 
     expect(existsSync(join(dir, ".agent-session-marker"))).toBeFalse();
+  });
+});
+
+describe("removeAthrdUrlMarker", () => {
+  test("removes target URL and keeps remaining URLs", () => {
+    const root = makeTempDir("athrd-marker-remove-one-");
+    execSync("git init", { cwd: root, stdio: "ignore" });
+
+    const markerPath = join(root, ".agent-session-marker");
+    writeFileSync(
+      markerPath,
+      "https://athrd.com/threads/a\nhttps://athrd.com/threads/b\n",
+      "utf-8",
+    );
+
+    removeAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/a" });
+
+    expect(readFileSync(markerPath, "utf-8")).toBe(
+      "https://athrd.com/threads/b\n",
+    );
+  });
+
+  test("clears marker file when last URL is removed", () => {
+    const root = makeTempDir("athrd-marker-remove-last-");
+    execSync("git init", { cwd: root, stdio: "ignore" });
+
+    const markerPath = join(root, ".agent-session-marker");
+    writeFileSync(markerPath, "https://athrd.com/threads/a\n", "utf-8");
+
+    removeAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/a" });
+
+    expect(readFileSync(markerPath, "utf-8")).toBe("");
+  });
+
+  test("no-ops when URL is not present", () => {
+    const root = makeTempDir("athrd-marker-remove-miss-");
+    execSync("git init", { cwd: root, stdio: "ignore" });
+
+    const markerPath = join(root, ".agent-session-marker");
+    writeFileSync(markerPath, "https://athrd.com/threads/a\n", "utf-8");
+
+    removeAthrdUrlMarker({ cwd: root, url: "https://athrd.com/threads/z" });
+
+    expect(readFileSync(markerPath, "utf-8")).toBe(
+      "https://athrd.com/threads/a\n",
+    );
   });
 });

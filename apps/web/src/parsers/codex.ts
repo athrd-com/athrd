@@ -67,6 +67,10 @@ function hasAssistantContent(state: AssistantState): boolean {
   );
 }
 
+function hasAssistantText(state: AssistantState): boolean {
+  return state.content.length > 0;
+}
+
 function flushAssistant(ctx: ParseContext): void {
   if (!hasAssistantContent(ctx.assistant)) return;
 
@@ -127,6 +131,12 @@ function handleResponseMessage(
     const textContent = extractTextContent(payload.content, "output_text");
     if (!textContent.trim()) return;
 
+    // Preserve event ordering by separating text blocks from reasoning/tool blocks.
+    // When text arrives after non-text assistant events, flush first.
+    if (hasAssistantContent(ctx.assistant) && !hasAssistantText(ctx.assistant)) {
+      flushAssistant(ctx);
+    }
+
     ctx.assistant.content.push(textContent);
     ctx.assistant.timestamp = normalizeTimestamp(timestamp);
     ensureAssistantId(ctx.assistant);
@@ -138,6 +148,11 @@ function handleFunctionCall(
   payload: CodexFunctionCallPayload,
   timestamp: string
 ): void {
+  // Preserve event ordering by separating text blocks from reasoning/tool blocks.
+  if (hasAssistantText(ctx.assistant)) {
+    flushAssistant(ctx);
+  }
+
   const toolCall = parseFunctionCall(payload, timestamp, ctx.functionOutputs);
   ctx.assistant.toolCalls.push(toolCall);
   ctx.assistant.timestamp = normalizeTimestamp(timestamp);
@@ -149,6 +164,11 @@ function handleReasoning(
   payload: CodexReasoningPayload,
   timestamp: string
 ): void {
+  // Preserve event ordering by separating text blocks from reasoning/tool blocks.
+  if (hasAssistantText(ctx.assistant)) {
+    flushAssistant(ctx);
+  }
+
   const normalizedTimestamp = normalizeTimestamp(timestamp);
 
   for (const summary of payload.summary ?? []) {

@@ -257,20 +257,30 @@ describe("codexParser", () => {
 
       const result = codexParser.parse(thread);
 
-      expect(result.messages).toHaveLength(1);
-      const assistantMsg = result.messages[0];
-      expect(assistantMsg?.type).toBe("assistant");
-      if (assistantMsg?.type !== "assistant")
-        throw new Error("Expected assistant message");
-      expect(assistantMsg.thoughts).toHaveLength(2);
-      expect(assistantMsg.thoughts?.[0]).toMatchObject({
+      expect(result.messages).toHaveLength(2);
+
+      const reasoningMsg = result.messages[0];
+      expect(reasoningMsg?.type).toBe("assistant");
+      if (reasoningMsg?.type !== "assistant")
+        throw new Error("Expected assistant reasoning message");
+      expect(reasoningMsg.content).toBe("");
+      expect(reasoningMsg.thoughts).toHaveLength(2);
+      expect(reasoningMsg.thoughts?.[0]).toMatchObject({
         subject: "Analysis",
         description: "Let me analyze this problem...",
       });
-      expect(assistantMsg.thoughts?.[1]).toMatchObject({
+      expect(reasoningMsg.thoughts?.[1]).toMatchObject({
         subject: "Thinking",
         description: "Detailed thinking process here",
       });
+
+      const responseMsg = result.messages[1];
+      expect(responseMsg?.type).toBe("assistant");
+      if (responseMsg?.type !== "assistant")
+        throw new Error("Expected assistant text message");
+      expect(responseMsg.content).toBe("Here's my response");
+      expect(responseMsg.thoughts).toBeUndefined();
+      expect(responseMsg.toolCalls).toBeUndefined();
     });
 
     it("should handle multiple text blocks in assistant message", () => {
@@ -381,15 +391,24 @@ describe("codexParser", () => {
 
       const result = codexParser.parse(thread);
 
-      expect(result.messages).toHaveLength(1);
-      const assistantMsg = result.messages[0];
-      if (assistantMsg?.type !== "assistant")
-        throw new Error("Expected assistant message");
-      expect(assistantMsg.thoughts).toHaveLength(1);
-      expect(assistantMsg.thoughts?.[0]).toMatchObject({
+      expect(result.messages).toHaveLength(2);
+
+      const reasoningMsg = result.messages[0];
+      if (reasoningMsg?.type !== "assistant")
+        throw new Error("Expected assistant reasoning message");
+      expect(reasoningMsg.content).toBe("");
+      expect(reasoningMsg.thoughts).toHaveLength(1);
+      expect(reasoningMsg.thoughts?.[0]).toMatchObject({
         subject: "Planning",
         description: "Creating a plan...",
       });
+
+      const responseMsg = result.messages[1];
+      if (responseMsg?.type !== "assistant")
+        throw new Error("Expected assistant text message");
+      expect(responseMsg.content).toBe("Plan created");
+      expect(responseMsg.thoughts).toBeUndefined();
+      expect(responseMsg.toolCalls).toBeUndefined();
     });
 
     describe("tool calls", () => {
@@ -1143,16 +1162,28 @@ describe("codexParser", () => {
 
       const result = codexParser.parse(thread);
 
-      expect(result.messages).toHaveLength(1);
-      const assistantMsg = result.messages[0];
-      if (assistantMsg?.type !== "assistant")
-        throw new Error("Expected assistant message");
+      expect(result.messages).toHaveLength(3);
 
-      expect(assistantMsg.content).toBe(
-        "Let me help you with that.\n\nTask completed!",
-      );
-      expect(assistantMsg.thoughts).toHaveLength(2);
-      expect(assistantMsg.toolCalls).toHaveLength(1);
+      const firstMsg = result.messages[0];
+      if (firstMsg?.type !== "assistant")
+        throw new Error("Expected first assistant message");
+      expect(firstMsg.content).toBe("Let me help you with that.");
+      expect(firstMsg.thoughts).toBeUndefined();
+      expect(firstMsg.toolCalls).toBeUndefined();
+
+      const secondMsg = result.messages[1];
+      if (secondMsg?.type !== "assistant")
+        throw new Error("Expected second assistant message");
+      expect(secondMsg.content).toBe("");
+      expect(secondMsg.thoughts).toHaveLength(2);
+      expect(secondMsg.toolCalls).toHaveLength(1);
+
+      const thirdMsg = result.messages[2];
+      if (thirdMsg?.type !== "assistant")
+        throw new Error("Expected third assistant message");
+      expect(thirdMsg.content).toBe("Task completed!");
+      expect(thirdMsg.thoughts).toBeUndefined();
+      expect(thirdMsg.toolCalls).toBeUndefined();
     });
   });
 

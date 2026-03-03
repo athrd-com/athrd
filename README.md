@@ -15,28 +15,36 @@
 
 # 🧵 athrd
 
-**Share your AI coding threads with the world.**
+**AI traceability for commits and pull requests.**
 
 [License](LICENSE) <!-- | [Website](https://athrd.com) -->
 
 ## What is athrd?
 
-**athrd** is a platform that allows you to share your coding conversations from your favorite AI assistants. Whether you're debugging with Claude, generating code with Copilot in VS Code, or building with Cursor, athrd provides a beautiful, shareable link for your threads.
+**athrd** connects AI coding sessions to your software delivery workflow.
+It captures sessions from assistants like Claude, Codex, Gemini, Cursor, and
+VS Code, then gives your team durable context for code review and knowledge
+transfer.
 
-Turn your private debugging sessions into public knowledge bases.
+Use athrd to make AI-assisted changes easier to understand:
+
+- What changed
+- Why the change was made
+- How the solution evolved across prompts and tool calls
 
 ## Features
 
-- **Universal Support**: Works with VS Code, Claude, Cursor, and Codex.
-- **Beautiful Visualization**: Renders code blocks, tool use, and thinking processes elegantly.
-- **CLI Tool**: Share threads directly from your terminal.
-- **Open Source**: Self-hostable and community-driven.
+- **Commit and PR Traceability**: Attach AI sessions to commits and surface them in pull requests.
+- **Universal Support**: Works with VS Code, Claude, Cursor, Codex, and Gemini.
+- **Reviewable Thread Views**: Renders code blocks, tool calls, and assistant reasoning clearly.
+- **CLI + Hooks Automation**: Sync sessions from supported CLIs with one install command.
+- **Open Source**
 
-## How to use it?
+## Quickstart
 
 ### CLI Installation
 
-To start sharing threads, install the CLI tool:
+Install the CLI tool:
 
 ```bash
 npm install -g @athrd/cli
@@ -52,47 +60,20 @@ yarn global add @athrd/cli
 
 ### Usage
 
-Authenticate once:
+Authenticate, then install hooks for automatic session syncing:
 
 ```bash
 athrd auth
+athrd hooks install
 ```
 
-During `athrd auth`, you'll be asked whether to install hooks for automatic syncing (recommended).
-
-Share threads manually anytime:
+To share sessions manually:
 
 ```bash
 athrd share
 ```
 
-Optional hook management:
-
-```bash
-# disable automatic syncing
-athrd hooks uninstall
-
-# re-enable automatic syncing
-athrd hooks install
-```
-
-When hooks are installed:
-
-- `athrd share --mark` writes thread URLs to `.agent-session-marker` in the repo root.
-- a global Git `commit-msg` hook appends `Agent-Session: <url>` trailers from `.agent-session-marker`.
-- used entries in `.agent-session-marker` are cleared after successful commit message updates.
-
-Per-repo opt-out:
-
-Create a `.athrdrc` file at the repository root and commit:
-
-```bash
-disabled=true
-```
-
-This disables ATHRD trailer injection for that repository for all contributors who use the global ATHRD hook.
-
-### GitHub Action: auto-append athrd links to PRs
+### GitHub Action: sync athrd links into PR body
 
 If you want repo-owned automation (no GitHub App install), add this workflow to the target repository:
 
@@ -124,7 +105,6 @@ This keeps a bot-managed section in the PR description between:
 - `<!-- athrd-links:end -->`
 
 and recomputes links from all commit messages in the PR on each sync/open/edit event.
-It reads `Agent-Session: <url>` trailers (and still supports direct athrd URLs for backward compatibility).
 
 ## License
 

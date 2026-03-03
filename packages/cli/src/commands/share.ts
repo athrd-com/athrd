@@ -6,12 +6,14 @@ import { getProvider, providers } from "../providers/index.js";
 import { ChatSession } from "../types/index.js";
 import { requireAuth } from "../utils/auth.js";
 import { formatDate } from "../utils/date.js";
+import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
 import { getGitHubRepo } from "../utils/git.js";
 import {
   getGitHubOrgInfo,
   getGitHubRepoInfo,
   getGitHubUserInfo,
 } from "../utils/github.js";
+import { appendAthrdUrlMarker } from "../utils/marker.js";
 import {
   getGistIdForThread,
   upsertThreadGistMapping,
@@ -57,6 +59,18 @@ function extractSessionIdFromHookPayload(
   }
 }
 
+function extractWorkspacePathFromHookPayload(
+  payload: string,
+  _provider?: string,
+): string | null {
+  try {
+    const data = JSON.parse(payload);
+    return typeof data.cwd === "string" && data.cwd ? data.cwd : null;
+  } catch {
+    return null;
+  }
+}
+
 export function shareCommand(program: Command) {
   program
     .command("share")
@@ -73,6 +87,10 @@ export function shareCommand(program: Command) {
     .option("--codex", "Filter by Codex")
     .option("--opencode", "Filter by OpenCode")
     .option("--json <json>", "JSON payload from hook event")
+    .option(
+      "--mark",
+      "Write shared athrd URL to repo-root .agent-session-marker",
+    )
     .action(async (options) => {
       try {
         // Determine filter early to optimize search
@@ -103,6 +121,9 @@ export function shareCommand(program: Command) {
 
         const hookSessionId = options.json
           ? extractSessionIdFromHookPayload(options.json, filterIde)
+          : null;
+        const hookWorkspacePath = options.json
+          ? extractWorkspacePathFromHookPayload(options.json, filterIde)
           : null;
 
         if (options.json && !hookSessionId) {
@@ -203,8 +224,8 @@ export function shareCommand(program: Command) {
           const octokit = new Octokit({
             auth: token,
             log: {
-              debug: () => { },
-              info: () => { },
+              debug: () => {},
+              info: () => {},
               warn: console.warn,
               error: console.error,
             },
@@ -225,12 +246,12 @@ export function shareCommand(program: Command) {
             }
 
             const sessionData = await provider.parseSession(session);
+            const repoCwd =
+              hookWorkspacePath ?? session.workspacePath ?? process.cwd();
 
             // Get GitHub repo for this session
-            // Use session's workspace path if available, otherwise try current working directory
-            const githubRepo = session.workspacePath
-              ? getGitHubRepo(session.workspacePath)
-              : getGitHubRepo(process.cwd());
+            // Prefer cwd from hook payload when available, then session workspace path.
+            const githubRepo = getGitHubRepo(repoCwd);
 
             // Extract organization name from repo (format: "org/repo")
             const orgName = githubRepo?.split("/")[0];
@@ -304,10 +325,29 @@ export function shareCommand(program: Command) {
               gistId,
             });
 
+            const athrdUrl = `https://athrd.com/threads/${gistId}`;
+
+            if (options.mark) {
+              try {
+                appendAthrdUrlMarker({
+                  cwd: repoCwd,
+                  url: athrdUrl,
+                });
+                ensureRepoCommitMsgHookCompatibility(repoCwd);
+              } catch (error) {
+                console.warn(
+                  chalk.yellow(
+                    `⚠ Failed to write .agent-session-marker for session ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+                  ),
+                );
+              }
+            }
+
             console.log(
               chalk.green(
-                `✓ ${session.customTitle || "Untitled Chat"
-                }: (${actionLabel}) https://athrd.com/threads/${gistId}`,
+                `✓ ${
+                  session.customTitle || "Untitled Chat"
+                }: (${actionLabel}) ${athrdUrl}`,
               ),
             );
           }

@@ -10,6 +10,7 @@ export function getGitHubRepo(cwd?: string): string | null {
     const remoteUrl = execSync("git remote get-url origin", {
       encoding: "utf-8",
       cwd,
+      stdio: ["pipe", "pipe", "ignore"],
     }).trim();
 
     if (!remoteUrl) {
@@ -33,6 +34,24 @@ export function getGitHubRepo(cwd?: string): string | null {
     return null;
   } catch (error) {
     // Not in a git repo or git command failed
+    return null;
+  }
+}
+
+/**
+ * Get the root directory of a git repository from a working directory
+ * Returns null if not in a git repository
+ */
+export function getGitRepoRoot(cwd?: string): string | null {
+  try {
+    const gitRoot = execSync("git rev-parse --show-toplevel", {
+      encoding: "utf-8",
+      cwd,
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim();
+
+    return gitRoot || null;
+  } catch {
     return null;
   }
 }

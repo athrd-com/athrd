@@ -4,6 +4,10 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import toml from "@iarna/toml";
+import {
+    installGlobalCommitMsgHook,
+    uninstallGlobalCommitMsgHook,
+} from "../utils/git-hooks.js";
 
 const homedir = os.homedir();
 const athrdDir = path.join(homedir, ".athrd");
@@ -25,7 +29,7 @@ if [ "$PROVIDER" = "codex" ] && [ -n "$2" ]; then
 fi
 
 if [ -n "$EVENT_JSON" ]; then
-    athrd share --json "$EVENT_JSON" "--$PROVIDER" >/dev/null 2>&1 &
+    athrd share --mark --json "$EVENT_JSON" "--$PROVIDER" >/dev/null 2>&1 &
 fi
 `;
 
@@ -235,6 +239,36 @@ function uninstallGeminiHook() {
     }
 }
 
+export function installAllHooks() {
+    console.log(chalk.blue("Installing hooks..."));
+    writeHookScript();
+    installClaudeHook();
+    installCodexHook();
+    installGeminiHook();
+    try {
+        installGlobalCommitMsgHook();
+        console.log(chalk.green("✓ Global git commit-msg hook installed"));
+    } catch (err) {
+        console.error(chalk.red("Error installing global git commit-msg hook:"), err);
+    }
+    console.log(chalk.green("Hooks installation complete!"));
+}
+
+export function uninstallAllHooks() {
+    console.log(chalk.blue("Uninstalling hooks..."));
+    removeHookScript();
+    uninstallClaudeHook();
+    uninstallCodexHook();
+    uninstallGeminiHook();
+    try {
+        uninstallGlobalCommitMsgHook();
+        console.log(chalk.green("✓ Global git commit-msg hook removed"));
+    } catch (err) {
+        console.error(chalk.red("Error uninstalling global git commit-msg hook:"), err);
+    }
+    console.log(chalk.green("Hooks uninstallation complete!"));
+}
+
 export function hooksCommand(program: Command) {
     const hooksCmd = program
         .command("hooks")
@@ -244,23 +278,13 @@ export function hooksCommand(program: Command) {
         .command("install")
         .description("Install hooks for supported AI CLIs (Claude, Codex, Gemini)")
         .action(() => {
-            console.log(chalk.blue("Installing hooks..."));
-            writeHookScript();
-            installClaudeHook();
-            installCodexHook();
-            installGeminiHook();
-            console.log(chalk.green("Hooks installation complete!"));
+            installAllHooks();
         });
 
     hooksCmd
         .command("uninstall")
         .description("Remove installed AI CLI hooks")
         .action(() => {
-            console.log(chalk.blue("Uninstalling hooks..."));
-            removeHookScript();
-            uninstallClaudeHook();
-            uninstallCodexHook();
-            uninstallGeminiHook();
-            console.log(chalk.green("Hooks uninstallation complete!"));
+            uninstallAllHooks();
         });
 }

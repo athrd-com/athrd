@@ -103,6 +103,22 @@ function resolveKnownFilePath(
   return null;
 }
 
+function looksLikeFilePath(path: string): boolean {
+  const normalized = canonicalizePath(path);
+  if (!normalized || normalized.endsWith("/")) {
+    return false;
+  }
+
+  const filename = normalized.split("/").pop();
+  if (!filename) {
+    return false;
+  }
+
+  // Simple heuristic: file name has a non-leading/non-trailing dot segment.
+  const dotIndex = filename.lastIndexOf(".");
+  return dotIndex > 0 && dotIndex < filename.length - 1;
+}
+
 function toRepoRelativePath(path: string, repoName: string): string | null {
   const repoBase = repoName.split("/").pop();
   if (!repoBase) {
@@ -205,12 +221,15 @@ export function rewriteFilePathHrefToGithub(params: {
     return null;
   }
 
-  const knownFilePath = resolveKnownFilePath(parsed.path, knownFilePaths);
-  if (!knownFilePath) {
+  // Prefer explicit known paths extracted from the thread, but allow direct
+  // absolute/relative file-path rewrites when the path clearly maps to repo.
+  const resolvedPath =
+    resolveKnownFilePath(parsed.path, knownFilePaths) || parsed.path;
+  if (!looksLikeFilePath(resolvedPath)) {
     return null;
   }
 
-  const repoRelativePath = toRepoRelativePath(knownFilePath, repoName);
+  const repoRelativePath = toRepoRelativePath(resolvedPath, repoName);
   if (!repoRelativePath) {
     return null;
   }

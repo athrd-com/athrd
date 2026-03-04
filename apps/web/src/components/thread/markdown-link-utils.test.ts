@@ -97,4 +97,16 @@ describe("markdown-link-utils", () => {
 
     expect(rewritten).toBeNull();
   });
+
+  it("rewrites absolute local file paths even when they are not in known paths", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      repoName: "athrd-com/athrd",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
+    );
+  });
 });

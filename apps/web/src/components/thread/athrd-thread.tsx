@@ -59,6 +59,7 @@ interface AThrdThreadProps {
   owner: GistOwner;
   thread: AThrd;
   repoName?: string;
+  repoUrl?: string;
 }
 
 function mergeRel(
@@ -104,7 +105,12 @@ function groupMessages(messages: (AthrdUserMessage | AthrdAssistantMessage)[]) {
  * Unified thread renderer for the AThrd format.
  * Renders messages from any CLI tool that has been parsed into AThrd.
  */
-export default function AThrdThread({ owner, thread, repoName }: AThrdThreadProps) {
+export default function AThrdThread({
+  owner,
+  thread,
+  repoName,
+  repoUrl,
+}: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
   const knownFilePaths = extractKnownFilePaths(thread);
 
@@ -119,6 +125,7 @@ export default function AThrdThread({ owner, thread, repoName }: AThrdThreadProp
           const rewrittenHref = rewriteFilePathHrefToGithub({
             href,
             repoName,
+            repoUrl,
             knownFilePaths,
           });
 

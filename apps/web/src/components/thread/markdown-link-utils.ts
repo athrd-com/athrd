@@ -259,20 +259,46 @@ function inferRepoSlugFromKnownPaths(knownFilePaths: Set<string>): string | null
   return segments[segments.length - 1] || null;
 }
 
+function parseRepoNameFromRepoUrl(repoUrl?: string): string | null {
+  if (!repoUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(repoUrl);
+    if (parsed.hostname !== "github.com") {
+      return null;
+    }
+
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (segments.length < 2) {
+      return null;
+    }
+
+    return `${segments[0]}/${segments[1]}`;
+  } catch {
+    return null;
+  }
+}
+
 function resolveEffectiveRepoName(
   repoName: string,
+  repoUrl: string | undefined,
   path: string,
   knownFilePaths: Set<string>,
 ): string {
-  const segments = repoName.split("/").filter(Boolean);
+  const repoFromUrl = parseRepoNameFromRepoUrl(repoUrl);
+  const baseRepoName = repoFromUrl || repoName;
+
+  const segments = baseRepoName.split("/").filter(Boolean);
   if (segments.length === 0) {
-    return repoName;
+    return baseRepoName;
   }
 
   const inferredRepoSlug =
     inferRepoSlugFromPath(path) || inferRepoSlugFromKnownPaths(knownFilePaths);
   if (!inferredRepoSlug) {
-    return repoName;
+    return baseRepoName;
   }
 
   if (segments.length === 1) {
@@ -284,7 +310,7 @@ function resolveEffectiveRepoName(
     return `${org}/${inferredRepoSlug}`;
   }
 
-  return repoName;
+  return baseRepoName;
 }
 
 function encodePathSegments(path: string): string {
@@ -347,11 +373,12 @@ export function extractKnownFilePaths(thread: AThrd): Set<string> {
 export function rewriteFilePathHrefToGithub(params: {
   href?: string;
   repoName?: string;
+  repoUrl?: string;
   knownFilePaths: Set<string>;
 }): string | null {
-  const { href, repoName, knownFilePaths } = params;
+  const { href, repoName, repoUrl, knownFilePaths } = params;
 
-  if (!href || !repoName) {
+  if (!href || (!repoName && !repoUrl)) {
     return null;
   }
 
@@ -368,9 +395,15 @@ export function rewriteFilePathHrefToGithub(params: {
     return null;
   }
 
-  const repoRelativePath = toRepoRelativePath(resolvedPath, repoName);
+  const fallbackRepoName = repoName || parseRepoNameFromRepoUrl(repoUrl);
+  if (!fallbackRepoName) {
+    return null;
+  }
+
+  const repoRelativePath = toRepoRelativePath(resolvedPath, fallbackRepoName);
   const effectiveRepoName = resolveEffectiveRepoName(
-    repoName,
+    fallbackRepoName,
+    repoUrl,
     resolvedPath,
     knownFilePaths,
   );

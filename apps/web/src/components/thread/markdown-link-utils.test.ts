@@ -147,4 +147,17 @@ describe("markdown-link-utils", () => {
       "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
     );
   });
+
+  it("prefers repoUrl when repoName metadata is incomplete", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "packages/cli/src/utils/marker.ts",
+      repoName: "athrd-com",
+      repoUrl: "https://github.com/athrd-com/athrd",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
+    );
+  });
 });

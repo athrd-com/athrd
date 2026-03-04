@@ -3,19 +3,13 @@ import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 
 export const revalidate = 300;
 
-const ALLOWED_EXPORT_FILES = new Set(["llm.txt"]);
-
 export async function GET(
   _request: Request,
   {
     params,
-  }: { params: Promise<{ id: string; exportFile: string }> },
+  }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const { id, exportFile } = await params;
-
-  if (!ALLOWED_EXPORT_FILES.has(exportFile)) {
-    return textResponse("Not found", 404);
-  }
+  const { id } = await params;
 
   try {
     const context = await loadThreadContext(id);
@@ -33,7 +27,7 @@ export async function GET(
   } catch (error) {
     const logPayload = {
       threadId: id,
-      exportVariant: exportFile,
+      exportVariant: "llm.txt",
       errorClass: error instanceof Error ? error.name : typeof error,
       message: error instanceof Error ? error.message : String(error),
     };

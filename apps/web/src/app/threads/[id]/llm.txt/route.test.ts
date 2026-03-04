@@ -41,28 +41,12 @@ describe("thread export route", () => {
     } as never);
 
     const response = await GET(new Request("http://localhost"), {
-      params: Promise.resolve({ id: "abc", exportFile: "llm.txt" }),
+      params: Promise.resolve({ id: "abc" }),
     });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     await expect(response.text()).resolves.toBe("condensed");
-  });
-
-  it("returns 404 for invalid export filename", async () => {
-    const response = await GET(new Request("http://localhost"), {
-      params: Promise.resolve({ id: "abc", exportFile: "other.txt" }),
-    });
-
-    expect(response.status).toBe(404);
-  });
-
-  it("returns 404 for llm_full.txt", async () => {
-    const response = await GET(new Request("http://localhost"), {
-      params: Promise.resolve({ id: "abc", exportFile: "llm_full.txt" }),
-    });
-
-    expect(response.status).toBe(404);
   });
 
   it("returns 404 for parse/not-found thread errors", async () => {
@@ -75,7 +59,7 @@ describe("thread export route", () => {
     );
 
     const response = await GET(new Request("http://localhost"), {
-      params: Promise.resolve({ id: "missing", exportFile: "llm.txt" }),
+      params: Promise.resolve({ id: "missing" }),
     });
 
     expect(response.status).toBe(404);
@@ -89,7 +73,7 @@ describe("thread export route", () => {
     loadThreadContextMock.mockRejectedValueOnce(new Error("boom"));
 
     const response = await GET(new Request("http://localhost"), {
-      params: Promise.resolve({ id: "abc", exportFile: "llm.txt" }),
+      params: Promise.resolve({ id: "abc" }),
     });
 
     expect(response.status).toBe(500);

@@ -19,10 +19,15 @@ import type {
   WebSearchToolCall,
   WriteFileToolCall,
 } from "@/types/athrd";
+import type { ComponentProps } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  extractKnownFilePaths,
+  rewriteFilePathHrefToGithub,
+} from "@/components/thread/markdown-link-utils";
 import {
   HoverCard,
   HoverCardContent,
@@ -52,6 +57,22 @@ import ToolTodosBlock from "./tool-todos-block";
 interface AThrdThreadProps {
   owner: GistOwner;
   thread: AThrd;
+  repoName?: string;
+  repoUrl?: string;
+}
+
+type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
+
+function mergeRel(
+  rel: string | undefined,
+  requiredValues: string[],
+): string | undefined {
+  const currentValues = new Set((rel || "").split(/\s+/).filter(Boolean));
+  requiredValues.forEach((value) => currentValues.add(value));
+  if (currentValues.size === 0) {
+    return undefined;
+  }
+  return Array.from(currentValues).join(" ");
 }
 
 /**
@@ -85,8 +106,43 @@ function groupMessages(messages: (AthrdUserMessage | AthrdAssistantMessage)[]) {
  * Unified thread renderer for the AThrd format.
  * Renders messages from any CLI tool that has been parsed into AThrd.
  */
-export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
+export default function AThrdThread({
+  owner,
+  thread,
+  repoName,
+  repoUrl,
+}: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
+  const knownFilePaths = extractKnownFilePaths(thread);
+
+  const markdownOptions: MarkdownOptions = {
+    overrides: {
+      a: {
+        component: ({
+          href,
+          rel,
+          target,
+          ...props
+        }: ComponentProps<"a"> & { href?: string }) => {
+          const rewrittenHref = rewriteFilePathHrefToGithub({
+            href,
+            repoName,
+            repoUrl,
+            knownFilePaths,
+          });
+
+          return (
+            <a
+              {...props}
+              href={rewrittenHref || href}
+              rel={mergeRel(rel, ["nofollow", "noreferrer"])}
+              target={target || "_blank"}
+            />
+          );
+        },
+      },
+    },
+  };
 
   return (
     <div className="px-4 sm:px-8 md:px-16 lg:px-32 py-8 space-y-6">
@@ -97,6 +153,7 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
               key={`${message.id}-${groupIdx}-${index}`}
               owner={owner}
               message={message as AthrdUserMessage}
+              markdownOptions={markdownOptions}
             />
           ));
         }
@@ -104,6 +161,7 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
           <AssistantMessageGroup
             key={`assistant-group-${groupIdx}`}
             messages={group.messages as AthrdAssistantMessage[]}
+            markdownOptions={markdownOptions}
           />
         );
       })}
@@ -117,9 +175,11 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
 function UserMessage({
   owner,
   message,
+  markdownOptions,
 }: {
   owner: GistOwner;
   message: AthrdUserMessage;
+  markdownOptions: MarkdownOptions;
 }) {
   return (
     <div className="flex gap-4 group">
@@ -131,7 +191,7 @@ function UserMessage({
       </Avatar>
       <Card className="p-4 gap-2 bg-[#111] border-white/10 shadow-none text-gray-300 min-w-0 max-w-full flex-1">
         <div className="markdown-content text-sm">
-          <Markdown>{message.content}</Markdown>
+          <Markdown options={markdownOptions}>{message.content}</Markdown>
         </div>
       </Card>
     </div>
@@ -143,8 +203,10 @@ function UserMessage({
  */
 function AssistantMessageGroup({
   messages,
+  markdownOptions,
 }: {
   messages: AthrdAssistantMessage[];
+  markdownOptions: MarkdownOptions;
 }) {
   const [showPreviousDetails, setShowPreviousDetails] = useState(false);
 
@@ -198,10 +260,10 @@ function AssistantMessageGroup({
   const lastBlockIndex = renderBlocks.length - 1;
   const hiddenBlocks = renderBlocks.slice(0, lastBlockIndex);
   const hiddenThoughtCount = hiddenBlocks.filter(
-    (block) => block.type === "thought"
+    (block) => block.type === "thought",
   ).length;
   const hiddenToolCallCount = hiddenBlocks.filter(
-    (block) => block.type === "tool"
+    (block) => block.type === "tool",
   ).length;
   const hiddenCount = hiddenBlocks.length;
   const hiddenSummaryParts: string[] = [];
@@ -250,18 +312,19 @@ function AssistantMessageGroup({
         )}
 
         {renderBlocks.map((block, blockIndex) => {
-          const shouldHide = !showPreviousDetails && blockIndex < lastBlockIndex;
+          const shouldHide =
+            !showPreviousDetails && blockIndex < lastBlockIndex;
 
           if (block.type === "content") {
             return (
               <div
                 key={block.key}
                 className={cn(
-                  "markdown-content text-sm text-gray-300 py-2",
-                  shouldHide && "hidden"
+                  "markdown-content text-sm text-white py-2",
+                  shouldHide && "hidden",
                 )}
               >
-                <Markdown>{block.content}</Markdown>
+                <Markdown options={markdownOptions}>{block.content}</Markdown>
               </div>
             );
           }

@@ -14,6 +14,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
   const owner = gist.owner;
   let ide: IDE;
   let repoName: string | undefined;
+  let repoUrl: string | undefined;
   let modelsUsed: string[] = [];
   let parsedThread: AThrd;
 
@@ -21,6 +22,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     const threadContext = parseThreadContextFromGistFile(gist, file);
     ide = threadContext.ide;
     repoName = threadContext.repoName;
+    repoUrl = repoName ? `https://github.com/${repoName}` : undefined;
     modelsUsed = threadContext.modelsUsed;
     parsedThread = threadContext.parsedThread;
   } catch (error) {
@@ -49,9 +51,14 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
         ide={ide}
         repoName={repoName}
         modelsUsed={modelsUsed}
-        repoUrl={repoName ? `https://github.com/${repoName}` : undefined}
+        repoUrl={repoUrl}
       />
-      <AThrdThread owner={owner} thread={parsedThread} />
+      <AThrdThread
+        owner={owner}
+        thread={parsedThread}
+        repoName={repoName}
+        repoUrl={repoUrl}
+      />
     </div>
   );
 }

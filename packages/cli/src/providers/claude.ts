@@ -90,12 +90,12 @@ export class ClaudeCodeProvider implements ChatProvider {
               }
 
               // Parse workspace path from project directory name
-              // Claude stores paths like: -Users-gregorymarcilhacy-code-athrd
+              // Claude stores paths like: -Users-youruser-code-athrd
               let workspacePath: string | undefined;
               let workspaceName: string | undefined;
 
               if (projectDir.startsWith("-")) {
-                // Convert "-Users-gregorymarcilhacy-code-athrd" to "/Users/gregorymarcilhacy/code/athrd"
+                // Convert "-Users-youruser-code-athrd" to "/Users/youruser/code/athrd"
                 workspacePath = projectDir
                   .replace(/^-/, "/")
                   .replace(/-/g, "/");

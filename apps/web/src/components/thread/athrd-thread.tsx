@@ -47,7 +47,6 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
-import type { Options } from "markdown-to-jsx";
 import { useState } from "react";
 import ToolEditBlock from "./tool-edit-block";
 import ToolGenericBlock from "./tool-generic-block";
@@ -61,6 +60,8 @@ interface AThrdThreadProps {
   repoName?: string;
   repoUrl?: string;
 }
+
+type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
 
 function mergeRel(
   rel: string | undefined,
@@ -114,7 +115,7 @@ export default function AThrdThread({
   const messageGroups = groupMessages(thread.messages);
   const knownFilePaths = extractKnownFilePaths(thread);
 
-  const markdownOptions: Options = {
+  const markdownOptions: MarkdownOptions = {
     overrides: {
       a: {
         component: ({
@@ -178,7 +179,7 @@ function UserMessage({
 }: {
   owner: GistOwner;
   message: AthrdUserMessage;
-  markdownOptions: Options;
+  markdownOptions: MarkdownOptions;
 }) {
   return (
     <div className="flex gap-4 group">
@@ -205,7 +206,7 @@ function AssistantMessageGroup({
   markdownOptions,
 }: {
   messages: AthrdAssistantMessage[];
-  markdownOptions: Options;
+  markdownOptions: MarkdownOptions;
 }) {
   const [showPreviousDetails, setShowPreviousDetails] = useState(false);
 

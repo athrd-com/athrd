@@ -23,7 +23,7 @@ function parseLocalPathCandidate(href: string): { path: string; hash: string } |
   if (windowsPathPattern.test(trimmed)) {
     const [pathPart, hashPart] = trimmed.split("#", 2);
     return {
-      path: decodeURIComponent(pathPart),
+      path: decodeURIComponent(pathPart ?? ""),
       hash: hashPart ? `#${hashPart}` : "",
     };
   }
@@ -58,10 +58,10 @@ function parseLocalPathCandidate(href: string): { path: string; hash: string } |
   }
 
   const [withoutHash, hashPart] = trimmed.split("#", 2);
-  const [pathPart] = withoutHash.split("?", 2);
+  const [pathPart] = (withoutHash ?? "").split("?", 2);
 
   return {
-    path: decodeURIComponent(pathPart),
+    path: decodeURIComponent(pathPart ?? ""),
     hash: hashPart ? `#${hashPart}` : "",
   };
 }
@@ -96,7 +96,7 @@ function resolveKnownFilePath(
     path.endsWith(suffix),
   );
 
-  if (matches.length === 1) {
+  if (matches.length === 1 && matches[0]) {
     return matches[0];
   }
 
@@ -165,9 +165,16 @@ function inferRepoRootFromKnownFilePaths(knownFilePaths: Set<string>): string | 
 
   const minLength = Math.min(...segmentsByPath.map((segments) => segments.length));
   const commonSegments: string[] = [];
+  const firstSegments = segmentsByPath[0];
+  if (!firstSegments) {
+    return null;
+  }
 
   for (let index = 0; index < minLength; index += 1) {
-    const segment = segmentsByPath[0][index];
+    const segment = firstSegments[index];
+    if (!segment) {
+      break;
+    }
     if (segmentsByPath.every((segments) => segments[index] === segment)) {
       commonSegments.push(segment);
       continue;

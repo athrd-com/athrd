@@ -120,6 +120,7 @@ export default function AThrdThread({
         component: ({
           href,
           rel,
+          target,
           ...props
         }: ComponentProps<"a"> & { href?: string }) => {
           const rewrittenHref = rewriteFilePathHrefToGithub({
@@ -134,6 +135,7 @@ export default function AThrdThread({
               {...props}
               href={rewrittenHref || href}
               rel={mergeRel(rel, ["nofollow", "noreferrer"])}
+              target={target || "_blank"}
             />
           );
         },

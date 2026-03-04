@@ -12,7 +12,7 @@ function createThread(): AThrd {
         variables: [
           {
             type: "file",
-            path: "/Users/gregorymarcilhacy/code/athrd/apps/web/src/app/globals.css",
+            path: "/Users/dummyuser/code/athrd/apps/web/src/app/globals.css",
           },
         ],
       },
@@ -28,7 +28,7 @@ function createThread(): AThrd {
             name: "read_file",
             args: {
               file_path:
-                "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.test.ts",
+                "/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.test.ts",
             },
             result: [],
           },
@@ -42,15 +42,15 @@ describe("markdown-link-utils", () => {
   it("extracts known file paths from tool calls and user variables", () => {
     const paths = extractKnownFilePaths(createThread());
 
-    expect(paths.has("/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.test.ts")).toBe(true);
-    expect(paths.has("/Users/gregorymarcilhacy/code/athrd/apps/web/src/app/globals.css")).toBe(true);
+    expect(paths.has("/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.test.ts")).toBe(true);
+    expect(paths.has("/Users/dummyuser/code/athrd/apps/web/src/app/globals.css")).toBe(true);
   });
 
   it("rewrites localhost links to github file urls", () => {
     const knownFilePaths = extractKnownFilePaths(createThread());
 
     const rewritten = rewriteFilePathHrefToGithub({
-      href: "http://localhost:3000/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.test.ts",
+      href: "http://localhost:3000/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.test.ts",
       repoName: "athrd-com/athrd",
       knownFilePaths,
     });
@@ -78,7 +78,7 @@ describe("markdown-link-utils", () => {
     const knownFilePaths = extractKnownFilePaths(createThread());
 
     const rewritten = rewriteFilePathHrefToGithub({
-      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils",
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/utils",
       repoName: "athrd-com/athrd",
       knownFilePaths,
     });
@@ -100,7 +100,7 @@ describe("markdown-link-utils", () => {
 
   it("rewrites absolute local file paths even when they are not in known paths", () => {
     const rewritten = rewriteFilePathHrefToGithub({
-      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.ts",
       repoName: "athrd-com/athrd",
       knownFilePaths: new Set<string>(),
     });
@@ -114,7 +114,7 @@ describe("markdown-link-utils", () => {
     const knownFilePaths = extractKnownFilePaths(createThread());
 
     const rewritten = rewriteFilePathHrefToGithub({
-      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.ts",
       repoName: "athrd-com/app",
       knownFilePaths,
     });
@@ -126,7 +126,7 @@ describe("markdown-link-utils", () => {
 
   it("rewrites absolute paths from monorepo markers without known paths", () => {
     const rewritten = rewriteFilePathHrefToGithub({
-      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.ts",
       repoName: "athrd-com/app",
       knownFilePaths: new Set<string>(),
     });
@@ -138,7 +138,7 @@ describe("markdown-link-utils", () => {
 
   it("adds inferred repo slug when metadata only has org", () => {
     const rewritten = rewriteFilePathHrefToGithub({
-      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/utils/marker.ts",
       repoName: "athrd-com",
       knownFilePaths: new Set<string>(),
     });

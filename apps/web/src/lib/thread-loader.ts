@@ -33,6 +33,7 @@ export interface ThreadContext {
   ide: IDE;
   parsedThread: AThrd;
   repoName?: string;
+  commitHash?: string;
   modelsUsed: string[];
 }
 
@@ -66,6 +67,10 @@ export function parseThreadContextFromGistFile(
     typeof athrdMeta?.githubRepo === "string"
       ? (athrdMeta.githubRepo as string)
       : undefined;
+  const commitHash =
+    typeof athrdMeta?.commitHash === "string" && athrdMeta.commitHash.trim()
+      ? athrdMeta.commitHash
+      : undefined;
   const modelsUsed = extractModelsUsed(rawContent, ide);
 
   try {
@@ -77,6 +82,7 @@ export function parseThreadContextFromGistFile(
       ide,
       parsedThread,
       repoName,
+      commitHash,
       modelsUsed,
     };
   } catch (error) {

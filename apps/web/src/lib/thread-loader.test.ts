@@ -49,6 +49,7 @@ describe("thread-loader", () => {
         __athrd: {
           ide: "claude",
           githubRepo: "athrd-com/athrd",
+          commitHash: "deadbeef",
         },
         requests: [
           {
@@ -68,6 +69,7 @@ describe("thread-loader", () => {
     const context = parseThreadContextFromGistFile(gistData, file);
     expect(context.ide).toBe("claude");
     expect(context.repoName).toBe("athrd-com/athrd");
+    expect(context.commitHash).toBe("deadbeef");
     expect(context.modelsUsed).toContain("claude-3-5-sonnet-20241022");
     expect(context.parsedThread.messages).toHaveLength(1);
   });

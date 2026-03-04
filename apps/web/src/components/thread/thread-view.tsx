@@ -15,6 +15,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
   let ide: IDE;
   let repoName: string | undefined;
   let repoUrl: string | undefined;
+  let commitHash: string | undefined;
   let modelsUsed: string[] = [];
   let parsedThread: AThrd;
 
@@ -22,6 +23,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     const threadContext = parseThreadContextFromGistFile(gist, file);
     ide = threadContext.ide;
     repoName = threadContext.repoName;
+    commitHash = threadContext.commitHash;
     repoUrl = repoName ? `https://github.com/${repoName}` : undefined;
     modelsUsed = threadContext.modelsUsed;
     parsedThread = threadContext.parsedThread;
@@ -58,6 +60,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
         thread={parsedThread}
         repoName={repoName}
         repoUrl={repoUrl}
+        commitHash={commitHash}
       />
     </div>
   );

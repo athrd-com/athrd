@@ -26,8 +26,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   extractKnownFilePaths,
+  getShortFileLinkLabel,
   rewriteFilePathHrefToGithub,
 } from "@/components/thread/markdown-link-utils";
+import {
+  maybeShortenFilePathLinkChildren,
+  mergeRel,
+} from "@/components/thread/markdown-render-utils";
 import {
   HoverCard,
   HoverCardContent,
@@ -59,21 +64,10 @@ interface AThrdThreadProps {
   thread: AThrd;
   repoName?: string;
   repoUrl?: string;
+  commitHash?: string;
 }
 
 type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
-
-function mergeRel(
-  rel: string | undefined,
-  requiredValues: string[],
-): string | undefined {
-  const currentValues = new Set((rel || "").split(/\s+/).filter(Boolean));
-  requiredValues.forEach((value) => currentValues.add(value));
-  if (currentValues.size === 0) {
-    return undefined;
-  }
-  return Array.from(currentValues).join(" ");
-}
 
 /**
  * Group consecutive messages by type
@@ -111,6 +105,7 @@ export default function AThrdThread({
   thread,
   repoName,
   repoUrl,
+  commitHash,
 }: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
   const knownFilePaths = extractKnownFilePaths(thread);
@@ -122,14 +117,21 @@ export default function AThrdThread({
           href,
           rel,
           target,
+          children,
           ...props
         }: ComponentProps<"a"> & { href?: string }) => {
           const rewrittenHref = rewriteFilePathHrefToGithub({
             href,
             repoName,
             repoUrl,
+            commitHash,
             knownFilePaths,
           });
+          const shortLabel = getShortFileLinkLabel(href);
+          const renderedChildren = maybeShortenFilePathLinkChildren(
+            children,
+            shortLabel,
+          );
 
           return (
             <a
@@ -137,7 +139,9 @@ export default function AThrdThread({
               href={rewrittenHref || href}
               rel={mergeRel(rel, ["nofollow", "noreferrer"])}
               target={target || "_blank"}
-            />
+            >
+              {renderedChildren}
+            </a>
           );
         },
       },

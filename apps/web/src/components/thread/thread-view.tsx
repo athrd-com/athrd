@@ -51,7 +51,7 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
         modelsUsed={modelsUsed}
         repoUrl={repoName ? `https://github.com/${repoName}` : undefined}
       />
-      <AThrdThread owner={owner} thread={parsedThread} />
+      <AThrdThread owner={owner} thread={parsedThread} repoName={repoName} />
     </div>
   );
 }

@@ -19,10 +19,15 @@ import type {
   WebSearchToolCall,
   WriteFileToolCall,
 } from "@/types/athrd";
+import type { ComponentProps } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  extractKnownFilePaths,
+  rewriteFilePathHrefToGithub,
+} from "@/components/thread/markdown-link-utils";
 import {
   HoverCard,
   HoverCardContent,
@@ -42,6 +47,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
+import type { Options } from "markdown-to-jsx";
 import { useState } from "react";
 import ToolEditBlock from "./tool-edit-block";
 import ToolGenericBlock from "./tool-generic-block";
@@ -52,17 +58,20 @@ import ToolTodosBlock from "./tool-todos-block";
 interface AThrdThreadProps {
   owner: GistOwner;
   thread: AThrd;
+  repoName?: string;
 }
 
-const markdownOptions = {
-  overrides: {
-    a: {
-      props: {
-        rel: "nofollow noreferrer",
-      },
-    },
-  },
-};
+function mergeRel(
+  rel: string | undefined,
+  requiredValues: string[],
+): string | undefined {
+  const currentValues = new Set((rel || "").split(/\s+/).filter(Boolean));
+  requiredValues.forEach((value) => currentValues.add(value));
+  if (currentValues.size === 0) {
+    return undefined;
+  }
+  return Array.from(currentValues).join(" ");
+}
 
 /**
  * Group consecutive messages by type
@@ -95,8 +104,35 @@ function groupMessages(messages: (AthrdUserMessage | AthrdAssistantMessage)[]) {
  * Unified thread renderer for the AThrd format.
  * Renders messages from any CLI tool that has been parsed into AThrd.
  */
-export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
+export default function AThrdThread({ owner, thread, repoName }: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
+  const knownFilePaths = extractKnownFilePaths(thread);
+
+  const markdownOptions: Options = {
+    overrides: {
+      a: {
+        component: ({
+          href,
+          rel,
+          ...props
+        }: ComponentProps<"a"> & { href?: string }) => {
+          const rewrittenHref = rewriteFilePathHrefToGithub({
+            href,
+            repoName,
+            knownFilePaths,
+          });
+
+          return (
+            <a
+              {...props}
+              href={rewrittenHref || href}
+              rel={mergeRel(rel, ["nofollow", "noreferrer"])}
+            />
+          );
+        },
+      },
+    },
+  };
 
   return (
     <div className="px-4 sm:px-8 md:px-16 lg:px-32 py-8 space-y-6">
@@ -107,6 +143,7 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
               key={`${message.id}-${groupIdx}-${index}`}
               owner={owner}
               message={message as AthrdUserMessage}
+              markdownOptions={markdownOptions}
             />
           ));
         }
@@ -114,6 +151,7 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
           <AssistantMessageGroup
             key={`assistant-group-${groupIdx}`}
             messages={group.messages as AthrdAssistantMessage[]}
+            markdownOptions={markdownOptions}
           />
         );
       })}
@@ -127,9 +165,11 @@ export default function AThrdThread({ owner, thread }: AThrdThreadProps) {
 function UserMessage({
   owner,
   message,
+  markdownOptions,
 }: {
   owner: GistOwner;
   message: AthrdUserMessage;
+  markdownOptions: Options;
 }) {
   return (
     <div className="flex gap-4 group">
@@ -153,8 +193,10 @@ function UserMessage({
  */
 function AssistantMessageGroup({
   messages,
+  markdownOptions,
 }: {
   messages: AthrdAssistantMessage[];
+  markdownOptions: Options;
 }) {
   const [showPreviousDetails, setShowPreviousDetails] = useState(false);
 

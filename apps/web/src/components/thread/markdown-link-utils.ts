@@ -19,6 +19,15 @@ function parseLocalPathCandidate(href: string): { path: string; hash: string } |
     return null;
   }
 
+  // Some markdown renderers can emit absolute file paths as hash-only links,
+  // e.g. "#/Users/me/repo/file.ts:123". Treat those as local file paths.
+  if (trimmed.startsWith("#/") || /^#[A-Za-z]:[\\/]/.test(trimmed)) {
+    return {
+      path: decodeURIComponent(trimmed.slice(1)),
+      hash: "",
+    };
+  }
+
   const windowsPathPattern = /^[A-Za-z]:[\\/]/;
   if (windowsPathPattern.test(trimmed)) {
     const [pathPart, hashPart] = trimmed.split("#", 2);
@@ -64,6 +73,41 @@ function parseLocalPathCandidate(href: string): { path: string; hash: string } |
     path: decodeURIComponent(pathPart ?? ""),
     hash: hashPart ? `#${hashPart}` : "",
   };
+}
+
+function normalizeLineSuffix(path: string, hash: string): { path: string; hash: string } {
+  if (hash) {
+    return { path, hash };
+  }
+
+  const lineSuffixMatch = path.match(/^(.*\.[^/]+):(\d+)(?::\d+)?$/);
+  if (!lineSuffixMatch) {
+    return { path, hash };
+  }
+
+  const [, filePath, line] = lineSuffixMatch;
+  if (!filePath || !line) {
+    return { path, hash };
+  }
+
+  return {
+    path: filePath,
+    hash: `#L${line}`,
+  };
+}
+
+function getFilenameFromPath(path: string): string | null {
+  const normalized = canonicalizePath(path);
+  if (!normalized) {
+    return null;
+  }
+  const fileName = normalized.split("/").pop();
+  return fileName || null;
+}
+
+function getLineFromHash(hash: string): string | null {
+  const lineMatch = hash.match(/^#L(\d+)/);
+  return lineMatch?.[1] || null;
 }
 
 function resolveKnownFilePath(
@@ -393,11 +437,12 @@ export function rewriteFilePathHrefToGithub(params: {
   if (!parsed) {
     return null;
   }
+  const normalized = normalizeLineSuffix(parsed.path, parsed.hash);
 
   // Prefer explicit known paths extracted from the thread, but allow direct
   // absolute/relative file-path rewrites when the path clearly maps to repo.
   const resolvedPath =
-    resolveKnownFilePath(parsed.path, knownFilePaths) || parsed.path;
+    resolveKnownFilePath(normalized.path, knownFilePaths) || normalized.path;
   if (!looksLikeFilePath(resolvedPath)) {
     return null;
   }
@@ -428,5 +473,33 @@ export function rewriteFilePathHrefToGithub(params: {
   }
 
   const encodedPath = encodePathSegments(fallbackRepoRelativePath);
-  return `https://github.com/${effectiveRepoName}/blob/main/${encodedPath}${parsed.hash}`;
+  return `https://github.com/${effectiveRepoName}/blob/main/${encodedPath}${normalized.hash}`;
+}
+
+export function getShortFileLinkLabel(href?: string): string | null {
+  if (!href) {
+    return null;
+  }
+
+  const parsed = parseLocalPathCandidate(href);
+  if (!parsed) {
+    return null;
+  }
+
+  const normalized = normalizeLineSuffix(parsed.path, parsed.hash);
+  if (!looksLikeFilePath(normalized.path)) {
+    return null;
+  }
+
+  const fileName = getFilenameFromPath(normalized.path);
+  if (!fileName) {
+    return null;
+  }
+
+  const line = getLineFromHash(normalized.hash);
+  if (!line) {
+    return fileName;
+  }
+
+  return `${fileName}:${line}`;
 }

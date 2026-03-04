@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   extractKnownFilePaths,
+  getShortFileLinkLabel,
   rewriteFilePathHrefToGithub,
 } from "@/components/thread/markdown-link-utils";
 import {
@@ -47,7 +48,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
-import { useState } from "react";
+import { cloneElement, isValidElement, useState } from "react";
 import ToolEditBlock from "./tool-edit-block";
 import ToolGenericBlock from "./tool-generic-block";
 import ToolMCPBlock from "./tool-mcp-block";
@@ -62,6 +63,36 @@ interface AThrdThreadProps {
 }
 
 type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
+
+function maybeShortenFilePathLinkChildren(
+  children: ComponentProps<"a">["children"],
+  shortLabel: string | null,
+) {
+  if (!shortLabel) {
+    return children;
+  }
+
+  if (isValidElement(children) && children.type === "code") {
+    return cloneElement(children, undefined, shortLabel);
+  }
+
+  if (Array.isArray(children) && children.length === 1) {
+    const [onlyChild] = children;
+    if (isValidElement(onlyChild) && onlyChild.type === "code") {
+      return [cloneElement(onlyChild, undefined, shortLabel)];
+    }
+
+    if (typeof onlyChild === "string") {
+      return [shortLabel];
+    }
+  }
+
+  if (typeof children === "string") {
+    return shortLabel;
+  }
+
+  return children;
+}
 
 function mergeRel(
   rel: string | undefined,
@@ -122,6 +153,7 @@ export default function AThrdThread({
           href,
           rel,
           target,
+          children,
           ...props
         }: ComponentProps<"a"> & { href?: string }) => {
           const rewrittenHref = rewriteFilePathHrefToGithub({
@@ -130,6 +162,11 @@ export default function AThrdThread({
             repoUrl,
             knownFilePaths,
           });
+          const shortLabel = getShortFileLinkLabel(href);
+          const renderedChildren = maybeShortenFilePathLinkChildren(
+            children,
+            shortLabel,
+          );
 
           return (
             <a
@@ -137,7 +174,9 @@ export default function AThrdThread({
               href={rewrittenHref || href}
               rel={mergeRel(rel, ["nofollow", "noreferrer"])}
               target={target || "_blank"}
-            />
+            >
+              {renderedChildren}
+            </a>
           );
         },
       },

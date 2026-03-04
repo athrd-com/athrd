@@ -1,6 +1,10 @@
 import type { AThrd } from "@/types/athrd";
 import { describe, expect, it } from "vitest";
-import { extractKnownFilePaths, rewriteFilePathHrefToGithub } from "./markdown-link-utils";
+import {
+  extractKnownFilePaths,
+  getShortFileLinkLabel,
+  rewriteFilePathHrefToGithub,
+} from "./markdown-link-utils";
 
 function createThread(): AThrd {
   return {
@@ -159,5 +163,51 @@ describe("markdown-link-utils", () => {
     expect(rewritten).toBe(
       "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
     );
+  });
+
+  it("rewrites hash-only absolute paths with line suffixes", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "#/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",
+      repoName: "athrd-com/athrd",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/commands/share.ts#L277",
+    );
+  });
+
+  it("rewrites absolute paths with line suffixes", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",
+      repoName: "athrd-com/athrd",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/commands/share.ts#L277",
+    );
+  });
+
+  it("returns shortened label for hash-only absolute path with line suffix", () => {
+    const label = getShortFileLinkLabel(
+      "#/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",
+    );
+
+    expect(label).toBe("share.ts:277");
+  });
+
+  it("returns shortened label for absolute file path without line", () => {
+    const label = getShortFileLinkLabel(
+      "/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts",
+    );
+
+    expect(label).toBe("share.ts");
+  });
+
+  it("does not shorten label for non-file paths", () => {
+    const label = getShortFileLinkLabel("/Users/dummyuser/code/athrd/packages/cli/src/commands");
+
+    expect(label).toBeNull();
   });
 });

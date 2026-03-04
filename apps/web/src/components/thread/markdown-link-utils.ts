@@ -425,9 +425,10 @@ export function rewriteFilePathHrefToGithub(params: {
   href?: string;
   repoName?: string;
   repoUrl?: string;
+  commitHash?: string;
   knownFilePaths: Set<string>;
 }): string | null {
-  const { href, repoName, repoUrl, knownFilePaths } = params;
+  const { href, repoName, repoUrl, commitHash, knownFilePaths } = params;
 
   if (!href || (!repoName && !repoUrl)) {
     return null;
@@ -472,8 +473,12 @@ export function rewriteFilePathHrefToGithub(params: {
     return null;
   }
 
+  const commitRef =
+    typeof commitHash === "string" && commitHash.trim()
+      ? commitHash.trim()
+      : "main";
   const encodedPath = encodePathSegments(fallbackRepoRelativePath);
-  return `https://github.com/${effectiveRepoName}/blob/main/${encodedPath}${normalized.hash}`;
+  return `https://github.com/${effectiveRepoName}/blob/${commitRef}/${encodedPath}${normalized.hash}`;
 }
 
 export function getShortFileLinkLabel(href?: string): string | null {

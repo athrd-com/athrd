@@ -210,4 +210,30 @@ describe("markdown-link-utils", () => {
 
     expect(label).toBeNull();
   });
+
+  it("uses commitHash for github blob ref when available", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",
+      repoName: "athrd-com/athrd",
+      commitHash: "a1b2c3d4",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/a1b2c3d4/packages/cli/src/commands/share.ts#L277",
+    );
+  });
+
+  it("falls back to main when commitHash is null-ish", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",
+      repoName: "athrd-com/athrd",
+      commitHash: "   ",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/commands/share.ts#L277",
+    );
+  });
 });

@@ -64,6 +64,7 @@ interface AThrdThreadProps {
   thread: AThrd;
   repoName?: string;
   repoUrl?: string;
+  commitHash?: string;
 }
 
 type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
@@ -104,6 +105,7 @@ export default function AThrdThread({
   thread,
   repoName,
   repoUrl,
+  commitHash,
 }: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
   const knownFilePaths = extractKnownFilePaths(thread);
@@ -122,6 +124,7 @@ export default function AThrdThread({
             href,
             repoName,
             repoUrl,
+            commitHash,
             knownFilePaths,
           });
           const shortLabel = getShortFileLinkLabel(href);

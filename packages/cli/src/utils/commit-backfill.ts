@@ -25,6 +25,11 @@ interface BackfillRecentHeadAgentSessionTrailerParams {
   url: string;
 }
 
+interface HeadHasAgentSessionTrailerParams {
+  cwd?: string;
+  url: string;
+}
+
 function runGit(args: string[], cwd: string): string {
   return execFileSync("git", args, {
     cwd,
@@ -85,6 +90,29 @@ function hasMatchingTrailer(message: string, url: string): boolean {
     }
   }
   return false;
+}
+
+export function headHasAgentSessionTrailer(
+  params: HeadHasAgentSessionTrailerParams,
+): boolean {
+  const url = params.url.trim();
+  if (!url) {
+    return false;
+  }
+
+  const repoRoot = getGitRepoRoot(params.cwd);
+  if (!repoRoot || !hasHead(repoRoot)) {
+    return false;
+  }
+
+  let message = "";
+  try {
+    message = runGit(["log", "-1", "--pretty=%B", "HEAD"], repoRoot);
+  } catch {
+    return false;
+  }
+
+  return hasMatchingTrailer(message, url);
 }
 
 export function backfillRecentHeadAgentSessionTrailer(

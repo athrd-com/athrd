@@ -8,7 +8,10 @@ import {
 } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { backfillRecentHeadAgentSessionTrailer } from "./commit-backfill.js";
+import {
+  backfillRecentHeadAgentSessionTrailer,
+  headHasAgentSessionTrailer,
+} from "./commit-backfill.js";
 
 const tempDirs: string[] = [];
 
@@ -126,6 +129,29 @@ describe("backfillRecentHeadAgentSessionTrailer", () => {
 
     const result = backfillRecentHeadAgentSessionTrailer({ cwd: repo, url });
     expect(result.status).toBe("skipped:trailer_exists");
+  });
+
+  test("detects matching trailer on HEAD", () => {
+    const repo = makeTempDir("athrd-backfill-detect-trailer-");
+    initRepoWithIdentity(repo);
+    commitFile(repo, "feat: base");
+
+    const url = "https://athrd.com/threads/detect";
+    execSync(
+      `git commit --amend --no-edit --no-verify --trailer "Agent-Session: ${url}"`,
+      {
+        cwd: repo,
+        stdio: "ignore",
+      },
+    );
+
+    expect(headHasAgentSessionTrailer({ cwd: repo, url })).toBeTrue();
+    expect(
+      headHasAgentSessionTrailer({
+        cwd: repo,
+        url: "https://athrd.com/threads/other",
+      }),
+    ).toBeFalse();
   });
 
   test("skips outside a git repository", () => {

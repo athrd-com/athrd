@@ -96,6 +96,29 @@ describe("appendAthrdUrlMarker", () => {
 
     expect(existsSync(join(dir, ".agent-session-marker"))).toBeFalse();
   });
+
+  test("does not append when HEAD already has matching agent-session trailer", () => {
+    const root = makeTempDir("athrd-marker-head-associated-");
+    execSync("git init", { cwd: root, stdio: "ignore" });
+    execSync('git config user.email "athrd-tests@example.com"', {
+      cwd: root,
+      stdio: "ignore",
+    });
+    execSync('git config user.name "athrd-tests"', { cwd: root, stdio: "ignore" });
+    writeFileSync(join(root, "file.txt"), "base\n", "utf-8");
+    execSync("git add file.txt", { cwd: root, stdio: "ignore" });
+    execSync('git commit -m "feat: base"', { cwd: root, stdio: "ignore" });
+
+    const url = "https://athrd.com/threads/abc";
+    execSync(
+      `git commit --amend --no-edit --no-verify --trailer "Agent-Session: ${url}"`,
+      { cwd: root, stdio: "ignore" },
+    );
+
+    appendAthrdUrlMarker({ cwd: root, url });
+
+    expect(existsSync(join(root, ".agent-session-marker"))).toBeFalse();
+  });
 });
 
 describe("removeAthrdUrlMarker", () => {

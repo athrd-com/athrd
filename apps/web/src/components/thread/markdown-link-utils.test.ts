@@ -109,4 +109,30 @@ describe("markdown-link-utils", () => {
       "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
     );
   });
+
+  it("rewrites absolute paths when repo slug differs from local folder name", () => {
+    const knownFilePaths = extractKnownFilePaths(createThread());
+
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      repoName: "athrd-com/app",
+      knownFilePaths,
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/app/blob/main/packages/cli/src/utils/marker.ts",
+    );
+  });
+
+  it("rewrites absolute paths from monorepo markers without known paths", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      repoName: "athrd-com/app",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/app/blob/main/packages/cli/src/utils/marker.ts",
+    );
+  });
 });

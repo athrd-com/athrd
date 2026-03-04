@@ -148,6 +148,83 @@ function toRepoRelativePath(path: string, repoName: string): string | null {
   return null;
 }
 
+function inferRepoRootFromKnownFilePaths(knownFilePaths: Set<string>): string | null {
+  const absolutePaths = Array.from(knownFilePaths).filter((path) =>
+    path.startsWith("/"),
+  );
+  if (absolutePaths.length === 0) {
+    return null;
+  }
+
+  const segmentsByPath = absolutePaths.map((path) =>
+    canonicalizePath(path).split("/").filter(Boolean),
+  );
+  if (segmentsByPath.length === 0) {
+    return null;
+  }
+
+  const minLength = Math.min(...segmentsByPath.map((segments) => segments.length));
+  const commonSegments: string[] = [];
+
+  for (let index = 0; index < minLength; index += 1) {
+    const segment = segmentsByPath[0][index];
+    if (segmentsByPath.every((segments) => segments[index] === segment)) {
+      commonSegments.push(segment);
+      continue;
+    }
+    break;
+  }
+
+  if (commonSegments.length === 0) {
+    return null;
+  }
+
+  return `/${commonSegments.join("/")}`;
+}
+
+function toRepoRelativePathFromKnownRoot(
+  path: string,
+  knownFilePaths: Set<string>,
+): string | null {
+  const normalizedPath = canonicalizePath(path);
+  if (!normalizedPath.startsWith("/")) {
+    return null;
+  }
+
+  const root = inferRepoRootFromKnownFilePaths(knownFilePaths);
+  if (!root || !normalizedPath.startsWith(`${root}/`)) {
+    return null;
+  }
+
+  return normalizedPath.slice(root.length + 1) || null;
+}
+
+function toRepoRelativePathFromMonorepoMarkers(path: string): string | null {
+  const normalizedPath = canonicalizePath(path);
+  if (!normalizedPath.startsWith("/")) {
+    return null;
+  }
+
+  const markers = [
+    "/packages/",
+    "/apps/",
+    "/src/",
+    "/lib/",
+    "/tests/",
+    "/test/",
+    "/docs/",
+  ];
+
+  for (const marker of markers) {
+    const markerIndex = normalizedPath.indexOf(marker);
+    if (markerIndex >= 0) {
+      return normalizedPath.slice(markerIndex + 1) || null;
+    }
+  }
+
+  return null;
+}
+
 function encodePathSegments(path: string): string {
   return path
     .split("/")
@@ -230,10 +307,14 @@ export function rewriteFilePathHrefToGithub(params: {
   }
 
   const repoRelativePath = toRepoRelativePath(resolvedPath, repoName);
-  if (!repoRelativePath) {
+  const fallbackRepoRelativePath =
+    repoRelativePath ||
+    toRepoRelativePathFromKnownRoot(resolvedPath, knownFilePaths) ||
+    toRepoRelativePathFromMonorepoMarkers(resolvedPath);
+  if (!fallbackRepoRelativePath) {
     return null;
   }
 
-  const encodedPath = encodePathSegments(repoRelativePath);
+  const encodedPath = encodePathSegments(fallbackRepoRelativePath);
   return `https://github.com/${repoName}/blob/main/${encodedPath}${parsed.hash}`;
 }

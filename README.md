@@ -5,9 +5,6 @@
     <a href="https://github.com/athrd-com/athrd/blob/main/LICENSE">
   <img src="https://img.shields.io/github/license/athrd-com/athrd" alt="License">
 </a>
-    <a href="https://pepy.tech/project/athrd-py">
-  <img src="https://static.pepy.tech/badge/athrd-py" alt="Downloads">
-</a>
 <a href="https://athrd.com">
   <img src="https://img.shields.io/badge/Visit-athrd.dev-orange" alt="Visit athrd.com">
 </a>
@@ -16,8 +13,6 @@
 # 🧵 athrd
 
 **AI traceability for commits and pull requests.**
-
-[License](LICENSE) <!-- | [Website](https://athrd.com) -->
 
 ## What is athrd?
 

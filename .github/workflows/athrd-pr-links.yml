@@ -22,6 +22,7 @@ jobs:
             const SECTION_DIVIDER = "---";
             const SECTION_HEADING = "# Agent Session(s)";
             const TRAILING_PUNCTUATION = /[.,);\]]+$/;
+            const ATHRD_THREAD_URL = "https://athrd.com/threads/";
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -59,10 +60,19 @@ jobs:
             let nextBody = currentBody;
             const lines = currentBody.split(/\r?\n/);
             const trailerLineMatcher = new RegExp(`^\\s*${TRAILER_KEY}\\s*`);
+            const bulletLinkLineMatcher = new RegExp(
+              `^\\s*-\\s+(?:<a\\s+href=\")?${ATHRD_THREAD_URL.replace(
+                /\//g,
+                "\\/",
+              )}[^\\s<\"]+(?:\"[^>]*>.*<\\/a>)?\\s*$`,
+            );
             const sectionHeadingMatcher = /^\s{0,3}#\s*Agent Session\(s\)\s*$/m;
             const trailerLineIndexes = lines
               .map((line, index) => ({ line, index }))
-              .filter(({ line }) => trailerLineMatcher.test(line))
+              .filter(
+                ({ line }) =>
+                  trailerLineMatcher.test(line) || bulletLinkLineMatcher.test(line),
+              )
               .map(({ index }) => index);
 
             if (links.length === 0) {
@@ -74,7 +84,7 @@ jobs:
                   .trimEnd();
               }
             } else {
-              const trailerLines = links.map((url) => `${TRAILER_KEY} ${url}`);
+              const trailerLines = links.map((url) => `- ${url}`);
               const hasSectionHeading = sectionHeadingMatcher.test(currentBody);
 
               if (trailerLineIndexes.length > 0) {

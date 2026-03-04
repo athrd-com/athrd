@@ -10,7 +10,7 @@
 </a>
 </div>
 
-# 🧵 athrd
+# ATHRD
 
 **AI traceability for commits and pull requests.**
 

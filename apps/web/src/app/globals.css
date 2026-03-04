@@ -122,6 +122,10 @@
   @apply my-1;
 }
 
+.markdown-content a {
+  @apply underline underline-offset-2;
+}
+
 .markdown-content h1 {
   @apply text-xl font-bold mb-4 mt-6 text-gray-200;
 }

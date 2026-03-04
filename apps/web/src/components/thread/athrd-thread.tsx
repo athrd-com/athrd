@@ -54,6 +54,16 @@ interface AThrdThreadProps {
   thread: AThrd;
 }
 
+const markdownOptions = {
+  overrides: {
+    a: {
+      props: {
+        rel: "nofollow noreferrer",
+      },
+    },
+  },
+};
+
 /**
  * Group consecutive messages by type
  */
@@ -131,7 +141,7 @@ function UserMessage({
       </Avatar>
       <Card className="p-4 gap-2 bg-[#111] border-white/10 shadow-none text-gray-300 min-w-0 max-w-full flex-1">
         <div className="markdown-content text-sm">
-          <Markdown>{message.content}</Markdown>
+          <Markdown options={markdownOptions}>{message.content}</Markdown>
         </div>
       </Card>
     </div>
@@ -198,10 +208,10 @@ function AssistantMessageGroup({
   const lastBlockIndex = renderBlocks.length - 1;
   const hiddenBlocks = renderBlocks.slice(0, lastBlockIndex);
   const hiddenThoughtCount = hiddenBlocks.filter(
-    (block) => block.type === "thought"
+    (block) => block.type === "thought",
   ).length;
   const hiddenToolCallCount = hiddenBlocks.filter(
-    (block) => block.type === "tool"
+    (block) => block.type === "tool",
   ).length;
   const hiddenCount = hiddenBlocks.length;
   const hiddenSummaryParts: string[] = [];
@@ -250,18 +260,19 @@ function AssistantMessageGroup({
         )}
 
         {renderBlocks.map((block, blockIndex) => {
-          const shouldHide = !showPreviousDetails && blockIndex < lastBlockIndex;
+          const shouldHide =
+            !showPreviousDetails && blockIndex < lastBlockIndex;
 
           if (block.type === "content") {
             return (
               <div
                 key={block.key}
                 className={cn(
-                  "markdown-content text-sm text-gray-300 py-2",
-                  shouldHide && "hidden"
+                  "markdown-content text-sm text-white py-2",
+                  shouldHide && "hidden",
                 )}
               >
-                <Markdown>{block.content}</Markdown>
+                <Markdown options={markdownOptions}>{block.content}</Markdown>
               </div>
             );
           }

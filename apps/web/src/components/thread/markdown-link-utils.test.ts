@@ -224,6 +224,18 @@ describe("markdown-link-utils", () => {
     );
   });
 
+  it("falls back to main when commitHash is omitted", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",
+      repoName: "athrd-com/athrd",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/commands/share.ts#L277",
+    );
+  });
+
   it("falls back to main when commitHash is null-ish", () => {
     const rewritten = rewriteFilePathHrefToGithub({
       href: "/Users/dummyuser/code/athrd/packages/cli/src/commands/share.ts:277",

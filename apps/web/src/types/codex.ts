@@ -179,6 +179,7 @@ export interface CodexTurnContextPayload {
   approval_policy: string;
   sandbox_policy: CodexSandboxPolicy;
   model: string;
+  effort?: string;
   summary: string | null;
 }
 

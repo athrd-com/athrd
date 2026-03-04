@@ -37,7 +37,9 @@ export interface ThreadContext {
   modelsUsed: string[];
 }
 
-export async function loadThreadContext(gistId: string): Promise<ThreadContext> {
+export async function loadThreadContext(
+  gistId: string,
+): Promise<ThreadContext> {
   const { gist, file } = await fetchGist(gistId);
   if (!gist || !file) {
     throw new ThreadLoadError("NOT_FOUND", `Thread ${gistId} not found`);
@@ -120,7 +122,10 @@ function isIDE(value: string): value is IDE {
 /**
  * Extract models used from raw content before parsing.
  */
-function extractModelsUsed(content: Record<string, unknown>, ide: IDE): string[] {
+function extractModelsUsed(
+  content: Record<string, unknown>,
+  ide: IDE,
+): string[] {
   const models = new Set<string>();
 
   try {
@@ -149,7 +154,9 @@ function extractModelsUsed(content: Record<string, unknown>, ide: IDE): string[]
       const codexContent = content as unknown as CodexThreadType;
       codexContent.messages?.forEach((msg) => {
         if (msg.type === "turn_context" && msg.payload?.model) {
-          models.add(msg.payload.model);
+          models.add(
+            [msg.payload.model, msg.payload.effort].filter(Boolean).join("-"),
+          );
         }
       });
     }

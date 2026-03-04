@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { headHasAgentSessionTrailer } from "./commit-backfill.js";
 import { getGitRepoRoot } from "./git.js";
 
 interface AppendAthrdUrlMarkerParams {
@@ -40,14 +41,18 @@ export function appendAthrdUrlMarker(params: AppendAthrdUrlMarkerParams): void {
     return;
   }
 
-  ensureMarkerIgnored(gitRoot);
-
-  const markerPath = path.join(gitRoot, ".agent-session-marker");
   const normalizedUrl = params.url.trim();
   if (!normalizedUrl) {
     return;
   }
 
+  if (headHasAgentSessionTrailer({ cwd: gitRoot, url: normalizedUrl })) {
+    return;
+  }
+
+  ensureMarkerIgnored(gitRoot);
+
+  const markerPath = path.join(gitRoot, ".agent-session-marker");
   let existingContent = "";
   if (fs.existsSync(markerPath)) {
     existingContent = fs.readFileSync(markerPath, "utf-8");

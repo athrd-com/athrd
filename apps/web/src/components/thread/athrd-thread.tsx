@@ -30,6 +30,10 @@ import {
   rewriteFilePathHrefToGithub,
 } from "@/components/thread/markdown-link-utils";
 import {
+  maybeShortenFilePathLinkChildren,
+  mergeRel,
+} from "@/components/thread/markdown-render-utils";
+import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -48,7 +52,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
-import { cloneElement, isValidElement, useState } from "react";
+import { useState } from "react";
 import ToolEditBlock from "./tool-edit-block";
 import ToolGenericBlock from "./tool-generic-block";
 import ToolMCPBlock from "./tool-mcp-block";
@@ -63,48 +67,6 @@ interface AThrdThreadProps {
 }
 
 type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
-
-function maybeShortenFilePathLinkChildren(
-  children: ComponentProps<"a">["children"],
-  shortLabel: string | null,
-) {
-  if (!shortLabel) {
-    return children;
-  }
-
-  if (isValidElement(children) && children.type === "code") {
-    return cloneElement(children, undefined, shortLabel);
-  }
-
-  if (Array.isArray(children) && children.length === 1) {
-    const [onlyChild] = children;
-    if (isValidElement(onlyChild) && onlyChild.type === "code") {
-      return [cloneElement(onlyChild, undefined, shortLabel)];
-    }
-
-    if (typeof onlyChild === "string") {
-      return [shortLabel];
-    }
-  }
-
-  if (typeof children === "string") {
-    return shortLabel;
-  }
-
-  return children;
-}
-
-function mergeRel(
-  rel: string | undefined,
-  requiredValues: string[],
-): string | undefined {
-  const currentValues = new Set((rel || "").split(/\s+/).filter(Boolean));
-  requiredValues.forEach((value) => currentValues.add(value));
-  if (currentValues.size === 0) {
-    return undefined;
-  }
-  return Array.from(currentValues).join(" ");
-}
 
 /**
  * Group consecutive messages by type

@@ -225,6 +225,68 @@ function toRepoRelativePathFromMonorepoMarkers(path: string): string | null {
   return null;
 }
 
+function inferRepoSlugFromPath(path: string): string | null {
+  const normalizedPath = canonicalizePath(path);
+  if (!normalizedPath.startsWith("/")) {
+    return null;
+  }
+
+  const markers = ["/packages/", "/apps/", "/src/", "/lib/", "/tests/", "/test/", "/docs/"];
+  for (const marker of markers) {
+    const markerIndex = normalizedPath.indexOf(marker);
+    if (markerIndex < 0) {
+      continue;
+    }
+
+    const prefix = normalizedPath.slice(0, markerIndex);
+    const segments = prefix.split("/").filter(Boolean);
+    const repoSlug = segments[segments.length - 1];
+    if (repoSlug) {
+      return repoSlug;
+    }
+  }
+
+  return null;
+}
+
+function inferRepoSlugFromKnownPaths(knownFilePaths: Set<string>): string | null {
+  const root = inferRepoRootFromKnownFilePaths(knownFilePaths);
+  if (!root) {
+    return null;
+  }
+
+  const segments = root.split("/").filter(Boolean);
+  return segments[segments.length - 1] || null;
+}
+
+function resolveEffectiveRepoName(
+  repoName: string,
+  path: string,
+  knownFilePaths: Set<string>,
+): string {
+  const segments = repoName.split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return repoName;
+  }
+
+  const inferredRepoSlug =
+    inferRepoSlugFromPath(path) || inferRepoSlugFromKnownPaths(knownFilePaths);
+  if (!inferredRepoSlug) {
+    return repoName;
+  }
+
+  if (segments.length === 1) {
+    return `${segments[0]}/${inferredRepoSlug}`;
+  }
+
+  const [org, repo] = segments;
+  if (repo !== inferredRepoSlug) {
+    return `${org}/${inferredRepoSlug}`;
+  }
+
+  return repoName;
+}
+
 function encodePathSegments(path: string): string {
   return path
     .split("/")
@@ -307,7 +369,17 @@ export function rewriteFilePathHrefToGithub(params: {
   }
 
   const repoRelativePath = toRepoRelativePath(resolvedPath, repoName);
+  const effectiveRepoName = resolveEffectiveRepoName(
+    repoName,
+    resolvedPath,
+    knownFilePaths,
+  );
+  const effectiveRepoRelativePath = toRepoRelativePath(
+    resolvedPath,
+    effectiveRepoName,
+  );
   const fallbackRepoRelativePath =
+    effectiveRepoRelativePath ||
     repoRelativePath ||
     toRepoRelativePathFromKnownRoot(resolvedPath, knownFilePaths) ||
     toRepoRelativePathFromMonorepoMarkers(resolvedPath);
@@ -316,5 +388,5 @@ export function rewriteFilePathHrefToGithub(params: {
   }
 
   const encodedPath = encodePathSegments(fallbackRepoRelativePath);
-  return `https://github.com/${repoName}/blob/main/${encodedPath}${parsed.hash}`;
+  return `https://github.com/${effectiveRepoName}/blob/main/${encodedPath}${parsed.hash}`;
 }

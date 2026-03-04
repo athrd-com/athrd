@@ -120,7 +120,7 @@ describe("markdown-link-utils", () => {
     });
 
     expect(rewritten).toBe(
-      "https://github.com/athrd-com/app/blob/main/packages/cli/src/utils/marker.ts",
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
     );
   });
 
@@ -132,7 +132,19 @@ describe("markdown-link-utils", () => {
     });
 
     expect(rewritten).toBe(
-      "https://github.com/athrd-com/app/blob/main/packages/cli/src/utils/marker.ts",
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
+    );
+  });
+
+  it("adds inferred repo slug when metadata only has org", () => {
+    const rewritten = rewriteFilePathHrefToGithub({
+      href: "/Users/gregorymarcilhacy/code/athrd/packages/cli/src/utils/marker.ts",
+      repoName: "athrd-com",
+      knownFilePaths: new Set<string>(),
+    });
+
+    expect(rewritten).toBe(
+      "https://github.com/athrd-com/athrd/blob/main/packages/cli/src/utils/marker.ts",
     );
   });
 });

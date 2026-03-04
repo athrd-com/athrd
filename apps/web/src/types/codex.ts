@@ -10,6 +10,7 @@ export interface CodexThreadMetadata {
   githubUsername?: string;
   githubRepo?: string;
   ide?: string;
+  commitHash?: string;
   ghRepoId?: number;
   name?: string;
   orgId?: number;

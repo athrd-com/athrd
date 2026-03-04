@@ -55,3 +55,21 @@ export function getGitRepoRoot(cwd?: string): string | null {
     return null;
   }
 }
+
+/**
+ * Get HEAD commit hash for a repository working directory.
+ * Returns null if not in a git repository or HEAD does not exist.
+ */
+export function getGitHeadCommitHash(cwd?: string): string | null {
+  try {
+    const commitHash = execSync("git rev-parse HEAD", {
+      encoding: "utf-8",
+      cwd,
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim();
+
+    return commitHash || null;
+  } catch {
+    return null;
+  }
+}

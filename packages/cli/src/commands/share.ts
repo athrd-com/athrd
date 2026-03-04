@@ -7,7 +7,7 @@ import { ChatSession } from "../types/index.js";
 import { requireAuth } from "../utils/auth.js";
 import { formatDate } from "../utils/date.js";
 import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
-import { getGitHubRepo } from "../utils/git.js";
+import { getGitHeadCommitHash, getGitHubRepo } from "../utils/git.js";
 import {
   getGitHubOrgInfo,
   getGitHubRepoInfo,
@@ -253,6 +253,7 @@ export function shareCommand(program: Command) {
             // Get GitHub repo for this session
             // Prefer cwd from hook payload when available, then session workspace path.
             const githubRepo = getGitHubRepo(repoCwd);
+            const commitHash = getGitHeadCommitHash(repoCwd);
 
             // Extract organization name from repo (format: "org/repo")
             const orgName = githubRepo?.split("/")[0];
@@ -266,12 +267,23 @@ export function shareCommand(program: Command) {
                 ? await getGitHubRepoInfo(octokit, orgName, repoName)
                 : null;
 
-            // Add __athrd metadata to the session data
+            const existingAthrdMetadata =
+              typeof sessionData?.__athrd === "object" &&
+              sessionData.__athrd !== null
+                ? (sessionData.__athrd as Record<string, unknown>)
+                : {};
+
+            // Add/refresh __athrd metadata on the session data.
             const enrichedData = {
+              ...sessionData,
               __athrd: {
+                ...existingAthrdMetadata,
                 githubUsername: userInfo.username,
                 githubRepo: githubRepo,
                 ide: provider.id, // Use provider ID as 'ide'
+                ...(commitHash && {
+                  commitHash,
+                }),
                 ...(repoInfo && {
                   ghRepoId: repoInfo.repoId,
                   name: repoInfo.name,
@@ -282,7 +294,6 @@ export function shareCommand(program: Command) {
                   orgIcon: orgInfo.orgIcon,
                 }),
               },
-              ...sessionData,
             };
 
             const content = JSON.stringify(enrichedData, null, 2);

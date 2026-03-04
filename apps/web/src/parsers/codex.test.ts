@@ -26,6 +26,15 @@ const createBaseThread = (): CodexThread => ({
   messages: [],
 });
 
+const createTaskStartedEvent = () =>
+  ({
+    timestamp: "2024-01-07T11:59:59Z",
+    type: "event_msg",
+    payload: {
+      type: "task_started",
+    },
+  }) as const;
+
 describe("codexParser", () => {
   describe("canParse", () => {
     it("should identify a valid Codex thread with messages", () => {
@@ -77,6 +86,7 @@ describe("codexParser", () => {
     it("should parse a simple user message", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -100,6 +110,7 @@ describe("codexParser", () => {
     it("should parse user message with multiple content blocks", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -120,9 +131,65 @@ describe("codexParser", () => {
       expect(result.messages[0]?.content).toBe("First part\nSecond part");
     });
 
+    it("should skip user and assistant messages before task_started", () => {
+      const thread = createBaseThread();
+      thread.messages = [
+        {
+          timestamp: "2024-01-07T12:00:00Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Ignored user message" }],
+          },
+        },
+        {
+          timestamp: "2024-01-07T12:00:01Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "Ignored assistant message" }],
+          },
+        },
+        createTaskStartedEvent(),
+        {
+          timestamp: "2024-01-07T12:00:02Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Included user message" }],
+          },
+        },
+        {
+          timestamp: "2024-01-07T12:00:03Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "Included assistant message" }],
+          },
+        },
+      ];
+
+      const result = codexParser.parse(thread);
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[0]).toMatchObject({
+        type: "user",
+        content: "Included user message",
+      });
+      expect(result.messages[1]).toMatchObject({
+        type: "assistant",
+        content: "Included assistant message",
+      });
+    });
+
     it("should skip environment context messages", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -157,6 +224,7 @@ describe("codexParser", () => {
     it("should skip empty user messages", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -188,6 +256,7 @@ describe("codexParser", () => {
     it("should parse a simple assistant message", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "turn_context",
@@ -230,6 +299,7 @@ describe("codexParser", () => {
     it("should parse assistant message with reasoning", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -286,6 +356,7 @@ describe("codexParser", () => {
     it("should handle multiple text blocks in assistant message", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -326,6 +397,7 @@ describe("codexParser", () => {
     it("should handle assistant message with empty text blocks", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -364,6 +436,7 @@ describe("codexParser", () => {
     it("should handle reasoning with null content", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -415,6 +488,7 @@ describe("codexParser", () => {
       it("should parse terminal_command tool call with result", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -473,6 +547,7 @@ describe("codexParser", () => {
       it("should parse terminal_command with cwd", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -523,6 +598,7 @@ describe("codexParser", () => {
       it("should parse exec_command tool call as terminal_command", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -573,6 +649,7 @@ describe("codexParser", () => {
       it("should parse todos tool call", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -627,6 +704,7 @@ describe("codexParser", () => {
       it("should parse request_user_input tool call and mark selected option", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -724,6 +802,7 @@ describe("codexParser", () => {
       it("should append typed custom answer when it does not match any option", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -804,6 +883,7 @@ describe("codexParser", () => {
       it("should parse MCP tool call", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -856,6 +936,7 @@ describe("codexParser", () => {
       it("should parse tool call with image result", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -904,6 +985,7 @@ describe("codexParser", () => {
       it("should handle tool call without result", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -939,6 +1021,7 @@ describe("codexParser", () => {
       it("should handle unknown tool call", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -985,6 +1068,7 @@ describe("codexParser", () => {
       it("should handle tool call with string output", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -1027,6 +1111,7 @@ describe("codexParser", () => {
       it("should handle multiple tool calls in sequence", () => {
         const thread = createBaseThread();
         thread.messages = [
+        createTaskStartedEvent(),
           {
             timestamp: "2024-01-07T12:00:00Z",
             type: "response_item",
@@ -1100,6 +1185,7 @@ describe("codexParser", () => {
     it("should handle mixed content: text, reasoning, and tool calls", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",
@@ -1191,6 +1277,7 @@ describe("codexParser", () => {
     it("should update model from turn_context", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "turn_context",
@@ -1228,6 +1315,7 @@ describe("codexParser", () => {
     it("should skip event_msg types", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "event_msg",
@@ -1258,6 +1346,7 @@ describe("codexParser", () => {
     it("should skip ghost_snapshot payload types", () => {
       const thread = createBaseThread();
       thread.messages = [
+        createTaskStartedEvent(),
         {
           timestamp: "2024-01-07T12:00:00Z",
           type: "response_item",

@@ -49,6 +49,7 @@ interface ParseContext {
   functionOutputs: Map<string, CodexFunctionCallOutputPayload["output"]>;
   model: string;
   assistant: AssistantState;
+  hasTaskStarted: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,6 +112,8 @@ function handleResponseMessage(
   payload: CodexResponseMessagePayload,
   timestamp: string
 ): void {
+  if (!ctx.hasTaskStarted) return;
+
   if (payload.role === "user") {
     flushAssistant(ctx);
     const textContent = extractTextContent(payload.content, "input_text");
@@ -231,6 +234,13 @@ function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
 
 function processMessage(ctx: ParseContext, msg: CodexMessage): void {
   switch (msg.type) {
+    case "event_msg": {
+      const payload = (msg as { payload?: { type?: string } }).payload;
+      if (payload?.type === "task_started") {
+        ctx.hasTaskStarted = true;
+      }
+      break;
+    }
     case "turn_context": {
       const turnContext = msg as CodexTurnContextMessage;
       ctx.model = turnContext.payload.model || ctx.model;
@@ -559,6 +569,7 @@ export const codexParser: Parser<CodexThread> = {
       functionOutputs: buildFunctionOutputMap(rawThread.messages),
       model: "codex",
       assistant: createEmptyAssistantState(),
+      hasTaskStarted: false,
     };
 
     for (const msg of rawThread.messages) {

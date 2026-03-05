@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   title: "ATHRD - AI Traceability for Pull Requests",
   description:
     "Attach AI coding sessions to commits and pull requests so teams can understand why code changed and review faster.",
-  generator: "v0.app",
   icons: {
     icon: [
       {

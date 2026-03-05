@@ -79,7 +79,7 @@ export function HeroSection() {
   return (
     <div className="flex flex-col items-center text-center max-w-4xl mx-auto mt-12 mb-24">
       <h1 className="text-5xl md:text-7xl font-medium tracking-tight text-white mb-6 leading-[1.1]">
-        Trace your
+        See every
         <span className="inline-flex items-center gap-3 md:gap-5 mx-4">
           <span className="relative group inline-flex">
             <div
@@ -94,16 +94,18 @@ export function HeroSection() {
           <span>{currentBrand!.name}</span>
         </span>
         <br />
-        sessions in every PR
+        coding session in every PR
       </h1>
 
       <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 font-light">
-        Attach AI coding context to commits and pull requests so your team can
-        understand what changed, why it changed, and review with confidence.
+        Add AI session links to commits and pull requests so reviewers can
+        quickly understand what changed, why it changed, and what the agent
+        ran.
       </p>
 
       {/* Install Command */}
       <div className="flex flex-col items-center gap-4">
+        <p className="text-sm text-gray-400">Install the CLI to get started</p>
         <div className="relative group">
           <div className="absolute -inset-px bg-linear-to-r from-gray-700 to-gray-800 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative flex items-center bg-[#111] border border-gray-800 rounded-lg px-4 py-3 pr-12 font-mono text-sm text-gray-300 shadow-xl min-w-[300px] md:min-w-[400px]">
@@ -113,6 +115,8 @@ export function HeroSection() {
             <button
               onClick={handleCopy}
               className="absolute right-2 p-2 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/10"
+              aria-label={`Copy command: ${command}`}
+              title="Copy command"
             >
               {copied ? (
                 <Check size={16} className="text-green-500" />

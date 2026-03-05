@@ -24,7 +24,7 @@ export function LoginButton() {
     <Button onClick={handleLogin} disabled={isLoading} className="gap-2">
       {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
       {!isLoading && <Github className="h-4 w-4" />}
-      Login with GitHub
+      {isLoading ? "Connecting to GitHub..." : "Continue with GitHub"}
     </Button>
   );
 }

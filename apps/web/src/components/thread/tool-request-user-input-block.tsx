@@ -21,7 +21,7 @@ export default function ToolRequestUserInputBlock({
 }: ToolRequestUserInputBlockProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
-  const title = questions[0]?.question || "User input";
+  const title = questions[0]?.question || "User decision required";
 
   return (
     <div

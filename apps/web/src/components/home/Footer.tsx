@@ -17,7 +17,7 @@ export function Footer() {
             <span className="text-gray-600">·</span>
             <span>Free forever</span>
             <span className="text-gray-600">·</span>
-            <span>Stored in your GitHub Gists</span>
+            <span>Session data lives in your GitHub Gists</span>
             <span className="text-gray-600">·</span>
             <span>Private by default</span>
             <span className="text-gray-600">·</span>

@@ -15,9 +15,9 @@ type Benefit = {
 const benefits: Benefit[] = [
   {
     icon: GitPullRequestCreate,
-    title: "Ship explainable PRs",
+    title: "Make PRs easier to review",
     description:
-      "Attach AI sessions to commits so reviewers can inspect intent, tradeoffs, and execution steps in context.",
+      "Attach AI sessions to each change so reviewers can see decisions, tradeoffs, and execution steps in one place.",
     highlights: [
       "Reduce review back-and-forth",
       "Make design decisions explicit",
@@ -27,7 +27,7 @@ const benefits: Benefit[] = [
   },
   {
     icon: GraduationCap,
-    title: "Built-in knowledge transfer",
+    title: "Turn sessions into team knowledge",
     description:
       "Turn everyday AI-assisted coding into reusable project knowledge for onboarding and handoffs.",
     highlights: [
@@ -39,9 +39,9 @@ const benefits: Benefit[] = [
   },
   {
     icon: ShieldCheck,
-    title: "Safer AI adoption",
+    title: "Adopt AI with better controls",
     description:
-      "Create an auditable development trail so teams can scale AI usage with confidence and accountability.",
+      "Keep an auditable trail of AI-assisted work so teams can scale usage with confidence and accountability.",
     highlights: [
       "Track AI usage per change",
       "Support governance requirements",
@@ -62,8 +62,8 @@ export function BenefitsSection() {
           Turn AI sessions into engineering leverage
         </h2>
         <p className="mt-4 text-gray-400 text-base md:text-lg">
-          athrd is not just thread sharing. It is durable context for code
-          review, collaboration, and AI adoption across your organization.
+          athrd keeps session context attached to your code so reviews, handoffs,
+          and governance are faster and clearer.
         </p>
       </div>
 

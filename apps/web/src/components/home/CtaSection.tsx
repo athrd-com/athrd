@@ -31,11 +31,11 @@ export function CtaSection() {
         <div className="relative flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <h2 className="text-2xl md:text-4xl font-semibold tracking-tight text-white">
-              100% open-source AI traceability
+              Open-source session history for AI-assisted code
             </h2>
             <p className="mt-4 text-base text-gray-300">
-              athrd is fully open-source, free to use, and built for teams that
-              want durable context for AI-assisted software delivery.
+              Run these commands to connect your account and start attaching AI
+              session links to your pull requests.
             </p>
 
             <div className="mt-5 grid gap-2 text-sm text-gray-300">

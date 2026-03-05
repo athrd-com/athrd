@@ -73,7 +73,7 @@ export function Navbar() {
           target="_blank"
           className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
         >
-          Github
+          GitHub
           <Github size={14} />
           <span className="hidden sm:inline-block text-gray-300">
             {formatStars(stars)}

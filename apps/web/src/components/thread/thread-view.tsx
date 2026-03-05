@@ -31,10 +31,13 @@ export default function ThreadView({ gist, file }: ThreadViewProps) {
     console.error(error);
     return (
       <div className="px-4 py-8">
-        <h1 className="mb-4 font-bold text-3xl">Thread {gist.id}</h1>
+        <h1 className="mb-4 font-bold text-3xl">We couldn't load this thread</h1>
         <p className="text-red-600">
-          Error parsing thread from {file.filename}:{" "}
+          We couldn't parse <code>{file.filename}</code>:{" "}
           {error instanceof Error ? error.message : "Unknown error"}
+        </p>
+        <p className="mt-2 text-sm text-gray-400">
+          This thread file may be incomplete or in an unsupported format.
         </p>
         <code className="">
           <pre>{JSON.stringify(file.content || "", null, 2)}</pre>

@@ -33,7 +33,7 @@ export default function EnterprisePage() {
           <CardHeader>
             <CardTitle className="text-2xl text-white">Free</CardTitle>
             <CardDescription className="text-gray-400">
-              For everyone. No restrictions.
+              For individuals and teams getting started.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 flex-1">
@@ -59,7 +59,7 @@ export default function EnterprisePage() {
           <CardFooter>
             <Link href="/" className="w-full">
               <Button className="w-full" variant="outline">
-                Get Started
+                Start for free
               </Button>
             </Link>
           </CardFooter>
@@ -73,7 +73,7 @@ export default function EnterprisePage() {
           <CardHeader>
             <CardTitle className="text-2xl text-white">Enterprise</CardTitle>
             <CardDescription className="text-gray-400">
-              For organizations requiring strict access control
+              For organizations that need stricter access controls
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 flex-1">
@@ -106,7 +106,7 @@ export default function EnterprisePage() {
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => setIsModalOpen(true)}
             >
-              Contact Us
+              Contact sales
             </Button>
           </CardFooter>
         </Card>
@@ -126,18 +126,18 @@ export default function EnterprisePage() {
               Contact Sales
             </h2>
             <p className="text-gray-300 mb-6">
-              Please send us an email at{" "}
+              Email us at{" "}
               <a
                 href="mailto:founder@athrd.com"
                 className="text-blue-400 hover:underline"
               >
                 founder@athrd.com
               </a>{" "}
-              with your:
+              and include:
             </p>
             <ul className="list-disc list-inside text-gray-300 mb-6 space-y-2">
-              <li>Company Name</li>
-              <li>Company Size</li>
+              <li>Company name</li>
+              <li>Team size</li>
             </ul>
             <div className="flex justify-end">
               <Button onClick={() => setIsModalOpen(false)} variant="secondary">

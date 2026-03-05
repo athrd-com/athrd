@@ -18,7 +18,7 @@ export default function ToolGetErrorsBlock({
     filePaths,
     content,
     extra,
-    label = "Check errors",
+    label = "Check file errors",
     icon: Icon = FileIcon,
 }: ToolGetErrorsBlockProps) {
     const badges = filePaths.map((filePath, index) => {

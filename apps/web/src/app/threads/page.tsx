@@ -21,7 +21,9 @@ export default async function ThreadsPage() {
   if (!session) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold">Sign in to view your threads</h1>
+        <h1 className="text-2xl font-bold">
+          Sign in to view your shared threads
+        </h1>
         <LoginButton />
       </div>
     );
@@ -37,10 +39,12 @@ export default async function ThreadsPage() {
 
       {gists.length === 0 ? (
         <div className="text-center text-muted-foreground">
-          <p>No threads found.</p>
-          <p className="mt-2">Create a new thread to get started.</p>
+          <p>No threads yet.</p>
+          <p className="mt-2">
+            Create your first thread to start sharing AI session context.
+          </p>
           <Button asChild className="mt-4">
-            <Link href="/">Create Thread</Link>
+            <Link href="/">Create your first thread</Link>
           </Button>
         </div>
       ) : (

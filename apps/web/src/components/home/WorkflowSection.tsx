@@ -3,18 +3,18 @@
 const steps = [
   {
     label: "Step 01",
-    title: "Install auth + hooks once",
+    title: "Connect athrd once",
     body: "Connect athrd to your AI CLI tooling so sessions sync automatically in the background.",
     command: "athrd auth && athrd hooks install",
   },
   {
     label: "Step 02",
-    title: "Capture context while coding",
+    title: "Capture sessions while coding",
     body: "As engineers work with Claude, Codex, Gemini, Cursor, or VS Code, athrd creates durable session links.",
   },
   {
     label: "Step 03",
-    title: "Keep PR links in sync",
+    title: "Keep PR links up to date",
     body: "Add the athrd GitHub Action to scan commit messages and keep athrd links updated in every pull request.",
   },
 ];
@@ -28,7 +28,7 @@ export function WorkflowSection() {
             How athrd fits your delivery flow
           </h2>
           <p className="mt-3 text-gray-400">
-            Keep your current engineering process. athrd adds context where your
+            Keep your current workflow. athrd adds session context where your
             team already reviews and ships code.
           </p>
         </div>

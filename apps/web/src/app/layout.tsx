@@ -9,9 +9,13 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.athrd.com"),
   title: "ATHRD - AI Traceability for Pull Requests",
   description:
     "Attach AI coding sessions to commits and pull requests so teams can understand why code changed and review faster.",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: [
       {

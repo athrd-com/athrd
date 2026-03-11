@@ -29,6 +29,7 @@ export interface GistData {
 export interface GithubOrganization {
   id: number;
   login: string;
+  avatar_url: string;
 }
 
 export async function fetchGist(

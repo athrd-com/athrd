@@ -50,6 +50,7 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
           organizations={organizations.map((organization) => ({
             id: String(organization.id),
             login: organization.login,
+            avatarUrl: organization.avatar_url,
           }))}
           selectedOrgId={orgId}
         />

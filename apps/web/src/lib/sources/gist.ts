@@ -3,7 +3,7 @@ import type {
   ThreadLocator,
   ThreadSourceProvider,
   ThreadSourceRecord,
-} from "./thread-source-types";
+} from "./types";
 
 export function createThreadSourceRecordFromGist(
   gist: GistData,

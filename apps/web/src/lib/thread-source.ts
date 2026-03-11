@@ -1,8 +1,8 @@
 import {
   createThreadSourceRecordFromGist,
   GistThreadSourceProvider,
-} from "./gist-thread-source";
-import { parseThreadLocator } from "./thread-source-locator";
+} from "./sources/gist";
+import { parseThreadLocator } from "./sources/locator";
 import {
   ThreadSourceLookupError,
   type ThreadLocator,
@@ -10,8 +10,8 @@ import {
   type ThreadSourceOwner,
   type ThreadSourceProvider,
   type ThreadSourceRecord,
-} from "./thread-source-types";
-import { S3ThreadSourceProvider } from "./s3-thread-source";
+} from "./sources/types";
+import { S3ThreadSourceProvider } from "./sources/s3";
 
 const providers: Record<ThreadSource, ThreadSourceProvider> = {
   gist: new GistThreadSourceProvider(),

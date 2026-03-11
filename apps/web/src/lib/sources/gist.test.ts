@@ -3,7 +3,7 @@ import type { GistData, GistFile } from "~/lib/github";
 import {
   createThreadSourceRecordFromGist,
   GistThreadSourceProvider,
-} from "./gist-thread-source";
+} from "./gist";
 
 vi.mock("~/lib/github", () => ({
   fetchGist: vi.fn(),
@@ -36,7 +36,7 @@ const gistData: GistData = {
   updated_at: "2026-03-03T00:00:00.000Z",
 };
 
-describe("gist-thread-source", () => {
+describe("sources/gist", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -1,7 +1,7 @@
 import {
   ThreadSourceLookupError,
   type ThreadLocator,
-} from "./thread-source-types";
+} from "./types";
 
 export function parseThreadLocator(id: string): ThreadLocator {
   const publicId = id.trim();

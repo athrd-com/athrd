@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { S3ThreadSourceProvider } from "./s3-thread-source";
+import { S3ThreadSourceProvider } from "./s3";
 
 vi.mock("@/env", () => ({
   env: {
@@ -17,7 +17,7 @@ const fileMock = vi.fn(() => ({
   text: textMock,
 }));
 
-describe("s3-thread-source", () => {
+describe("sources/s3", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     existsMock.mockReset();

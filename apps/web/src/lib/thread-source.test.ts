@@ -5,7 +5,7 @@ import {
   ThreadSourceLookupError,
 } from "./thread-source";
 
-vi.mock("./gist-thread-source", () => ({
+vi.mock("./sources/gist", () => ({
   GistThreadSourceProvider: class GistThreadSourceProvider {
     readThread = vi.fn().mockResolvedValue({
       id: "gist-1",
@@ -18,7 +18,7 @@ vi.mock("./gist-thread-source", () => ({
   createThreadSourceRecordFromGist: vi.fn(),
 }));
 
-vi.mock("./s3-thread-source", () => ({
+vi.mock("./sources/s3", () => ({
   S3ThreadSourceProvider: class S3ThreadSourceProvider {
     readThread = vi.fn().mockResolvedValue({
       id: "S-threads/demo.json",

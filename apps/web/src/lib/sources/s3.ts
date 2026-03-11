@@ -3,7 +3,7 @@ import type {
   ThreadLocator,
   ThreadSourceProvider,
   ThreadSourceRecord,
-} from "./thread-source-types";
+} from "./types";
 
 type BunS3File = {
   exists(): Promise<boolean>;

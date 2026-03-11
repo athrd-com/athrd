@@ -5,7 +5,14 @@ import type { CodexThread as CodexThreadType } from "@/types/codex";
 import type { GeminiThread as GeminiThreadType } from "@/types/gemini";
 import { IDE } from "@/types/ide";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
-import { fetchGist, type GistData, type GistFile } from "~/lib/github";
+import type { GistData, GistFile } from "~/lib/github";
+import {
+  createThreadSourceRecordFromGist,
+  readThreadSourceRecord,
+  ThreadSourceLookupError,
+  type ThreadSourceOwner,
+  type ThreadSourceRecord,
+} from "./thread-source";
 
 export type ThreadLoadErrorCode =
   | "NOT_FOUND"
@@ -27,38 +34,58 @@ export class ThreadLoadError extends Error {
 }
 
 export interface ThreadContext {
-  gist: GistData;
-  file: GistFile;
+  record: ThreadSourceRecord;
   rawContent: Record<string, unknown>;
   ide: IDE;
   parsedThread: AThrd;
+  title: string;
   repoName?: string;
   commitHash?: string;
   modelsUsed: string[];
 }
 
 export async function loadThreadContext(
-  gistId: string,
+  threadId: string,
 ): Promise<ThreadContext> {
-  const { gist, file } = await fetchGist(gistId);
-  if (!gist || !file) {
-    throw new ThreadLoadError("NOT_FOUND", `Thread ${gistId} not found`);
+  let record: ThreadSourceRecord | null;
+
+  try {
+    record = await readThreadSourceRecord(threadId);
+  } catch (error) {
+    if (error instanceof ThreadSourceLookupError) {
+      throw new ThreadLoadError("NOT_FOUND", error.message, error);
+    }
+
+    throw error;
   }
-  return parseThreadContextFromGistFile(gist, file);
+
+  if (!record) {
+    throw new ThreadLoadError("NOT_FOUND", `Thread ${threadId} not found`);
+  }
+
+  return parseThreadContextFromSourceRecord(record);
 }
 
 export function parseThreadContextFromGistFile(
   gist: GistData,
   file: GistFile,
 ): ThreadContext {
+  return parseThreadContextFromSourceRecord(
+    createThreadSourceRecordFromGist(gist, file),
+  );
+}
+
+export function parseThreadContextFromSourceRecord(
+  record: ThreadSourceRecord,
+): ThreadContext {
   let rawContent: Record<string, unknown>;
 
   try {
-    rawContent = JSON.parse(file.content || "{}") as Record<string, unknown>;
+    rawContent = JSON.parse(record.content || "{}") as Record<string, unknown>;
   } catch (error) {
     throw new ThreadLoadError(
       "INVALID_JSON",
-      `Invalid JSON in ${file.filename}`,
+      `Invalid JSON in ${record.filename}`,
       error,
     );
   }
@@ -77,12 +104,14 @@ export function parseThreadContextFromGistFile(
 
   try {
     const parsedThread = parseThread(rawContent, ide);
+    const normalizedRecord = mergeRecordMetadata(record, rawContent, parsedThread);
+
     return {
-      gist,
-      file,
+      record: normalizedRecord,
       rawContent,
       ide,
       parsedThread,
+      title: normalizedRecord.title || "Untitled Thread",
       repoName,
       commitHash,
       modelsUsed,
@@ -90,7 +119,7 @@ export function parseThreadContextFromGistFile(
   } catch (error) {
     throw new ThreadLoadError(
       "PARSE_FAILED",
-      `Unable to parse thread from ${file.filename}`,
+      `Unable to parse thread from ${record.filename}`,
       error,
     );
   }
@@ -117,6 +146,145 @@ function resolveIde(rawContent: Record<string, unknown>): IDE {
 
 function isIDE(value: string): value is IDE {
   return (Object.values(IDE) as string[]).includes(value);
+}
+
+function mergeRecordMetadata(
+  record: ThreadSourceRecord,
+  rawContent: Record<string, unknown>,
+  parsedThread: AThrd,
+): ThreadSourceRecord {
+  return {
+    ...record,
+    title:
+      record.title ||
+      firstNonEmptyString(
+        getNestedString(rawContent, ["__athrd", "title"]),
+        getNestedString(rawContent, ["metadata", "name"]),
+        getString(rawContent, "title"),
+        getString(rawContent, "customTitle"),
+        getString(rawContent, "summary"),
+        getFirstUserMessageContent(parsedThread),
+      ),
+    createdAt:
+      record.createdAt ??
+      firstDefinedValue(
+        getString(rawContent, "timestamp"),
+        getString(rawContent, "createdAt"),
+        getString(rawContent, "created_at"),
+        getNestedValue(rawContent, ["metadata", "createdAt"]),
+        getString(rawContent, "startTime"),
+      ),
+    updatedAt:
+      record.updatedAt ??
+      firstDefinedValue(
+        getString(rawContent, "updatedAt"),
+        getString(rawContent, "updated_at"),
+        getString(rawContent, "lastUpdated"),
+        getNestedValue(rawContent, ["metadata", "lastUpdatedAt"]),
+      ),
+    owner: record.owner || extractOwnerFromRawContent(rawContent),
+  };
+}
+
+function extractOwnerFromRawContent(
+  rawContent: Record<string, unknown>,
+): ThreadSourceOwner | undefined {
+  const githubUsername =
+    getNestedString(rawContent, ["__athrd", "githubUsername"]) ||
+    getString(rawContent, "githubUsername");
+  const ownerRecord = getRecord(rawContent, "owner");
+  const ownerLogin = getString(ownerRecord, "login");
+  const ownerDisplayName =
+    getString(ownerRecord, "displayName") || getString(ownerRecord, "name");
+  const ownerAvatarUrl = getString(ownerRecord, "avatarUrl");
+  const ownerProfileUrl = getString(ownerRecord, "profileUrl");
+
+  if (
+    !githubUsername &&
+    !ownerLogin &&
+    !ownerDisplayName &&
+    !ownerAvatarUrl &&
+    !ownerProfileUrl
+  ) {
+    return undefined;
+  }
+
+  const login = githubUsername || ownerLogin;
+
+  return {
+    login: login || undefined,
+    displayName: ownerDisplayName || login || undefined,
+    avatarUrl: ownerAvatarUrl || undefined,
+    profileUrl:
+      ownerProfileUrl || (login ? `https://github.com/${login}` : undefined),
+  };
+}
+
+function getFirstUserMessageContent(thread: AThrd): string | undefined {
+  const firstUserMessage = thread.messages.find((message) => message.type === "user");
+  if (!firstUserMessage || !firstUserMessage.content.trim()) {
+    return undefined;
+  }
+
+  return firstUserMessage.content.trim().slice(0, 80);
+}
+
+function getRecord(
+  input: Record<string, unknown> | undefined,
+  key: string,
+): Record<string, unknown> | undefined {
+  const value = input?.[key];
+  return isRecord(value) ? value : undefined;
+}
+
+function getString(
+  input: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = input?.[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function getNestedString(
+  input: Record<string, unknown>,
+  path: string[],
+): string | undefined {
+  const value = getNestedValue(input, path);
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function getNestedValue(
+  input: Record<string, unknown>,
+  path: string[],
+): string | number | undefined {
+  let current: unknown = input;
+
+  for (const segment of path) {
+    if (!isRecord(current) || !(segment in current)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+
+  return typeof current === "string" || typeof current === "number"
+    ? current
+    : undefined;
+}
+
+function firstNonEmptyString(
+  ...values: Array<string | undefined>
+): string | undefined {
+  return values.find((value) => typeof value === "string" && value.trim());
+}
+
+function firstDefinedValue(
+  ...values: Array<string | number | undefined>
+): string | number | undefined {
+  return values.find((value) => value !== undefined);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**

@@ -2,6 +2,7 @@ import { renderLlmTxt } from "@/lib/llm-export";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 
 export const revalidate = 300;
+export const runtime = "nodejs";
 
 export async function GET(
   _request: Request,
@@ -19,7 +20,7 @@ export async function GET(
         repoName: context.repoName,
         modelsUsed: context.modelsUsed,
         ide: context.ide,
-        title: context.gist.description,
+        title: context.title,
       },
     });
 

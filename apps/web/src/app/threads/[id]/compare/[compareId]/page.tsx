@@ -1,6 +1,6 @@
 import ThreadView from "@/components/thread/thread-view";
+import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 import type { Metadata } from "next";
-import { fetchGist } from "~/lib/github";
 
 // Enable static generation and caching
 export const revalidate = 604800; // Cache for 1 week
@@ -33,10 +33,9 @@ export default async function ComparePage({
 }) {
   const { id, compareId } = await params;
 
-  // Fetch both gists in parallel
   const [first, second] = await Promise.all([
-    fetchGist(id),
-    fetchGist(compareId),
+    loadThreadContextOrNull(id),
+    loadThreadContextOrNull(compareId),
   ]);
 
   return (
@@ -45,8 +44,8 @@ export default async function ComparePage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* First Thread */}
           <div className="w-full overflow-hidden">
-            {first.gist && first.file ? (
-              <ThreadView gist={first.gist} file={first.file} />
+            {first ? (
+              <ThreadView context={first} />
             ) : (
               <div className="p-8 text-center text-red-400 border border-red-900/50 rounded-lg bg-red-950/10">
                 Thread {id} not found
@@ -56,8 +55,8 @@ export default async function ComparePage({
 
           {/* Second Thread */}
           <div className="w-full overflow-hidden border-l border-gray-800 pl-8">
-            {second.gist && second.file ? (
-              <ThreadView gist={second.gist} file={second.file} />
+            {second ? (
+              <ThreadView context={second} />
             ) : (
               <div className="p-8 text-center text-red-400 border border-red-900/50 rounded-lg bg-red-950/10">
                 Thread {compareId} not found
@@ -68,4 +67,16 @@ export default async function ComparePage({
       </main>
     </div>
   );
+}
+
+async function loadThreadContextOrNull(id: string) {
+  try {
+    return await loadThreadContext(id);
+  } catch (error) {
+    if (error instanceof ThreadLoadError) {
+      return null;
+    }
+
+    throw error;
+  }
 }

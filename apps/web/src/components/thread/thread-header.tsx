@@ -1,6 +1,6 @@
 "use client";
 
-import type { GistOwner } from "@/lib/github";
+import type { ThreadSourceOwner } from "@/lib/thread-source";
 import { IDE } from "@/types/ide";
 import { Check, Github, Link2 } from "lucide-react";
 import Link from "next/link";
@@ -16,9 +16,9 @@ import { Vscode } from "../ui/svgs/vscode";
 type ThreadHeaderProps = {
   id: string;
   ide?: IDE;
-  owner: GistOwner;
+  owner?: ThreadSourceOwner;
   title: string;
-  createdAt: string | number;
+  createdAt?: string | number;
   repoUrl?: string;
   repoName?: string;
   modelsUsed?: string[];
@@ -125,34 +125,45 @@ export default function ThreadHeader({
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-500">
           {repoUrl && repoName && (
+            <Link href={repoUrl} target="_blank" rel="nofollow">
+              <Badge
+                variant="outline"
+                className="bg-[#111] text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-300 hover:border-white/20 transition-all rounded-md px-2 py-0.5 font-mono text-xs flex items-center"
+              >
+                <Github className="h-3.5 w-3.5 mr-1.5" />
+                {repoName}
+              </Badge>
+            </Link>
+          )}
+          {owner?.login ? (
             <>
-              <Link href={repoUrl} target="_blank" rel="nofollow">
+              {repoUrl && repoName && (
+                <span className="text-gray-700 hidden sm:inline">•</span>
+              )}
+              {owner.profileUrl ? (
+                <Link href={owner.profileUrl} target="_blank" rel="nofollow">
+                  <Badge
+                    variant="outline"
+                    className="bg-[#111] text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-300 hover:border-white/20 transition-all rounded-md px-2 py-0.5 font-mono text-xs"
+                  >
+                    @{owner.login}
+                  </Badge>
+                </Link>
+              ) : (
                 <Badge
                   variant="outline"
-                  className="bg-[#111] text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-300 hover:border-white/20 transition-all rounded-md px-2 py-0.5 font-mono text-xs flex items-center"
+                  className="bg-[#111] text-gray-400 border-white/10 rounded-md px-2 py-0.5 font-mono text-xs"
                 >
-                  <Github className="h-3.5 w-3.5 mr-1.5" />
-                  {repoName}
+                  @{owner.login}
                 </Badge>
-              </Link>
-              <span className="text-gray-700 hidden sm:inline">•</span>
+              )}
             </>
-          )}
-          <Link
-            href={`https://github.com/${owner.login}`}
-            target={"_blank"}
-            rel="nofollow"
-          >
-            <Badge
-              variant="outline"
-              className="bg-[#111] text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-300 hover:border-white/20 transition-all rounded-md px-2 py-0.5 font-mono text-xs"
-            >
-              @{owner.login}
-            </Badge>
-          </Link>
+          ) : null}
           {modelsUsed && modelsUsed.length > 0 && (
             <>
-              <span className="text-gray-700 hidden sm:inline">•</span>
+              {(owner?.login || (repoUrl && repoName)) && (
+                <span className="text-gray-700 hidden sm:inline">•</span>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 {modelsUsed.map((model) => (
                   <Badge
@@ -167,14 +178,20 @@ export default function ThreadHeader({
               </div>
             </>
           )}
-          <span className="text-gray-700 hidden sm:inline">•</span>
-          <span>
-            {new Date(createdAt).toLocaleDateString(undefined, {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
+          {createdAt ? (
+            <>
+              {(modelsUsed?.length || owner?.login || (repoUrl && repoName)) && (
+                <span className="text-gray-700 hidden sm:inline">•</span>
+              )}
+              <span>
+                {new Date(createdAt).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

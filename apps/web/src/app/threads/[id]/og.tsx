@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
-import { fetchGist } from "~/lib/github";
+import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export const alt = "Thread View";
 export const size = {
@@ -17,9 +17,19 @@ export default async function Image({
     params: Promise<{ id: string }>;
 }) {
     const { id } = await params;
-    const { gist, file } = await fetchGist(id);
+    let context = null;
 
-    const repoName: string | undefined = undefined;
+    try {
+        context = await loadThreadContext(id);
+    } catch (error) {
+        if (!(error instanceof ThreadLoadError)) {
+            throw error;
+        }
+    }
+
+    const title = context?.title || "Thread Not Found";
+    const owner = context?.record.owner;
+    const repoName = context?.repoName;
 
     return new ImageResponse(
         (
@@ -84,7 +94,7 @@ export default async function Image({
                         marginBottom: "auto",
                     }}
                 >
-                    {gist ? (
+                    {context ? (
                         <>
                             <div
                                 style={{
@@ -100,7 +110,7 @@ export default async function Image({
                                     marginBottom: "20px",
                                 }}
                             >
-                                {gist.description || "Untitled Thread"}
+                                {title}
                             </div>
                             {repoName && (
                                 <div
@@ -129,21 +139,23 @@ export default async function Image({
                         marginTop: "32px",
                     }}
                 >
-                    {gist && (
+                    {owner?.login && (
                         <>
-                            <img
-                                src={gist.owner.avatar_url}
-                                alt={gist.owner.login}
-                                width="80"
-                                height="80"
-                                style={{ borderRadius: "50%", border: "2px solid #27272a" }}
-                            />
+                            {owner.avatarUrl ? (
+                                <img
+                                    src={owner.avatarUrl}
+                                    alt={owner.login}
+                                    width="80"
+                                    height="80"
+                                    style={{ borderRadius: "50%", border: "2px solid #27272a" }}
+                                />
+                            ) : null}
                             <div style={{ display: "flex", marginLeft: "24px", flexDirection: "column" }}>
                                 <div style={{ display: "flex", fontSize: "32px", fontWeight: "bold" }}>
-                                    {gist.owner.login}
+                                    {owner.login}
                                 </div>
                                 <div style={{ display: "flex", fontSize: "24px", color: "#71717a" }}>
-                                    @{gist.owner.login}
+                                    @{owner.login}
                                 </div>
                             </div>
                         </>

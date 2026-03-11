@@ -1,6 +1,6 @@
 "use client";
 
-import type { GistOwner } from "@/lib/github";
+import type { ThreadSourceOwner } from "@/lib/thread-source";
 import { cn } from "@/lib/utils";
 import type {
   AThrd,
@@ -60,7 +60,7 @@ import ToolRequestUserInputBlock from "./tool-request-user-input-block";
 import ToolTodosBlock from "./tool-todos-block";
 
 interface AThrdThreadProps {
-  owner: GistOwner;
+  owner?: ThreadSourceOwner;
   thread: AThrd;
   repoName?: string;
   repoUrl?: string;
@@ -181,16 +181,18 @@ function UserMessage({
   message,
   markdownOptions,
 }: {
-  owner: GistOwner;
+  owner?: ThreadSourceOwner;
   message: AthrdUserMessage;
   markdownOptions: MarkdownOptions;
 }) {
+  const ownerLabel = owner?.login || owner?.displayName || "You";
+
   return (
     <div className="flex gap-4 group">
       <Avatar className="h-8 w-8 mt-1 border border-white/10">
-        <AvatarImage src={owner.avatar_url} alt={owner.login} />
+        <AvatarImage src={owner?.avatarUrl} alt={ownerLabel} />
         <AvatarFallback className="bg-blue-900/30 text-blue-200 text-xs">
-          {owner.login.substring(0, 2).toUpperCase()}
+          {ownerLabel.substring(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       <Card className="p-4 gap-2 bg-[#111] border-white/10 shadow-none text-gray-300 min-w-0 max-w-full flex-1">

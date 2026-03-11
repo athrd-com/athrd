@@ -6,6 +6,7 @@ import {
 } from "./gist";
 
 vi.mock("~/lib/github", () => ({
+  deleteGist: vi.fn(),
   fetchGist: vi.fn(),
   fetchUserGists: vi.fn(),
 }));
@@ -115,5 +116,17 @@ describe("sources/gist", () => {
       ],
       nextCursor: "2",
     });
+  });
+
+  it("deletes gist-backed threads", async () => {
+    const { deleteGist } = await import("~/lib/github");
+    vi.mocked(deleteGist).mockResolvedValueOnce(true);
+
+    const provider = new GistThreadSourceProvider();
+
+    await expect(provider.deleteThread("github-token", "gist-1")).resolves.toBe(
+      undefined,
+    );
+    expect(deleteGist).toHaveBeenCalledWith("github-token", "gist-1");
   });
 });

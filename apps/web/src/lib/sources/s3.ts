@@ -20,6 +20,7 @@ type BunRuntimeLike = {
       exists(): Promise<boolean>;
       text(): Promise<string>;
     };
+    delete(path: string): Promise<void>;
     list(options: {
       prefix?: string;
       cursor?: string;
@@ -115,6 +116,20 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
       items: records.sort(compareThreadEntriesByDate),
       nextCursor: page.nextCursor,
     };
+  }
+
+  async deleteThread(sourceId: string): Promise<void> {
+    const client = this.getClient();
+    if (!client) {
+      throw new Error("S3 storage is not configured");
+    }
+
+    const objectKey = await this.resolveObjectKey(sourceId, client);
+    if (!objectKey) {
+      throw new Error("S3 thread not found");
+    }
+
+    await client.delete(objectKey);
   }
 
   private getClient() {

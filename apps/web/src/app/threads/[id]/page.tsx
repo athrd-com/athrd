@@ -1,11 +1,10 @@
 import ThreadView from "@/components/thread/thread-view";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
+import { parseThreadLocator } from "@/lib/thread-source";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-
-// Enable static generation and caching
-export const revalidate = 604800; // Cache for 1 week
+import { getGithubAccount } from "~/server/github-account";
 
 export async function generateMetadata({
   params,
@@ -54,13 +53,34 @@ export async function generateMetadata({
 async function ThreadContent({ id }: { id: string }) {
   try {
     const context = await loadThreadContext(id);
-    return <ThreadView context={context} />;
+    const account = await getGithubAccount();
+    const isOwner =
+      !!account &&
+      (context.record.source === "gist"
+        ? String(context.record.owner?.id) === account.accountId
+        : getStructuredS3OwnerId(context.record.id) === account.accountId);
+
+    return <ThreadView context={context} isOwner={isOwner} />;
   } catch (error) {
     if (error instanceof ThreadLoadError) {
       notFound();
     }
 
     throw error;
+  }
+}
+
+function getStructuredS3OwnerId(publicId: string): string | null {
+  try {
+    const locator = parseThreadLocator(publicId);
+    if (locator.source !== "s3") {
+      return null;
+    }
+
+    const [, ownerId] = locator.sourceId.trim().split("/").filter(Boolean);
+    return ownerId || null;
+  } catch {
+    return null;
   }
 }
 

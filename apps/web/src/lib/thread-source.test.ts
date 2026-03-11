@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createS3PublicId,
   parseThreadLocator,
-  readThreadSourceRecord,
   ThreadSourceLookupError,
+  readThreadSourceRecord,
 } from "./thread-source";
 
 vi.mock("./sources/gist", () => ({

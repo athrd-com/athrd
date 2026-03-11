@@ -7,6 +7,7 @@ export interface ThreadLocator {
 }
 
 export interface ThreadSourceOwner {
+  id?: string | number;
   login: string;
   avatarUrl?: string;
   profileUrl?: string;

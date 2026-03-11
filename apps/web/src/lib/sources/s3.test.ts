@@ -14,6 +14,7 @@ vi.mock("@/env", () => ({
 
 const existsMock = vi.fn();
 const textMock = vi.fn();
+const deleteMock = vi.fn();
 const listMock = vi.fn();
 const fileMock = vi.fn(() => ({
   exists: existsMock,
@@ -25,6 +26,7 @@ describe("sources/s3", () => {
     vi.clearAllMocks();
     existsMock.mockReset();
     textMock.mockReset();
+    deleteMock.mockReset();
     listMock.mockReset();
     fileMock.mockClear();
     Object.defineProperty(globalThis, "Bun", {
@@ -32,6 +34,7 @@ describe("sources/s3", () => {
       writable: true,
       value: {
       S3Client: class S3Client {
+        delete = deleteMock;
         file = fileMock;
         list = listMock;
       },
@@ -234,5 +237,14 @@ describe("sources/s3", () => {
       filename: "demo.json",
       content: '{"title":"Resolved thread"}',
     });
+  });
+
+  it("deletes S3-backed thread records", async () => {
+    const provider = new S3ThreadSourceProvider();
+
+    await expect(provider.deleteThread("456/123/thread-a.json")).resolves.toBe(
+      undefined,
+    );
+    expect(deleteMock).toHaveBeenCalledWith("456/123/thread-a.json");
   });
 });

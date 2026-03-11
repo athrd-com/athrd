@@ -1,6 +1,6 @@
 import ThreadView from "@/components/thread/thread-view";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
-import { parseS3SourceId } from "@/lib/sources/locator";
+import { parseThreadLocator } from "@/lib/thread-source";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -61,7 +61,7 @@ async function ThreadContent({ id }: { id: string }) {
       !!account &&
       (context.record.source === "gist"
         ? String(context.record.owner?.id) === account.accountId
-        : parseS3SourceId(context.record.sourceId)?.ownerId === account.accountId);
+        : getStructuredS3OwnerId(context.record.id) === account.accountId);
 
     return <ThreadView context={context} isOwner={isOwner} />;
   } catch (error) {
@@ -70,6 +70,20 @@ async function ThreadContent({ id }: { id: string }) {
     }
 
     throw error;
+  }
+}
+
+function getStructuredS3OwnerId(publicId: string): string | null {
+  try {
+    const locator = parseThreadLocator(publicId);
+    if (locator.source !== "s3") {
+      return null;
+    }
+
+    const [, ownerId] = locator.sourceId.trim().split("/").filter(Boolean);
+    return ownerId || null;
+  } catch {
+    return null;
   }
 }
 

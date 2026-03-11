@@ -81,27 +81,3 @@ export function createS3PublicId(sourceId: string): string {
     ? normalizedSourceId
     : `S-${normalizedSourceId.replace(/\.json$/i, "")}`;
 }
-
-export function parseS3SourceId(sourceId: string): {
-  orgId: string;
-  ownerId: string;
-  filename: string;
-} | null {
-  const parts = sourceId.trim().split("/").filter(Boolean);
-  if (parts.length < 3) {
-    return null;
-  }
-
-  const [orgId, ownerId, ...rest] = parts;
-  const filename = rest[rest.length - 1];
-
-  if (!orgId || !ownerId || !filename) {
-    return null;
-  }
-
-  return {
-    orgId,
-    ownerId,
-    filename,
-  };
-}

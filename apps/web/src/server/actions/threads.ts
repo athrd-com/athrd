@@ -1,7 +1,6 @@
 "use server";
 
 import { GistThreadSourceProvider } from "@/lib/sources/gist";
-import { parseS3SourceId } from "@/lib/sources/locator";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { S3ThreadSourceProvider } from "~/lib/sources/s3";
@@ -111,7 +110,7 @@ export async function deleteOwnedThread(
       return { ok: true, redirectTo: "/threads" };
     }
 
-    const s3Source = parseS3SourceId(locator.sourceId);
+    const s3Source = getStructuredS3ThreadMetadata(locator.sourceId);
     if (!s3Source) {
       return { ok: false, error: "Invalid S3 thread id." };
     }
@@ -143,4 +142,17 @@ export async function deleteOwnedThread(
       error: "Unable to delete this thread right now.",
     };
   }
+}
+
+function getStructuredS3ThreadMetadata(sourceId: string): {
+  orgId: string;
+  ownerId: string;
+} | null {
+  const [orgId, ownerId] = sourceId.trim().split("/").filter(Boolean);
+
+  if (!orgId || !ownerId) {
+    return null;
+  }
+
+  return { orgId, ownerId };
 }

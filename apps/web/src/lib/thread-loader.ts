@@ -203,6 +203,10 @@ function extractOwnerFromRawContent(
 
   const login = githubUsername || ownerLogin;
 
+  if (!login) {
+    return undefined;
+  }
+
   return {
     login,
     avatarUrl: ownerAvatarUrl || undefined,

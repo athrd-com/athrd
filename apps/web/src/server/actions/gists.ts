@@ -47,7 +47,8 @@ export async function getUserGists() {
     return [];
   }
 
-  return fetchUserGists(account.accessToken);
+  const { items } = await fetchUserGists(account.accessToken);
+  return items;
 }
 
 export async function getUserOrganizations() {

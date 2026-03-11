@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createS3PublicId,
   parseThreadLocator,
   readThreadSourceRecord,
   ThreadSourceLookupError,
@@ -40,6 +41,16 @@ describe("thread-source", () => {
   });
 
   it("parses S3-prefixed ids", () => {
+    const publicId = createS3PublicId("456/123/abc123.json");
+
+    expect(parseThreadLocator(publicId)).toEqual({
+      publicId,
+      source: "s3",
+      sourceId: "456/123/abc123.json",
+    });
+  });
+
+  it("keeps supporting raw S3 ids", () => {
     expect(parseThreadLocator("S-threads/demo.json")).toEqual({
       publicId: "S-threads/demo.json",
       source: "s3",
@@ -59,9 +70,9 @@ describe("thread-source", () => {
   });
 
   it("routes prefixed ids through the S3 provider", async () => {
-    await expect(
-      readThreadSourceRecord("S-threads/demo.json"),
-    ).resolves.toMatchObject({
+    const publicId = createS3PublicId("456/123/abc123.json");
+
+    await expect(readThreadSourceRecord(publicId)).resolves.toMatchObject({
       source: "s3",
       id: "S-threads/demo.json",
     });

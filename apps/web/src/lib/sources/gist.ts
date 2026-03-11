@@ -1,6 +1,13 @@
-import { fetchGist, type GistData, type GistFile } from "~/lib/github";
+import {
+  fetchGist,
+  fetchUserGists,
+  type GistData,
+  type GistFile,
+} from "~/lib/github";
+import type { ThreadListPage } from "../thread-list";
 import type {
   ThreadLocator,
+  ThreadListPageOptions,
   ThreadSourceProvider,
   ThreadSourceRecord,
 } from "./types";
@@ -35,5 +42,33 @@ export class GistThreadSourceProvider implements ThreadSourceProvider {
     }
 
     return createThreadSourceRecordFromGist(gist, file, locator.publicId);
+  }
+
+  async listThreads(
+    accessToken: string,
+    options: ThreadListPageOptions = {},
+  ): Promise<ThreadListPage> {
+    if (!accessToken.trim()) {
+      return { items: [] };
+    }
+
+    const page =
+      typeof options.cursor === "string" ? Number.parseInt(options.cursor, 10) : 1;
+    const { items, nextPage } = await fetchUserGists(accessToken, {
+      page: Number.isFinite(page) && page > 0 ? page : 1,
+      perPage: options.limit,
+    });
+
+    return {
+      items: items.map((gist) => ({
+        id: gist.id,
+        source: "gist",
+        sourceId: gist.id,
+        title: gist.description || undefined,
+        createdAt: gist.created_at,
+        updatedAt: gist.updated_at,
+      })),
+      nextCursor: nextPage ? String(nextPage) : undefined,
+    };
   }
 }

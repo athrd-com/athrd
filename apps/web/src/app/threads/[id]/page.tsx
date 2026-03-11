@@ -1,8 +1,10 @@
 import ThreadView from "@/components/thread/thread-view";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
+import { parseS3SourceId } from "@/lib/sources/locator";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { getGithubAccount } from "~/server/github-account";
 
 // Enable static generation and caching
 export const revalidate = 604800; // Cache for 1 week
@@ -54,7 +56,14 @@ export async function generateMetadata({
 async function ThreadContent({ id }: { id: string }) {
   try {
     const context = await loadThreadContext(id);
-    return <ThreadView context={context} />;
+    const account = await getGithubAccount();
+    const isOwner =
+      !!account &&
+      (context.record.source === "gist"
+        ? String(context.record.owner?.id) === account.accountId
+        : parseS3SourceId(context.record.sourceId)?.ownerId === account.accountId);
+
+    return <ThreadView context={context} isOwner={isOwner} />;
   } catch (error) {
     if (error instanceof ThreadLoadError) {
       notFound();

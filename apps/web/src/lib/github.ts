@@ -148,3 +148,24 @@ export async function fetchUserOrganizations(
     return [];
   }
 }
+
+export async function deleteGist(
+  accessToken: string,
+  gistId: string,
+): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    return response.status === 204;
+  } catch (error) {
+    console.error("Error deleting gist:", error);
+    return false;
+  }
+}

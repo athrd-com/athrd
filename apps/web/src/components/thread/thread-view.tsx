@@ -4,9 +4,13 @@ import type { ThreadContext } from "@/lib/thread-loader";
 
 interface ThreadViewProps {
   context: ThreadContext;
+  isOwner?: boolean;
 }
 
-export default function ThreadView({ context }: ThreadViewProps) {
+export default function ThreadView({
+  context,
+  isOwner = false,
+}: ThreadViewProps) {
   const repoUrl = context.repoName
     ? `https://github.com/${context.repoName}`
     : undefined;
@@ -22,6 +26,7 @@ export default function ThreadView({ context }: ThreadViewProps) {
         repoName={context.repoName}
         modelsUsed={context.modelsUsed}
         repoUrl={repoUrl}
+        isOwner={isOwner}
       />
       <AThrdThread
         owner={context.record.owner}

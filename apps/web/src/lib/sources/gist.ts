@@ -1,4 +1,5 @@
 import {
+  deleteGist,
   fetchGist,
   fetchUserGists,
   type GistData,
@@ -25,6 +26,7 @@ export function createThreadSourceRecordFromGist(
     createdAt: gist.created_at,
     updatedAt: gist.updated_at,
     owner: {
+      id: String(gist.owner.id),
       login: gist.owner.login,
       avatarUrl: gist.owner.avatar_url,
       profileUrl: gist.owner.html_url,
@@ -70,5 +72,16 @@ export class GistThreadSourceProvider implements ThreadSourceProvider {
       })),
       nextCursor: nextPage ? String(nextPage) : undefined,
     };
+  }
+
+  async deleteThread(accessToken: string, gistId: string): Promise<void> {
+    if (!accessToken.trim()) {
+      throw new Error("GitHub access token is required to delete a gist");
+    }
+
+    const deleted = await deleteGist(accessToken, gistId);
+    if (!deleted) {
+      throw new Error("Unable to delete gist thread");
+    }
   }
 }

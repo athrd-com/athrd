@@ -11,6 +11,7 @@ import { ClaudeAiIcon } from "../ui/svgs/claudeAiIcon";
 import { CursorWordmarkLight } from "../ui/svgs/cursorWordmarkLight";
 import { Gemini } from "../ui/svgs/gemini";
 import { OpenaiDark } from "../ui/svgs/openaiDark";
+import ThreadOptionsMenu from "./thread-options-menu";
 import { Vscode } from "../ui/svgs/vscode";
 
 type ThreadHeaderProps = {
@@ -22,6 +23,7 @@ type ThreadHeaderProps = {
   repoUrl?: string;
   repoName?: string;
   modelsUsed?: string[];
+  isOwner?: boolean;
 };
 
 function getIDEIcon(ide?: IDE) {
@@ -77,6 +79,7 @@ export default function ThreadHeader({
   repoUrl,
   repoName,
   modelsUsed,
+  isOwner = false,
 }: ThreadHeaderProps) {
   const [copied, setCopied] = useState(false);
 
@@ -121,6 +124,7 @@ export default function ThreadHeader({
                 </>
               )}
             </Button>
+            {isOwner ? <ThreadOptionsMenu id={id} /> : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-500">

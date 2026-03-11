@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createS3PublicId,
   parseThreadLocator,
-  readThreadSourceRecord,
   ThreadSourceLookupError,
+  readThreadSourceRecord,
 } from "./thread-source";
+import { parseS3SourceId } from "./sources/locator";
 
 vi.mock("./sources/gist", () => ({
   GistThreadSourceProvider: class GistThreadSourceProvider {
@@ -60,6 +61,14 @@ describe("thread-source", () => {
 
   it("rejects unsupported prefixed ids", () => {
     expect(() => parseThreadLocator("X-123")).toThrow(ThreadSourceLookupError);
+  });
+
+  it("extracts org and owner metadata from S3 source ids", () => {
+    expect(parseS3SourceId("456/123/abc123.json")).toEqual({
+      orgId: "456",
+      ownerId: "123",
+      filename: "abc123.json",
+    });
   });
 
   it("routes gist ids through the gist provider", async () => {

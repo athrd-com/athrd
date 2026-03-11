@@ -5,26 +5,17 @@ import type {
   ThreadSourceRecord,
 } from "./types";
 
-type BunS3File = {
-  exists(): Promise<boolean>;
-  text(): Promise<string>;
-};
-
-type BunS3Client = {
-  file(path: string): BunS3File;
-};
-
 type BunRuntimeLike = {
   S3Client: new (options: {
     region?: string;
     bucket?: string;
     endpoint?: string;
     virtualHostedStyle?: boolean;
-  }) => BunS3Client;
+  }) => import("bun").S3Client;
 };
 
 export class S3ThreadSourceProvider implements ThreadSourceProvider {
-  private client: BunS3Client | null = null;
+  private client: import("bun").S3Client | null = null;
 
   async readThread(locator: ThreadLocator): Promise<ThreadSourceRecord | null> {
     const bucket = env.ATHRD_THREADS_S3_BUCKET;
@@ -57,7 +48,7 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
     };
   }
 
-  private getClient(): BunS3Client | null {
+  private getClient(): import("bun").S3Client | null {
     const BunRuntime = getBunRuntime();
 
     if (!BunRuntime?.S3Client) {

@@ -94,13 +94,6 @@ jobs:
             // See .github/workflows/athrd-pr-links.yml in this repo for full script.
 ```
 
-This keeps a bot-managed section in the PR description between:
-
-- `<!-- athrd-links:start -->`
-- `<!-- athrd-links:end -->`
-
-and recomputes links from all commit messages in the PR on each sync/open/edit event.
-
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).

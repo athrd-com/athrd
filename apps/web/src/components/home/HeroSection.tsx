@@ -30,7 +30,7 @@ export function HeroSection() {
 
   const brands = [
     {
-      name: "Claude",
+      name: "Claude Code",
       color: "from-orange-500 to-red-500",
       icon: (
         <ClaudeAiIcon
@@ -98,49 +98,81 @@ export function HeroSection() {
       </h1>
 
       <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 font-light">
-        Add AI session links to commits and pull requests so reviewers can
-        quickly understand what changed, why it changed, and what the agent
-        ran.
+        Add AI session links to commits and PRs so your team can quickly
+        understand what changed, why it changed, and turn each session into
+        team knowledge.
       </p>
 
-      {/* Install Command */}
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-gray-400">Install the CLI to get started</p>
-        <div className="relative group">
-          <div className="absolute -inset-px bg-linear-to-r from-gray-700 to-gray-800 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-          <div className="relative flex items-center bg-[#111] border border-gray-800 rounded-lg px-4 py-3 pr-12 font-mono text-sm text-gray-300 shadow-xl min-w-[300px] md:min-w-[400px]">
-            <span className="text-green-500 mr-3">$</span>
-            {command}
+      <div className="flex flex-col items-center gap-8">
+        {/* Install Command */}
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sm text-gray-400">
+            Install the CLI to get started
+          </p>
+          <div className="relative group">
+            <div className="absolute -inset-px bg-linear-to-r from-gray-700 to-gray-800 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+            <div className="relative flex items-center bg-[#111] border border-gray-800 rounded-lg px-4 py-3 pr-12 font-mono text-sm text-gray-300 shadow-xl min-w-[300px] md:min-w-[400px]">
+              <span className="text-green-500 mr-3">$</span>
+              {command}
 
-            <button
-              onClick={handleCopy}
-              className="absolute right-2 p-2 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/10"
-              aria-label={`Copy command: ${command}`}
-              title="Copy command"
-            >
-              {copied ? (
-                <Check size={16} className="text-green-500" />
-              ) : (
-                <Copy size={16} />
-              )}
-            </button>
+              <button
+                onClick={handleCopy}
+                className="absolute right-2 p-2 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/10"
+                aria-label={`Copy command: ${command}`}
+                title="Copy command"
+              >
+                {copied ? (
+                  <Check size={16} className="text-green-500" />
+                ) : (
+                  <Copy size={16} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center p-1 bg-gray-900/50 border border-gray-800 rounded-full backdrop-blur-sm">
+            {(["npm", "npx", "pnpm", "yarn"] as PackageManager[]).map((pm) => (
+              <button
+                key={pm}
+                onClick={() => setPackageManager(pm)}
+                className={`px-4 py-1.5 rounded-full font-mono text-sm transition-all duration-300 ${
+                  packageManager === pm
+                    ? "bg-gray-800 text-white shadow-lg shadow-black/20 ring-1 ring-white/10"
+                    : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                }`}
+              >
+                {pm}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="flex items-center p-1 bg-gray-900/50 border border-gray-800 rounded-full backdrop-blur-sm">
-          {(["npm", "npx", "pnpm", "yarn"] as PackageManager[]).map((pm) => (
-            <button
-              key={pm}
-              onClick={() => setPackageManager(pm)}
-              className={`px-4 py-1.5 rounded-full font-mono text-sm transition-all duration-300 ${
-                packageManager === pm
-                  ? "bg-gray-800 text-white shadow-lg shadow-black/20 ring-1 ring-white/10"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
-              }`}
-            >
-              {pm}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-1 mt-6">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-gray-500">
+            Currently supports
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 md:gap-x-5">
+            {brands.map((brand) => (
+              <div
+                key={brand.name}
+                className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-200"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 ring-1 ring-white/10">
+                  {brand.name === "Gemini" ? (
+                    <Gemini className="h-5 w-5" />
+                  ) : brand.name === "Codex" ? (
+                    <Openai
+                      className="h-5 w-5 text-white"
+                      fill="currentColor"
+                    />
+                  ) : (
+                    <ClaudeAiIcon className="h-5 w-5" />
+                  )}
+                </span>
+                <span>{brand.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

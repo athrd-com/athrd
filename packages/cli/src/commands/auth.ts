@@ -30,7 +30,7 @@ export function authCommand(program: Command) {
         const auth = createOAuthDeviceAuth({
           clientType: "oauth-app",
           clientId: config.github.clientId,
-          scopes: ["gist", "read:user", "user:email"],
+          scopes: ["gist", "read:user", "user:email", "read:org"],
           onVerification: async (verification) => {
             console.log(chalk.bold("Please authorize this app by visiting:"));
             console.log(chalk.blue.underline(verification.verification_uri));

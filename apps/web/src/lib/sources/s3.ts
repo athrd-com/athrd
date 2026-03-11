@@ -20,6 +20,7 @@ type BunRuntimeLike = {
       exists(): Promise<boolean>;
       text(): Promise<string>;
     };
+    write(path: string, value: string): Promise<unknown>;
     delete(path: string): Promise<void>;
     list(options: {
       prefix?: string;
@@ -132,6 +133,39 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
     await client.delete(objectKey);
   }
 
+  async updateTitle(sourceId: string, title: string): Promise<void> {
+    const client = this.getClient();
+    if (!client) {
+      throw new Error("S3 storage is not configured");
+    }
+
+    const objectKey = await this.resolveObjectKey(sourceId, client);
+    if (!objectKey) {
+      throw new Error("S3 thread not found");
+    }
+
+    const file = client.file(objectKey);
+    const exists = await file.exists();
+    if (!exists) {
+      throw new Error("S3 thread not found");
+    }
+
+    const content = await file.text();
+    let rawContent: Record<string, unknown>;
+
+    try {
+      rawContent = JSON.parse(content) as Record<string, unknown>;
+    } catch (error) {
+      throw new Error("S3 thread does not contain valid JSON", {
+        cause: error,
+      });
+    }
+
+    rawContent.__athrd = mergeAthrdMetadata(rawContent.__athrd, title);
+
+    await client.write(objectKey, `${JSON.stringify(rawContent, null, 2)}\n`);
+  }
+
   private getClient() {
     const BunRuntime = getBunRuntime();
 
@@ -184,6 +218,20 @@ function getBunRuntime(): BunRuntimeLike | undefined {
   const runtime = (globalThis as typeof globalThis & { Bun?: BunRuntimeLike })
     .Bun;
   return runtime;
+}
+
+function mergeAthrdMetadata(
+  value: unknown,
+  title: string,
+): Record<string, unknown> {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return {
+      ...(value as Record<string, unknown>),
+      title,
+    };
+  }
+
+  return { title };
 }
 
 async function listAllObjectKeys(

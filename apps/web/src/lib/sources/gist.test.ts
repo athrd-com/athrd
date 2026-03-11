@@ -9,6 +9,7 @@ vi.mock("~/lib/github", () => ({
   deleteGist: vi.fn(),
   fetchGist: vi.fn(),
   fetchUserGists: vi.fn(),
+  updateGistDescription: vi.fn(),
 }));
 
 const gistFile: GistFile = {
@@ -128,5 +129,21 @@ describe("sources/gist", () => {
       undefined,
     );
     expect(deleteGist).toHaveBeenCalledWith("github-token", "gist-1");
+  });
+
+  it("updates gist-backed thread titles", async () => {
+    const { updateGistDescription } = await import("~/lib/github");
+    vi.mocked(updateGistDescription).mockResolvedValueOnce(true);
+
+    const provider = new GistThreadSourceProvider();
+
+    await expect(
+      provider.updateTitle("github-token", "gist-1", "Updated thread title"),
+    ).resolves.toBe(undefined);
+    expect(updateGistDescription).toHaveBeenCalledWith(
+      "github-token",
+      "gist-1",
+      "Updated thread title",
+    );
   });
 });

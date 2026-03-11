@@ -169,3 +169,27 @@ export async function deleteGist(
     return false;
   }
 }
+
+export async function updateGistDescription(
+  accessToken: string,
+  gistId: string,
+  description: string,
+): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: "PATCH",
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ description }),
+      cache: "no-store",
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error("Error updating gist description:", error);
+    return false;
+  }
+}

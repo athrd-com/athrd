@@ -2,6 +2,7 @@ import {
   deleteGist,
   fetchGist,
   fetchUserGists,
+  updateGistDescription,
   type GistData,
   type GistFile,
 } from "~/lib/github";
@@ -82,6 +83,21 @@ export class GistThreadSourceProvider implements ThreadSourceProvider {
     const deleted = await deleteGist(accessToken, gistId);
     if (!deleted) {
       throw new Error("Unable to delete gist thread");
+    }
+  }
+
+  async updateTitle(
+    accessToken: string,
+    gistId: string,
+    title: string,
+  ): Promise<void> {
+    if (!accessToken.trim()) {
+      throw new Error("GitHub access token is required to update a gist");
+    }
+
+    const updated = await updateGistDescription(accessToken, gistId, title);
+    if (!updated) {
+      throw new Error("Unable to update gist thread title");
     }
   }
 }

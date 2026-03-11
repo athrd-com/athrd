@@ -6,8 +6,10 @@ const {
   dbQueryMock,
   gistListThreadsMock,
   gistDeleteThreadMock,
+  gistUpdateTitleMock,
   s3ListThreadsMock,
   s3DeleteThreadMock,
+  s3UpdateTitleMock,
   fetchGistMock,
   getGithubAccountMock,
   parseThreadLocatorMock,
@@ -18,8 +20,10 @@ const {
   dbQueryMock: vi.fn(),
   gistListThreadsMock: vi.fn(),
   gistDeleteThreadMock: vi.fn(),
+  gistUpdateTitleMock: vi.fn(),
   s3ListThreadsMock: vi.fn(),
   s3DeleteThreadMock: vi.fn(),
+  s3UpdateTitleMock: vi.fn(),
   fetchGistMock: vi.fn(),
   getGithubAccountMock: vi.fn(),
   parseThreadLocatorMock: vi.fn(),
@@ -64,6 +68,7 @@ vi.mock("@/lib/sources/gist", () => ({
   GistThreadSourceProvider: class GistThreadSourceProvider {
     listThreads = gistListThreadsMock;
     deleteThread = gistDeleteThreadMock;
+    updateTitle = gistUpdateTitleMock;
   },
 }));
 
@@ -71,6 +76,7 @@ vi.mock("~/lib/sources/s3", () => ({
   S3ThreadSourceProvider: class S3ThreadSourceProvider {
     listThreads = s3ListThreadsMock;
     deleteThread = s3DeleteThreadMock;
+    updateTitle = s3UpdateTitleMock;
   },
 }));
 
@@ -188,5 +194,66 @@ describe("server/actions/threads", () => {
       error: "Only the thread owner can delete this S3 thread.",
     });
     expect(s3DeleteThreadMock).not.toHaveBeenCalled();
+  });
+
+  it("updates gist-backed thread titles for the owner", async () => {
+    getGithubAccountMock.mockResolvedValue({
+      accountId: "123",
+      accessToken: "github-token",
+    });
+    parseThreadLocatorMock.mockReturnValue({
+      publicId: "gist-1",
+      source: "gist",
+      sourceId: "gist-1",
+    });
+    fetchGistMock.mockResolvedValue({
+      gist: {
+        id: "gist-1",
+        owner: { id: 123 },
+      },
+    });
+
+    const { updateOwnedThreadTitle } = await import("./threads");
+
+    await expect(updateOwnedThreadTitle("gist-1", "Renamed gist")).resolves.toEqual(
+      {
+        ok: true,
+        title: "Renamed gist",
+      },
+    );
+    expect(gistUpdateTitleMock).toHaveBeenCalledWith(
+      "github-token",
+      "gist-1",
+      "Renamed gist",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith("/threads");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/threads/gist-1");
+  });
+
+  it("updates S3-backed thread titles for the owner", async () => {
+    getGithubAccountMock.mockResolvedValue({
+      accountId: "123",
+      accessToken: "github-token",
+    });
+    parseThreadLocatorMock.mockReturnValue({
+      publicId: "S-456-123-thread-a",
+      source: "s3",
+      sourceId: "456/123/thread-a.json",
+    });
+
+    const { updateOwnedThreadTitle } = await import("./threads");
+
+    await expect(
+      updateOwnedThreadTitle("S-456-123-thread-a", "Renamed s3 thread"),
+    ).resolves.toEqual({
+      ok: true,
+      title: "Renamed s3 thread",
+    });
+    expect(s3UpdateTitleMock).toHaveBeenCalledWith(
+      "456/123/thread-a.json",
+      "Renamed s3 thread",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith("/threads");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/threads/S-456-123-thread-a");
   });
 });

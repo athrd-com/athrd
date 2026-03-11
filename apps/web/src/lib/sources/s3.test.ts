@@ -15,6 +15,7 @@ vi.mock("@/env", () => ({
 const existsMock = vi.fn();
 const textMock = vi.fn();
 const deleteMock = vi.fn();
+const writeMock = vi.fn();
 const listMock = vi.fn();
 const fileMock = vi.fn(() => ({
   exists: existsMock,
@@ -27,6 +28,7 @@ describe("sources/s3", () => {
     existsMock.mockReset();
     textMock.mockReset();
     deleteMock.mockReset();
+    writeMock.mockReset();
     listMock.mockReset();
     fileMock.mockClear();
     Object.defineProperty(globalThis, "Bun", {
@@ -37,6 +39,7 @@ describe("sources/s3", () => {
         delete = deleteMock;
         file = fileMock;
         list = listMock;
+        write = writeMock;
       },
       },
     });
@@ -246,5 +249,27 @@ describe("sources/s3", () => {
       undefined,
     );
     expect(deleteMock).toHaveBeenCalledWith("456/123/thread-a.json");
+  });
+
+  it("updates S3-backed thread titles in athrd metadata", async () => {
+    existsMock.mockResolvedValueOnce(true);
+    textMock.mockResolvedValueOnce(
+      JSON.stringify({
+        messages: [],
+        __athrd: {
+          ide: "codex",
+        },
+      }),
+    );
+
+    const provider = new S3ThreadSourceProvider();
+
+    await expect(
+      provider.updateTitle("456/123/thread-a.json", "Renamed thread"),
+    ).resolves.toBe(undefined);
+    expect(writeMock).toHaveBeenCalledWith(
+      "456/123/thread-a.json",
+      expect.stringContaining('"title": "Renamed thread"'),
+    );
   });
 });

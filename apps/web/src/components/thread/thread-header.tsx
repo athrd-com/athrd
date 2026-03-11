@@ -12,6 +12,7 @@ import { CursorWordmarkLight } from "../ui/svgs/cursorWordmarkLight";
 import { Gemini } from "../ui/svgs/gemini";
 import { OpenaiDark } from "../ui/svgs/openaiDark";
 import ThreadOptionsMenu from "./thread-options-menu";
+import ThreadTitleEditor from "./thread-title-editor";
 import { Vscode } from "../ui/svgs/vscode";
 
 type ThreadHeaderProps = {
@@ -98,16 +99,20 @@ export default function ThreadHeader({
     <div className="border-b border-white/5 pt-6 pb-3 mb-8">
       <div className="">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-medium text-white flex items-center gap-3 tracking-tight">
-            {ide && (
-              <div className="flex items-center gap-3 text-gray-400 font-normal">
-                {getIDEIcon(ide)}
-                <span className="hidden md:inline">{getIDEName(ide)}</span>
-                <span className="text-gray-700">/</span>
+          <div className="min-w-0 flex-1 pr-4">
+            <div className="flex items-start gap-3">
+              {ide && (
+                <div className="flex shrink-0 items-center gap-3 pt-1 text-gray-400 font-normal">
+                  {getIDEIcon(ide)}
+                  <span className="hidden md:inline">{getIDEName(ide)}</span>
+                  <span className="text-gray-700">/</span>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <ThreadTitleEditor id={id} title={title} isOwner={isOwner} />
               </div>
-            )}
-            {title}
-          </h1>
+            </div>
+          </div>
           <div className="flex items-end gap-2">
             <Button
               variant="outline"

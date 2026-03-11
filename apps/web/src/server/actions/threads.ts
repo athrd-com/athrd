@@ -70,6 +70,10 @@ export type DeleteThreadResult =
   | { ok: true; redirectTo: string }
   | { ok: false; error: string };
 
+export type UpdateThreadTitleResult =
+  | { ok: true; title: string }
+  | { ok: false; error: string };
+
 export async function deleteOwnedThread(
   publicId: string,
 ): Promise<DeleteThreadResult> {
@@ -140,6 +144,82 @@ export async function deleteOwnedThread(
     return {
       ok: false,
       error: "Unable to delete this thread right now.",
+    };
+  }
+}
+
+export async function updateOwnedThreadTitle(
+  publicId: string,
+  nextTitle: string,
+): Promise<UpdateThreadTitleResult> {
+  const account = await getGithubAccount();
+  if (!account) {
+    return {
+      ok: false,
+      error: "Sign in with GitHub to update this thread title.",
+    };
+  }
+
+  const title = nextTitle.trim();
+  if (!title) {
+    return { ok: false, error: "Thread title cannot be empty." };
+  }
+
+  let locator;
+  try {
+    locator = parseThreadLocator(publicId);
+  } catch {
+    return { ok: false, error: "Invalid thread id." };
+  }
+
+  try {
+    if (locator.source === "gist") {
+      const { gist } = await fetchGist(locator.sourceId);
+      if (!gist) {
+        return { ok: false, error: "Thread not found." };
+      }
+
+      if (String(gist.owner.id) !== account.accountId) {
+        return {
+          ok: false,
+          error: "Only the thread owner can update this gist title.",
+        };
+      }
+
+      await gistThreadSourceProvider.updateTitle(
+        account.accessToken,
+        locator.sourceId,
+        title,
+      );
+    } else {
+      const s3Source = getStructuredS3ThreadMetadata(locator.sourceId);
+      if (!s3Source) {
+        return { ok: false, error: "Invalid S3 thread id." };
+      }
+
+      if (s3Source.ownerId !== account.accountId) {
+        return {
+          ok: false,
+          error: "Only the thread owner can update this S3 title.",
+        };
+      }
+
+      await s3ThreadSourceProvider.updateTitle(locator.sourceId, title);
+    }
+
+    revalidatePath("/threads");
+    revalidatePath(`/threads/${publicId}`);
+
+    return { ok: true, title };
+  } catch (error) {
+    console.error("Failed to update thread title", {
+      publicId,
+      source: locator.source,
+      error,
+    });
+    return {
+      ok: false,
+      error: "Unable to update this thread title right now.",
     };
   }
 }

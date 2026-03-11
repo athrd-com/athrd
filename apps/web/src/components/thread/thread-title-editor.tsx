@@ -122,7 +122,7 @@ export default function ThreadTitleEditor({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="group/title flex items-center gap-2">
       <h1 className="min-w-0 truncate text-2xl font-medium text-white tracking-tight">
         {currentTitle}
       </h1>
@@ -130,7 +130,7 @@ export default function ThreadTitleEditor({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0 rounded-md text-gray-400 hover:bg-white/5 hover:text-white"
+          className="h-8 w-8 shrink-0 rounded-md text-gray-400 opacity-0 transition hover:bg-white/5 hover:text-white group-hover/title:opacity-100 focus-visible:opacity-100"
           onClick={handleStartEditingTitle}
           aria-label="Edit thread title"
         >

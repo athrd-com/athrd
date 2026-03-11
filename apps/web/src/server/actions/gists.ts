@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { fetchUserGists } from "~/lib/github";
+import { fetchUserGists, fetchUserOrganizations } from "~/lib/github";
 import { auth } from "~/server/better-auth/config";
 import { db } from "~/server/db";
 
@@ -13,13 +13,17 @@ interface Account {
   accessToken: string | null;
 }
 
-export async function getUserGists() {
+interface GithubAccount extends Account {
+  accessToken: string;
+}
+
+async function getGithubAccount(): Promise<GithubAccount | null> {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
   if (!session) {
-    return [];
+    return null;
   }
 
   const result = await db.query<Account>(
@@ -30,8 +34,28 @@ export async function getUserGists() {
   const account = result.rows[0];
 
   if (!account || !account.accessToken) {
+    return null;
+  }
+
+  return account as GithubAccount;
+}
+
+export async function getUserGists() {
+  const account = await getGithubAccount();
+
+  if (!account) {
     return [];
   }
 
   return fetchUserGists(account.accessToken);
+}
+
+export async function getUserOrganizations() {
+  const account = await getGithubAccount();
+
+  if (!account) {
+    return [];
+  }
+
+  return fetchUserOrganizations(account.accessToken);
 }

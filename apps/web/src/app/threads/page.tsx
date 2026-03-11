@@ -9,11 +9,19 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { getUserGists } from "~/server/actions/gists";
+import { getUserGists, getUserOrganizations } from "~/server/actions/gists";
 import { auth } from "~/server/better-auth/config";
+import { OrgComingSoon } from "./org-coming-soon";
+import { OrgSwitcher } from "./org-switcher";
 import { ThreadRow } from "./thread-row";
 
-export default async function ThreadsPage() {
+interface ThreadsPageProps {
+  searchParams?: Promise<{
+    orgId?: string;
+  }>;
+}
+
+export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -29,15 +37,32 @@ export default async function ThreadsPage() {
     );
   }
 
-  const gists = await getUserGists();
+  const [{ orgId }, gists, organizations] = await Promise.all([
+    searchParams ?? Promise.resolve({ orgId: undefined }),
+    getUserGists(),
+    getUserOrganizations(),
+  ]);
+  const selectedOrganization = organizations.find(
+    (organization) => String(organization.id) === orgId,
+  );
 
   return (
     <div className="container mx-auto py-10">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Your Threads</h1>
+        <OrgSwitcher
+          organizations={organizations.map((organization) => ({
+            id: String(organization.id),
+            login: organization.login,
+            avatarUrl: organization.avatar_url,
+          }))}
+          selectedOrgId={orgId}
+        />
       </div>
 
-      {gists.length === 0 ? (
+      {orgId ? (
+        <OrgComingSoon organizationName={selectedOrganization?.login} />
+      ) : gists.length === 0 ? (
         <div className="text-center text-muted-foreground">
           <p>No threads yet.</p>
           <p className="mt-2">

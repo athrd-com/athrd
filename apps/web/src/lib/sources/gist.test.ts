@@ -7,6 +7,7 @@ import {
 
 vi.mock("~/lib/github", () => ({
   fetchGist: vi.fn(),
+  fetchUserGists: vi.fn(),
 }));
 
 const gistFile: GistFile = {
@@ -90,5 +91,23 @@ describe("sources/gist", () => {
         sourceId: "missing",
       }),
     ).resolves.toBeNull();
+  });
+
+  it("lists gist-backed threads as thread list entries", async () => {
+    const { fetchUserGists } = await import("~/lib/github");
+    vi.mocked(fetchUserGists).mockResolvedValueOnce([gistData]);
+
+    const provider = new GistThreadSourceProvider();
+
+    await expect(provider.listThreads("github-token")).resolves.toEqual([
+      {
+        id: "gist-1",
+        source: "gist",
+        sourceId: "gist-1",
+        title: "Test thread",
+        createdAt: "2026-03-03T00:00:00.000Z",
+        updatedAt: "2026-03-03T00:00:00.000Z",
+      },
+    ]);
   });
 });

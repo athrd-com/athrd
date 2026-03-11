@@ -1,4 +1,10 @@
-import { fetchGist, type GistData, type GistFile } from "~/lib/github";
+import {
+  fetchGist,
+  fetchUserGists,
+  type GistData,
+  type GistFile,
+} from "~/lib/github";
+import type { ThreadListEntry } from "../thread-list";
 import type {
   ThreadLocator,
   ThreadSourceProvider,
@@ -35,5 +41,22 @@ export class GistThreadSourceProvider implements ThreadSourceProvider {
     }
 
     return createThreadSourceRecordFromGist(gist, file, locator.publicId);
+  }
+
+  async listThreads(accessToken: string): Promise<ThreadListEntry[]> {
+    if (!accessToken.trim()) {
+      return [];
+    }
+
+    const gists = await fetchUserGists(accessToken);
+
+    return gists.map((gist) => ({
+      id: gist.id,
+      source: "gist",
+      sourceId: gist.id,
+      title: gist.description || undefined,
+      createdAt: gist.created_at,
+      updatedAt: gist.updated_at,
+    }));
   }
 }

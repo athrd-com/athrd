@@ -9,11 +9,18 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { getUserGists } from "~/server/actions/gists";
+import { getUserGists, getUserOrganizations } from "~/server/actions/gists";
 import { auth } from "~/server/better-auth/config";
+import { OrgSwitcher } from "./org-switcher";
 import { ThreadRow } from "./thread-row";
 
-export default async function ThreadsPage() {
+interface ThreadsPageProps {
+  searchParams?: Promise<{
+    orgId?: string;
+  }>;
+}
+
+export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -29,12 +36,23 @@ export default async function ThreadsPage() {
     );
   }
 
-  const gists = await getUserGists();
+  const [{ orgId }, gists, organizations] = await Promise.all([
+    searchParams ?? Promise.resolve({ orgId: undefined }),
+    getUserGists(),
+    getUserOrganizations(),
+  ]);
 
   return (
     <div className="container mx-auto py-10">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Your Threads</h1>
+        <OrgSwitcher
+          organizations={organizations.map((organization) => ({
+            id: String(organization.id),
+            login: organization.login,
+          }))}
+          selectedOrgId={orgId}
+        />
       </div>
 
       {gists.length === 0 ? (

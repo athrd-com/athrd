@@ -19,10 +19,7 @@ type BunRuntimeLike = {
       exists(): Promise<boolean>;
       text(): Promise<string>;
     };
-    list(options: {
-      prefix?: string;
-      cursor?: string;
-    }): Promise<{
+    list(options: { prefix?: string; cursor?: string }): Promise<{
       contents?: Array<{
         key?: string;
         lastModified?: Date | string;
@@ -95,18 +92,16 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
       `${normalizedOrgId}/${ownerId.trim()}/`,
     );
     const records = await Promise.all(
-      objectKeys
-        .filter((object) => isOwnedByUser(object.key, ownerId, normalizedOrgId))
-        .map(async (object) => {
-          const file = client.file(object.key);
-          const content = await file.text();
+      objectKeys.map(async (object) => {
+        const file = client.file(object.key);
+        const content = await file.text();
 
-          return createS3ThreadListEntry({
-            sourceId: object.key,
-            content,
-            lastModified: object.lastModified,
-          });
-        }),
+        return createS3ThreadListEntry({
+          sourceId: object.key,
+          content,
+          lastModified: object.lastModified,
+        });
+      }),
     );
 
     return records.sort(compareThreadEntriesByDate);
@@ -147,7 +142,9 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
 
     const filename = sourceId.endsWith(".json") ? sourceId : `${sourceId}.json`;
     const objectKeys = await listAllObjectKeys(client);
-    const match = objectKeys.find((object) => object.key.endsWith(`/${filename}`));
+    const match = objectKeys.find((object) =>
+      object.key.endsWith(`/${filename}`),
+    );
 
     return match?.key || null;
   }
@@ -159,7 +156,8 @@ function getFileNameFromObjectKey(objectKey: string): string {
 }
 
 function getBunRuntime(): BunRuntimeLike | undefined {
-  const runtime = (globalThis as typeof globalThis & { Bun?: BunRuntimeLike }).Bun;
+  const runtime = (globalThis as typeof globalThis & { Bun?: BunRuntimeLike })
+    .Bun;
   return runtime;
 }
 
@@ -193,19 +191,11 @@ async function listAllObjectKeys(
   return objects;
 }
 
-function isOwnedByUser(objectKey: string, ownerId: string, orgId: string): boolean {
-  const parts = objectKey.split("/").filter(Boolean);
-
-  if (parts.length < 3) {
-    return false;
-  }
-
-  return parts[0] === orgId && parts[1] === ownerId;
-}
-
 function compareThreadEntriesByDate(a: ThreadListEntry, b: ThreadListEntry) {
-  return getComparableDate(b.updatedAt ?? b.createdAt) -
-    getComparableDate(a.updatedAt ?? a.createdAt);
+  return (
+    getComparableDate(b.updatedAt ?? b.createdAt) -
+    getComparableDate(a.updatedAt ?? a.createdAt)
+  );
 }
 
 function getComparableDate(value: string | number | undefined): number {

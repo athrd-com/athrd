@@ -145,11 +145,24 @@ export default function AThrdThread({
           );
         },
       },
+      table: {
+        component: ({
+          children,
+          className,
+          ...props
+        }: ComponentProps<"table">) => (
+          <div className="markdown-table-wrap">
+            <table {...props} className={className}>
+              {children}
+            </table>
+          </div>
+        ),
+      },
     },
   };
 
   return (
-    <div className="px-4 sm:px-8 md:px-16 lg:px-32 py-8 space-y-6">
+    <div className="athrd-thread space-y-6 px-4 py-8 sm:px-8 md:px-16 lg:px-32">
       {messageGroups.map((group, groupIdx) => {
         if (group.type === "user") {
           return group.messages.map((message, index) => (
@@ -195,8 +208,8 @@ function UserMessage({
           {ownerLabel.substring(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <Card className="p-4 gap-2 bg-[#111] border-white/10 shadow-none text-gray-300 min-w-0 max-w-full flex-1">
-        <div className="markdown-content text-sm">
+      <Card className="w-full max-w-[min(74ch,100%)] min-w-0 gap-2 border-white/10 bg-[#111] p-4 text-gray-300 shadow-none">
+        <div className="markdown-content">
           <Markdown options={markdownOptions}>{message.content}</Markdown>
         </div>
       </Card>
@@ -326,7 +339,7 @@ function AssistantMessageGroup({
               <div
                 key={block.key}
                 className={cn(
-                  "markdown-content text-sm text-white py-2",
+                  "markdown-content max-w-[74ch] py-2 text-white/92",
                   shouldHide && "hidden",
                 )}
               >

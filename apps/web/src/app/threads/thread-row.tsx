@@ -12,10 +12,7 @@ interface ThreadRowProps {
 export function ThreadRow({ thread }: ThreadRowProps) {
   const router = useRouter();
   const createdAt = thread.createdAt || thread.updatedAt;
-  const href =
-    thread.source === "s3"
-      ? `/threads/${thread.id}?sourceId=${encodeURIComponent(thread.sourceId)}`
-      : `/threads/${thread.id}`;
+  const href = `/threads/${thread.id}`;
 
   return (
     <TableRow

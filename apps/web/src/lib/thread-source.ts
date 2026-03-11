@@ -20,18 +20,10 @@ const providers: Record<ThreadSource, ThreadSourceProvider> = {
 
 export async function readThreadSourceRecord(
   publicId: string,
-  sourceIdOverride?: string,
 ): Promise<ThreadSourceRecord | null> {
   const locator = parseThreadLocator(publicId);
-  const resolvedLocator =
-    locator.source === "s3" && sourceIdOverride
-      ? {
-          ...locator,
-          sourceId: sourceIdOverride,
-        }
-      : locator;
-  const provider = providers[resolvedLocator.source];
-  return provider.readThread(resolvedLocator);
+  const provider = providers[locator.source];
+  return provider.readThread(locator);
 }
 
 export {

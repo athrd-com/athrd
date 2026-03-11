@@ -9,15 +9,12 @@ export const revalidate = 604800; // Cache for 1 week
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sourceId?: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const { sourceId } = await searchParams;
   try {
-    const context = await loadThreadContext(id, sourceId);
+    const context = await loadThreadContext(id);
     const url = `https://athrd.com/threads/${id}`;
 
     return {
@@ -54,15 +51,9 @@ export async function generateMetadata({
   }
 }
 
-async function ThreadContent({
-  id,
-  sourceId,
-}: {
-  id: string;
-  sourceId?: string;
-}) {
+async function ThreadContent({ id }: { id: string }) {
   try {
-    const context = await loadThreadContext(id, sourceId);
+    const context = await loadThreadContext(id);
     return <ThreadView context={context} />;
   } catch (error) {
     if (error instanceof ThreadLoadError) {
@@ -75,13 +66,10 @@ async function ThreadContent({
 
 export default async function ThreadPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sourceId?: string }>;
 }) {
   const { id } = await params;
-  const { sourceId } = await searchParams;
 
   return (
     <div className="min-h-screen w-full text-white font-sans selection:bg-blue-500/30">
@@ -101,7 +89,7 @@ export default async function ThreadPage({
             </div>
           }
         >
-          <ThreadContent id={id} sourceId={sourceId} />
+          <ThreadContent id={id} />
         </Suspense>
       </main>
     </div>

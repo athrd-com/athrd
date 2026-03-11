@@ -6,9 +6,6 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getGithubAccount } from "~/server/github-account";
 
-// Enable static generation and caching
-export const revalidate = 604800; // Cache for 1 week
-
 export async function generateMetadata({
   params,
 }: {

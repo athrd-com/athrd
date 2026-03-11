@@ -98,8 +98,9 @@ export function HeroSection() {
       </h1>
 
       <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 font-light">
-        Add AI session links to commits and pull requests so reviewers can
-        quickly understand what changed, why it changed, and what the agent ran.
+        Add AI session links to commits and PRs so your team can quickly
+        understand what changed, why it changed, and turn each session into
+        team knowledge.
       </p>
 
       <div className="flex flex-col items-center gap-8">

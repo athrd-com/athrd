@@ -91,6 +91,61 @@ describe("global git hook install/uninstall", () => {
     );
   });
 
+  test("install repairs stale athrd-managed global hooksPath", () => {
+    const staleHooksPath = makeTempDir("athrd-global-hooks-stale-");
+    runGit(["config", "--global", "core.hooksPath", staleHooksPath]);
+    rmSync(staleHooksPath, { recursive: true, force: true });
+
+    const statePath = join(process.env.ATHRD_HOME!, "git-hooks", "state.json");
+    mkdirSync(join(process.env.ATHRD_HOME!, "git-hooks"), { recursive: true });
+    writeFileSync(
+      statePath,
+      JSON.stringify({
+        managedByAthrd: true,
+        previousHooksPath: null,
+      }),
+      "utf-8",
+    );
+
+    installGlobalCommitMsgHook();
+
+    const repairedHooksPath = runGit([
+      "config",
+      "--global",
+      "--get",
+      "core.hooksPath",
+    ]);
+    const repairedHook = join(repairedHooksPath, "commit-msg");
+
+    expect(repairedHooksPath).toBe(join(process.env.ATHRD_HOME!, "git-hooks"));
+    expect(existsSync(repairedHook)).toBeTrue();
+    expect(readFileSync(repairedHook, "utf-8")).toContain(
+      "# ATHRD_MANAGED_COMMIT_MSG",
+    );
+  });
+
+  test("install resets athrd-managed hooksPath drift even when stale dir still exists", () => {
+    const driftedHooksPath = makeTempDir("athrd-global-hooks-drifted-");
+    runGit(["config", "--global", "core.hooksPath", driftedHooksPath]);
+
+    const statePath = join(process.env.ATHRD_HOME!, "git-hooks", "state.json");
+    mkdirSync(join(process.env.ATHRD_HOME!, "git-hooks"), { recursive: true });
+    writeFileSync(
+      statePath,
+      JSON.stringify({
+        managedByAthrd: true,
+        previousHooksPath: null,
+      }),
+      "utf-8",
+    );
+
+    installGlobalCommitMsgHook();
+
+    expect(runGit(["config", "--global", "--get", "core.hooksPath"])).toBe(
+      join(process.env.ATHRD_HOME!, "git-hooks"),
+    );
+  });
+
   test("uninstall restores previous commit-msg hook in existing hooksPath", () => {
     const hooksDir = makeTempDir("athrd-existing-hooks-");
     const existingHook = join(hooksDir, "commit-msg");

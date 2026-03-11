@@ -34,6 +34,14 @@ function getCommitMsgHookPathForDir(hooksDir: string): string {
   return path.join(hooksDir, "commit-msg");
 }
 
+function pathsEqual(left: string | null, right: string | null): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+
+  return path.resolve(left) === path.resolve(right);
+}
+
 function getCurrentGlobalHooksPath(): string | null {
   try {
     const value = execFileSync(
@@ -326,8 +334,8 @@ export function installGlobalCommitMsgHook(): void {
 
   if (state?.managedByAthrd) {
     writeCommitMsgHook(state.targetHooksPath, state.backupHookPath);
-    if (state.updatedGlobalHooksPath && currentHooksPath !== globalHooksDir) {
-      setGlobalHooksPath(globalHooksDir);
+    if (!pathsEqual(currentHooksPath, state.targetHooksPath)) {
+      setGlobalHooksPath(state.targetHooksPath);
     }
     return;
   }

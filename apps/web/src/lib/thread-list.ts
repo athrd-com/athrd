@@ -9,6 +9,11 @@ export interface ThreadListEntry {
   updatedAt?: string | number;
 }
 
+export interface ThreadListPage {
+  items: ThreadListEntry[];
+  nextCursor?: string;
+}
+
 interface S3ThreadListEntryInput {
   sourceId: string;
   content?: string;

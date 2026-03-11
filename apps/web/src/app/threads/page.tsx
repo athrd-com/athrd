@@ -19,6 +19,8 @@ import { ThreadRow } from "./thread-row";
 interface ThreadsPageProps {
   searchParams?: Promise<{
     orgId?: string;
+    cursor?: string;
+    stack?: string;
   }>;
 }
 
@@ -38,17 +40,33 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
     );
   }
 
-  const { orgId } =
+  const { orgId, cursor, stack } =
     (await searchParams) ?? {
       orgId: undefined,
+      cursor: undefined,
+      stack: undefined,
     };
-  const [threads, organizations] = await Promise.all([
-    getUserThreads(orgId),
+  const previousCursors = decodeCursorStack(stack);
+  const currentCursor = sanitizeCursor(cursor);
+  const [threadPage, organizations] = await Promise.all([
+    getUserThreads(orgId, currentCursor),
     getUserOrganizations(),
   ]);
+  const threads = threadPage.items;
   const selectedOrganization = organizations.find(
     (organization) => String(organization.id) === orgId,
   );
+  const nextHref = threadPage.nextCursor
+    ? buildThreadsHref({
+        orgId,
+        cursor: threadPage.nextCursor,
+        stack: encodeCursorStack([...previousCursors, currentCursor || ""]),
+      })
+    : null;
+  const previousHref =
+    currentCursor !== undefined
+      ? buildPreviousHref({ orgId, previousCursors })
+      : null;
 
   return (
     <div className="container mx-auto py-10">
@@ -92,8 +110,96 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
               ))}
             </TableBody>
           </Table>
+          <div className="flex items-center justify-between border-t px-4 py-3">
+            <span className="text-sm text-muted-foreground">
+              {currentCursor ? "Showing another page of threads" : "Showing newest threads"}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                asChild={Boolean(previousHref)}
+                disabled={!previousHref}
+                variant="outline"
+              >
+                {previousHref ? (
+                  <Link href={previousHref}>Previous</Link>
+                ) : (
+                  <span>Previous</span>
+                )}
+              </Button>
+              <Button
+                asChild={Boolean(nextHref)}
+                disabled={!nextHref}
+                variant="outline"
+              >
+                {nextHref ? <Link href={nextHref}>Next</Link> : <span>Next</span>}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+function buildThreadsHref(input: {
+  orgId?: string;
+  cursor?: string;
+  stack?: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (input.orgId) {
+    params.set("orgId", input.orgId);
+  }
+
+  if (input.cursor) {
+    params.set("cursor", input.cursor);
+  }
+
+  if (input.stack) {
+    params.set("stack", input.stack);
+  }
+
+  const query = params.toString();
+  return query ? `/threads?${query}` : "/threads";
+}
+
+function buildPreviousHref(input: {
+  orgId?: string;
+  previousCursors: string[];
+}) {
+  const stack = [...input.previousCursors];
+  const cursor = stack.pop();
+
+  return buildThreadsHref({
+    orgId: input.orgId,
+    cursor: cursor || undefined,
+    stack: stack.length > 0 ? encodeCursorStack(stack) : undefined,
+  });
+}
+
+function sanitizeCursor(value?: string) {
+  return value?.trim() ? value : undefined;
+}
+
+function decodeCursorStack(value?: string): string[] {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf-8"),
+    ) as unknown;
+
+    return Array.isArray(parsedValue)
+      ? parsedValue.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function encodeCursorStack(value: string[]) {
+  return Buffer.from(JSON.stringify(value), "utf-8").toString("base64url");
 }

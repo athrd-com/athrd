@@ -32,6 +32,16 @@ export interface GithubOrganization {
   avatar_url: string;
 }
 
+export interface FetchUserGistsOptions {
+  page?: number;
+  perPage?: number;
+}
+
+export interface GistPage {
+  items: GistData[];
+  nextPage?: number;
+}
+
 export async function fetchGist(
   id: string
 ): Promise<{ gist?: GistData; file?: GistFile }> {
@@ -72,9 +82,22 @@ function findAthrdFile(gist: GistData): GistFile | null {
   return athrdFile || null;
 }
 
-export async function fetchUserGists(accessToken: string): Promise<GistData[]> {
+export async function fetchUserGists(
+  accessToken: string,
+  options: FetchUserGistsOptions = {},
+): Promise<GistPage> {
   try {
-    const response = await fetch("https://api.github.com/gists", {
+    const page =
+      typeof options.page === "number" && options.page > 0 ? options.page : 1;
+    const perPage =
+      typeof options.perPage === "number" && options.perPage > 0
+        ? options.perPage
+        : 20;
+    const url = new URL("https://api.github.com/gists");
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("per_page", String(perPage));
+
+    const response = await fetch(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
         Authorization: `Bearer ${accessToken}`,
@@ -83,18 +106,23 @@ export async function fetchUserGists(accessToken: string): Promise<GistData[]> {
     });
 
     if (!response.ok) {
-      return [];
+      return { items: [] };
     }
 
     const json = (await response.json()) as GistData[];
 
     // Filter for gists that have an athrd file
-    return json.filter((gist) =>
+    const items = json.filter((gist) =>
       Object.keys(gist.files).some((file) => file.startsWith("athrd-"))
     );
+
+    return {
+      items,
+      nextPage: json.length === perPage ? page + 1 : undefined,
+    };
   } catch (error) {
     console.error("Error fetching user gists:", error);
-    return [];
+    return { items: [] };
   }
 }
 

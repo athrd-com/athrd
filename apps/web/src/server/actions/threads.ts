@@ -3,7 +3,7 @@
 import { GistThreadSourceProvider } from "@/lib/sources/gist";
 import { headers } from "next/headers";
 import { S3ThreadSourceProvider } from "~/lib/sources/s3";
-import type { ThreadListEntry } from "~/lib/thread-list";
+import type { ThreadListPage } from "~/lib/thread-list";
 import { auth } from "~/server/better-auth/config";
 import { db } from "~/server/db";
 
@@ -17,16 +17,18 @@ interface Account {
 
 const s3ThreadSourceProvider = new S3ThreadSourceProvider();
 const gistThreadSourceProvider = new GistThreadSourceProvider();
+const THREADS_PAGE_SIZE = 20;
 
 export async function getUserThreads(
   orgId?: string,
-): Promise<ThreadListEntry[]> {
+  cursor?: string,
+): Promise<ThreadListPage> {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
   if (!session) {
-    return [];
+    return { items: [] };
   }
 
   const result = await db.query<Account>(
@@ -36,20 +38,26 @@ export async function getUserThreads(
 
   const account = result.rows[0];
   if (!account) {
-    return [];
+    return { items: [] };
   }
 
   if (orgId) {
     if (!account.accountId) {
-      return [];
+      return { items: [] };
     }
 
-    return await s3ThreadSourceProvider.listThreads(orgId, account.accountId);
+    return await s3ThreadSourceProvider.listThreads(orgId, account.accountId, {
+      cursor,
+      limit: THREADS_PAGE_SIZE,
+    });
   }
 
   if (!account.accessToken) {
-    return [];
+    return { items: [] };
   }
 
-  return await gistThreadSourceProvider.listThreads(account.accessToken);
+  return await gistThreadSourceProvider.listThreads(account.accessToken, {
+    cursor,
+    limit: THREADS_PAGE_SIZE,
+  });
 }

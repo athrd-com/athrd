@@ -28,6 +28,11 @@ export interface ThreadSourceProvider {
   readThread(locator: ThreadLocator): Promise<ThreadSourceRecord | null>;
 }
 
+export interface ThreadListPageOptions {
+  cursor?: string;
+  limit?: number;
+}
+
 export class ThreadSourceLookupError extends Error {
   constructor(message: string) {
     super(message);

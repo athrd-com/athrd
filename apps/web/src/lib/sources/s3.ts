@@ -1,7 +1,8 @@
 import { env } from "@/env";
-import { createS3ThreadListEntry, type ThreadListEntry } from "../thread-list";
+import { createS3ThreadListEntry, type ThreadListPage } from "../thread-list";
 import type {
   ThreadLocator,
+  ThreadListPageOptions,
   ThreadSourceProvider,
   ThreadSourceRecord,
 } from "./types";
@@ -19,7 +20,11 @@ type BunRuntimeLike = {
       exists(): Promise<boolean>;
       text(): Promise<string>;
     };
-    list(options: { prefix?: string; cursor?: string }): Promise<{
+    list(options: {
+      prefix?: string;
+      cursor?: string;
+      limit?: number;
+    }): Promise<{
       contents?: Array<{
         key?: string;
         lastModified?: Date | string;
@@ -76,23 +81,25 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
   async listThreads(
     orgId: string,
     ownerId: string,
-  ): Promise<ThreadListEntry[]> {
+    options: ThreadListPageOptions = {},
+  ): Promise<ThreadListPage> {
     if (!orgId.trim() || !ownerId.trim()) {
-      return [];
+      return { items: [] };
     }
 
     const client = this.getClient();
     if (!client) {
-      return [];
+      return { items: [] };
     }
 
     const normalizedOrgId = orgId.trim();
-    const objectKeys = await listAllObjectKeys(
-      client,
-      `${normalizedOrgId}/${ownerId.trim()}/`,
-    );
+    const page = await listObjectKeysPage(client, {
+      prefix: `${normalizedOrgId}/${ownerId.trim()}/`,
+      cursor: options.cursor,
+      limit: options.limit,
+    });
     const records = await Promise.all(
-      objectKeys.map(async (object) => {
+      page.items.map(async (object) => {
         const file = client.file(object.key);
         const content = await file.text();
 
@@ -104,7 +111,10 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
       }),
     );
 
-    return records.sort(compareThreadEntriesByDate);
+    return {
+      items: records.sort(compareThreadEntriesByDate),
+      nextCursor: page.nextCursor,
+    };
   }
 
   private getClient() {
@@ -175,7 +185,11 @@ async function listAllObjectKeys(
     });
 
     for (const object of response.contents || []) {
-      if (!object.key || !object.key.endsWith(".json")) {
+      if (
+        !object.key ||
+        !object.key.endsWith(".json") ||
+        (prefix && !object.key.startsWith(prefix))
+      ) {
         continue;
       }
 
@@ -191,7 +205,45 @@ async function listAllObjectKeys(
   return objects;
 }
 
-function compareThreadEntriesByDate(a: ThreadListEntry, b: ThreadListEntry) {
+async function listObjectKeysPage(
+  client: BunS3ClientLike,
+  options: {
+    prefix?: string;
+    cursor?: string;
+    limit?: number;
+  },
+): Promise<{
+  items: Array<{ key: string; lastModified?: Date | string }>;
+  nextCursor?: string;
+}> {
+  const response = await client.list({
+    ...(options.prefix ? { prefix: options.prefix } : {}),
+    ...(options.cursor ? { cursor: options.cursor } : {}),
+    ...(typeof options.limit === "number" && options.limit > 0
+      ? { limit: options.limit }
+      : {}),
+  });
+
+  return {
+    items: (response.contents || [])
+      .filter(
+        (object) =>
+          object.key &&
+          object.key.endsWith(".json") &&
+          (!options.prefix || object.key.startsWith(options.prefix)),
+      )
+      .map((object) => ({
+        key: object.key as string,
+        lastModified: object.lastModified,
+      })),
+    nextCursor: response.hasMore ? response.cursor : undefined,
+  };
+}
+
+function compareThreadEntriesByDate(
+  a: ThreadListPage["items"][number],
+  b: ThreadListPage["items"][number],
+) {
   return (
     getComparableDate(b.updatedAt ?? b.createdAt) -
     getComparableDate(a.updatedAt ?? a.createdAt)

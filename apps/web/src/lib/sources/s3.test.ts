@@ -109,6 +109,7 @@ describe("sources/s3", () => {
           lastModified: "2026-03-12T00:00:00.000Z",
         },
       ],
+      cursor: "cursor-2",
       hasMore: false,
     });
 
@@ -118,20 +119,23 @@ describe("sources/s3", () => {
 
     const provider = new S3ThreadSourceProvider();
 
-    await expect(provider.listThreads("456", "123")).resolves.toEqual([
-      expect.objectContaining({
-        id: "S-456-123-thread-b",
-        source: "s3",
-        sourceId: "456/123/thread-b.json",
-        title: "Newer thread",
-      }),
-      expect.objectContaining({
-        id: "S-456-123-thread-a",
-        source: "s3",
-        sourceId: "456/123/thread-a.json",
-        title: "Older thread",
-      }),
-    ]);
+    await expect(provider.listThreads("456", "123")).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          id: "S-456-123-thread-b",
+          source: "s3",
+          sourceId: "456/123/thread-b.json",
+          title: "Newer thread",
+        }),
+        expect.objectContaining({
+          id: "S-456-123-thread-a",
+          source: "s3",
+          sourceId: "456/123/thread-a.json",
+          title: "Older thread",
+        }),
+      ],
+      nextCursor: undefined,
+    });
   });
 
   it("uses org and owner prefix when org id is provided", async () => {
@@ -148,15 +152,56 @@ describe("sources/s3", () => {
 
     const provider = new S3ThreadSourceProvider();
 
-    await expect(provider.listThreads("456", "123")).resolves.toEqual([
-      expect.objectContaining({
-        id: "S-456-123-thread-a",
-        source: "s3",
-        sourceId: "456/123/thread-a.json",
-        title: "Scoped thread",
-      }),
-    ]);
+    await expect(provider.listThreads("456", "123")).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          id: "S-456-123-thread-a",
+          source: "s3",
+          sourceId: "456/123/thread-a.json",
+          title: "Scoped thread",
+        }),
+      ],
+      nextCursor: undefined,
+    });
     expect(listMock).toHaveBeenCalledWith({
+      limit: undefined,
+      prefix: "456/123/",
+    });
+  });
+
+  it("returns the next S3 cursor when more results are available", async () => {
+    listMock.mockResolvedValueOnce({
+      contents: [
+        {
+          key: "456/123/thread-a.json",
+          lastModified: "2026-03-10T00:00:00.000Z",
+        },
+      ],
+      cursor: "cursor-2",
+      hasMore: true,
+    });
+    textMock.mockResolvedValueOnce('{"customTitle":"Scoped thread"}');
+
+    const provider = new S3ThreadSourceProvider();
+
+    await expect(
+      provider.listThreads("456", "123", {
+        cursor: "cursor-1",
+        limit: 10,
+      }),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          id: "S-456-123-thread-a",
+          sourceId: "456/123/thread-a.json",
+          title: "Scoped thread",
+        }),
+      ],
+      nextCursor: "cursor-2",
+    });
+    expect(listMock).toHaveBeenCalledWith({
+      cursor: "cursor-1",
+      limit: 10,
       prefix: "456/123/",
     });
   });

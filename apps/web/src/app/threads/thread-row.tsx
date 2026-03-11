@@ -12,11 +12,15 @@ interface ThreadRowProps {
 export function ThreadRow({ thread }: ThreadRowProps) {
   const router = useRouter();
   const createdAt = thread.createdAt || thread.updatedAt;
+  const href =
+    thread.source === "s3"
+      ? `/threads/${thread.id}?sourceId=${encodeURIComponent(thread.sourceId)}`
+      : `/threads/${thread.id}`;
 
   return (
     <TableRow
       className="cursor-pointer"
-      onClick={() => router.push(`/threads/${thread.id}`)}
+      onClick={() => router.push(href)}
     >
       <TableCell className="py-2 font-medium">
         {thread.title || "Untitled Thread"}

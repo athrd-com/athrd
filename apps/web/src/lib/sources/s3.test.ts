@@ -58,6 +58,7 @@ describe("sources/s3", () => {
       filename: "demo.json",
       content: '{"title":"S3 thread"}',
     });
+    expect(listMock).not.toHaveBeenCalled();
   });
 
   it("returns null for missing S3 objects", async () => {

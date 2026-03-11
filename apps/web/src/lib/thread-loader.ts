@@ -46,11 +46,12 @@ export interface ThreadContext {
 
 export async function loadThreadContext(
   threadId: string,
+  sourceIdOverride?: string,
 ): Promise<ThreadContext> {
   let record: ThreadSourceRecord | null;
 
   try {
-    record = await readThreadSourceRecord(threadId);
+    record = await readThreadSourceRecord(threadId, sourceIdOverride);
   } catch (error) {
     if (error instanceof ThreadSourceLookupError) {
       throw new ThreadLoadError("NOT_FOUND", error.message, error);

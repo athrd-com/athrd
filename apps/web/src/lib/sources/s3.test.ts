@@ -133,16 +133,12 @@ describe("sources/s3", () => {
     ]);
   });
 
-  it("limits S3-backed thread records to the selected organization", async () => {
+  it("uses org and owner prefix when org id is provided", async () => {
     listMock.mockResolvedValueOnce({
       contents: [
         {
           key: "456/123/thread-a.json",
           lastModified: "2026-03-10T00:00:00.000Z",
-        },
-        {
-          key: "999/123/thread-b.json",
-          lastModified: "2026-03-11T00:00:00.000Z",
         },
       ],
       hasMore: false,

@@ -92,7 +92,7 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
     const normalizedOrgId = orgId.trim();
     const objectKeys = await listAllObjectKeys(
       client,
-      `${normalizedOrgId}/${ownerId}/`,
+      `${normalizedOrgId}/${ownerId.trim()}/`,
     );
     const records = await Promise.all(
       objectKeys

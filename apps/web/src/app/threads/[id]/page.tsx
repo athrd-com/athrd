@@ -1,8 +1,8 @@
 import ThreadView from "@/components/thread/thread-view";
+import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { fetchGist } from "~/lib/github";
 
 // Enable static generation and caching
 export const revalidate = 604800; // Cache for 1 week
@@ -13,48 +13,55 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const { gist } = await fetchGist(id);
+  try {
+    const context = await loadThreadContext(id);
+    const url = `https://athrd.com/threads/${id}`;
 
-  if (!gist) {
     return {
-      title: "Thread Not Found - ATHRD",
+      title: `ATHRD - ${context.title}`,
+      description: context.title,
+      openGraph: {
+        title: `ATHRD - ${context.title}`,
+        description: context.title,
+        images: [
+          {
+            url: `https://athrd.com/threads/${id}/og`,
+            width: 1200,
+            height: 630,
+            alt: `ATHRD - ${context.title}`,
+          },
+        ],
+      },
+      robots: {
+        index: false,
+        follow: true,
+      },
+      alternates: {
+        canonical: url,
+      },
     };
+  } catch (error) {
+    if (error instanceof ThreadLoadError) {
+      return {
+        title: "Thread Not Found - ATHRD",
+      };
+    }
+
+    throw error;
   }
-
-  const url = `https://athrd.com/threads/${id}`;
-
-  return {
-    title: `ATHRD - ${gist.description}`,
-    description: gist.description,
-    openGraph: {
-      title: `ATHRD - ${gist.description}`,
-      description: gist.description,
-      images: [
-        {
-          url: `https://athrd.com/threads/${id}/og`,
-          width: 1200,
-          height: 630,
-          alt: `ATHRD - ${gist.description}`,
-        },
-      ],
-    },
-    robots: {
-      index: false,
-      follow: true,
-    },
-    alternates: {
-      canonical: url,
-    },
-  };
 }
 
 async function ThreadContent({ id }: { id: string }) {
-  const { gist, file } = await fetchGist(id);
-  if (!gist || !file) {
-    notFound();
-  }
+  try {
+    const context = await loadThreadContext(id);
+    return <ThreadView context={context} />;
+  } catch (error) {
+    if (error instanceof ThreadLoadError) {
+      notFound();
+    }
 
-  return <ThreadView gist={gist} file={file} />;
+    throw error;
+  }
 }
 
 export default async function ThreadPage({

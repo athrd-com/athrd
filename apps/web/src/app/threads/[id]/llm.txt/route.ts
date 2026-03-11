@@ -19,7 +19,7 @@ export async function GET(
         repoName: context.repoName,
         modelsUsed: context.modelsUsed,
         ide: context.ide,
-        title: context.gist.description,
+        title: context.title,
       },
     });
 

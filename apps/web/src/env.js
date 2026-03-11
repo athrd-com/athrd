@@ -11,13 +11,19 @@ export const env = createEnv({
 			process.env.NODE_ENV === "production"
 				? z.string()
 				: z.string().optional(),
-		BETTER_AUTH_URL:
-			process.env.NODE_ENV === "production"
-				? z.string().url()
-				: z.string().url().optional(),
+		BETTER_AUTH_URL: z.string().url().optional(),
 		BETTER_AUTH_GITHUB_CLIENT_ID: z.string(),
 		BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
 		DATABASE_URL: z.string().url(),
+		ATHRD_THREADS_S3_BUCKET: z.string().optional(),
+		ATHRD_THREADS_S3_REGION: z.string().optional(),
+		ATHRD_THREADS_S3_ACCESS_KEY_ID: z.string().optional(),
+		ATHRD_THREADS_S3_SECRET_ACCESS_KEY: z.string().optional(),
+		ATHRD_THREADS_S3_ENDPOINT: z.string().url().optional(),
+		ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE: z
+			.enum(["true", "false"])
+			.transform((value) => value === "true")
+			.optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -43,6 +49,15 @@ export const env = createEnv({
 		BETTER_AUTH_GITHUB_CLIENT_SECRET:
 			process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
 		DATABASE_URL: process.env.DATABASE_URL,
+		ATHRD_THREADS_S3_BUCKET: process.env.ATHRD_THREADS_S3_BUCKET,
+		ATHRD_THREADS_S3_REGION: process.env.ATHRD_THREADS_S3_REGION,
+		ATHRD_THREADS_S3_ACCESS_KEY_ID:
+			process.env.ATHRD_THREADS_S3_ACCESS_KEY_ID,
+		ATHRD_THREADS_S3_SECRET_ACCESS_KEY:
+			process.env.ATHRD_THREADS_S3_SECRET_ACCESS_KEY,
+		ATHRD_THREADS_S3_ENDPOINT: process.env.ATHRD_THREADS_S3_ENDPOINT,
+		ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE:
+			process.env.ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE,
 		NODE_ENV: process.env.NODE_ENV,
 	},
 	/**

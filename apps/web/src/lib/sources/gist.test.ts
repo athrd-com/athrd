@@ -1,0 +1,94 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { GistData, GistFile } from "~/lib/github";
+import {
+  createThreadSourceRecordFromGist,
+  GistThreadSourceProvider,
+} from "./gist";
+
+vi.mock("~/lib/github", () => ({
+  fetchGist: vi.fn(),
+}));
+
+const gistFile: GistFile = {
+  filename: "athrd-thread.json",
+  type: "application/json",
+  language: "JSON",
+  raw_url: "https://example.com/raw",
+  size: 100,
+  content: "{}",
+};
+
+const gistData: GistData = {
+  id: "gist-1",
+  description: "Test thread",
+  owner: {
+    login: "user",
+    id: 1,
+    avatar_url: "https://example.com/avatar.png",
+    url: "https://api.github.com/users/user",
+    html_url: "https://github.com/user",
+    type: "User",
+  },
+  files: {
+    "athrd-thread.json": gistFile,
+  },
+  created_at: "2026-03-03T00:00:00.000Z",
+  updated_at: "2026-03-03T00:00:00.000Z",
+};
+
+describe("sources/gist", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("maps gists to normalized source records", () => {
+    expect(createThreadSourceRecordFromGist(gistData, gistFile)).toMatchObject({
+      id: "gist-1",
+      source: "gist",
+      sourceId: "gist-1",
+      title: "Test thread",
+      filename: "athrd-thread.json",
+      owner: {
+        login: "user",
+        avatarUrl: "https://example.com/avatar.png",
+      },
+    });
+  });
+
+  it("loads gist-backed thread records", async () => {
+    const { fetchGist } = await import("~/lib/github");
+    vi.mocked(fetchGist).mockResolvedValueOnce({
+      gist: gistData,
+      file: gistFile,
+    });
+
+    const provider = new GistThreadSourceProvider();
+
+    await expect(
+      provider.readThread({
+        publicId: "gist-1",
+        source: "gist",
+        sourceId: "gist-1",
+      }),
+    ).resolves.toMatchObject({
+      source: "gist",
+      id: "gist-1",
+      sourceId: "gist-1",
+    });
+  });
+
+  it("returns null when gist lookup fails", async () => {
+    const { fetchGist } = await import("~/lib/github");
+    vi.mocked(fetchGist).mockResolvedValueOnce({});
+
+    const provider = new GistThreadSourceProvider();
+
+    await expect(
+      provider.readThread({
+        publicId: "missing",
+        source: "gist",
+        sourceId: "missing",
+      }),
+    ).resolves.toBeNull();
+  });
+});

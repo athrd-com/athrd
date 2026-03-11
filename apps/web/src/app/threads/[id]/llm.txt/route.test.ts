@@ -37,7 +37,7 @@ describe("thread export route", () => {
       repoName: "athrd-com/athrd",
       modelsUsed: ["claude-3-5-sonnet-20241022"],
       ide: "claude",
-      gist: { description: "Test title" },
+      title: "Test title",
     } as never);
 
     const response = await GET(new Request("http://localhost"), {

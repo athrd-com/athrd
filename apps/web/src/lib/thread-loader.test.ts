@@ -1,14 +1,34 @@
-import type { GistData, GistFile } from "~/lib/github";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { GistData, GistFile } from "~/lib/github";
 import {
   loadThreadContext,
   parseThreadContextFromGistFile,
+  parseThreadContextFromSourceRecord,
   ThreadLoadError,
 } from "./thread-loader";
 
-vi.mock("~/lib/github", () => ({
-  fetchGist: vi.fn(),
-}));
+vi.mock("./thread-source", async () => {
+  return {
+    createThreadSourceRecordFromGist: (gist: GistData, file: GistFile) => ({
+      id: gist.id,
+      source: "gist" as const,
+      sourceId: gist.id,
+      title: gist.description || undefined,
+      createdAt: gist.created_at,
+      updatedAt: gist.updated_at,
+      owner: {
+        login: gist.owner.login,
+        avatarUrl: gist.owner.avatar_url,
+        profileUrl: gist.owner.html_url,
+        type: gist.owner.type,
+      },
+      filename: file.filename,
+      content: file.content || "",
+    }),
+    readThreadSourceRecord: vi.fn(),
+    ThreadSourceLookupError: class ThreadSourceLookupError extends Error {},
+  };
+});
 
 const gistFile: GistFile = {
   filename: "athrd-thread.json",
@@ -161,14 +181,50 @@ describe("thread-loader", () => {
   });
 
   it("throws NOT_FOUND when gist or file is missing", async () => {
-    const { fetchGist } = await import("~/lib/github");
-    const fetchGistMock = fetchGist as unknown as {
+    const { readThreadSourceRecord } = await import("./thread-source");
+    const readThreadSourceRecordMock = readThreadSourceRecord as unknown as {
       mockResolvedValueOnce: (value: unknown) => unknown;
     };
-    fetchGistMock.mockResolvedValueOnce({});
+    readThreadSourceRecordMock.mockResolvedValueOnce(null);
 
     await expect(loadThreadContext("missing")).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
+  });
+
+  it("fills missing display metadata from the raw thread body", () => {
+    const context = parseThreadContextFromSourceRecord({
+      id: "S-threads/demo.json",
+      source: "s3",
+      sourceId: "threads/demo.json",
+      filename: "demo.json",
+      content: JSON.stringify({
+        __athrd: {
+          ide: "claude",
+          githubUsername: "athrd-bot",
+        },
+        title: "Body title",
+        timestamp: "2026-03-03T00:00:00.000Z",
+        requests: [
+          {
+            id: "req-1",
+            type: "user",
+            message: {
+              role: "user",
+              content: "Hello from S3",
+              model: "claude-3-5-sonnet-20241022",
+            },
+            timestamp: "2026-03-03T00:00:00.000Z",
+          },
+        ],
+      }),
+    });
+
+    expect(context.title).toBe("Body title");
+    expect(context.record.owner).toMatchObject({
+      login: "athrd-bot",
+      profileUrl: "https://github.com/athrd-bot",
+    });
+    expect(context.record.createdAt).toBe("2026-03-03T00:00:00.000Z");
   });
 });

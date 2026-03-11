@@ -3,6 +3,8 @@ import {
   type ThreadLocator,
 } from "./types";
 
+const ENCODED_S3_SOURCE_ID_PREFIX = "~";
+
 export function parseThreadLocator(id: string): ThreadLocator {
   const publicId = id.trim();
 
@@ -11,7 +13,8 @@ export function parseThreadLocator(id: string): ThreadLocator {
   }
 
   if (publicId.startsWith("S-")) {
-    const sourceId = publicId.slice(2);
+    const encodedSourceId = publicId.slice(2);
+    const sourceId = decodeS3SourceId(encodedSourceId);
     if (!sourceId) {
       throw new ThreadSourceLookupError("S3 thread id is missing an object key");
     }
@@ -34,4 +37,46 @@ export function parseThreadLocator(id: string): ThreadLocator {
     source: "gist",
     sourceId: publicId,
   };
+}
+
+export function createS3PublicId(sourceId: string): string {
+  const normalizedSourceId = sourceId.trim();
+
+  if (!normalizedSourceId) {
+    throw new ThreadSourceLookupError("S3 thread id is missing an object key");
+  }
+
+  if (normalizedSourceId.includes("/")) {
+    const filename = normalizedSourceId.split("/").filter(Boolean).pop();
+    if (!filename) {
+      throw new ThreadSourceLookupError("S3 thread id is missing an object key");
+    }
+
+    return `S-${filename.replace(/\.json$/i, "")}`;
+  }
+
+  return normalizedSourceId.startsWith("S-")
+    ? normalizedSourceId
+    : `S-${normalizedSourceId.replace(/\.json$/i, "")}`;
+}
+
+function decodeS3SourceId(sourceId: string): string {
+  if (!sourceId) {
+    return "";
+  }
+
+  if (!sourceId.startsWith(ENCODED_S3_SOURCE_ID_PREFIX)) {
+    return sourceId;
+  }
+
+  const encodedValue = sourceId.slice(ENCODED_S3_SOURCE_ID_PREFIX.length);
+  if (!encodedValue) {
+    throw new ThreadSourceLookupError("S3 thread id is invalid");
+  }
+
+  try {
+    return Buffer.from(encodedValue, "base64url").toString("utf-8");
+  } catch (error) {
+    throw new ThreadSourceLookupError("S3 thread id is invalid");
+  }
 }

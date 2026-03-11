@@ -1,3 +1,4 @@
+import { getUserThreads } from "@/server/actions/threads";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { LoginButton } from "~/components/auth/login-button";
@@ -9,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { getUserGists, getUserOrganizations } from "~/server/actions/gists";
+import { getUserOrganizations } from "~/server/actions/gists";
 import { auth } from "~/server/better-auth/config";
 import { OrgComingSoon } from "./org-coming-soon";
 import { OrgSwitcher } from "./org-switcher";
@@ -37,9 +38,12 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
     );
   }
 
-  const [{ orgId }, gists, organizations] = await Promise.all([
-    searchParams ?? Promise.resolve({ orgId: undefined }),
-    getUserGists(),
+  const { orgId } =
+    (await searchParams) ?? {
+      orgId: undefined,
+    };
+  const [threads, organizations] = await Promise.all([
+    getUserThreads(orgId),
     getUserOrganizations(),
   ]);
   const selectedOrganization = organizations.find(
@@ -62,7 +66,7 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
 
       {orgId ? (
         <OrgComingSoon organizationName={selectedOrganization?.login} />
-      ) : gists.length === 0 ? (
+      ) : threads.length === 0 ? (
         <div className="text-center text-muted-foreground">
           <p>No threads yet.</p>
           <p className="mt-2">
@@ -83,8 +87,8 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gists.map((gist) => (
-                <ThreadRow key={gist.id} gist={gist} />
+              {threads.map((thread) => (
+                <ThreadRow key={thread.id} thread={thread} />
               ))}
             </TableBody>
           </Table>

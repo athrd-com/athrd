@@ -2,7 +2,7 @@ import {
   createThreadSourceRecordFromGist,
   GistThreadSourceProvider,
 } from "./sources/gist";
-import { parseThreadLocator } from "./sources/locator";
+import { createS3PublicId, parseThreadLocator } from "./sources/locator";
 import {
   ThreadSourceLookupError,
   type ThreadLocator,
@@ -27,6 +27,7 @@ export async function readThreadSourceRecord(
 }
 
 export {
+  createS3PublicId,
   createThreadSourceRecordFromGist,
   parseThreadLocator,
   ThreadSourceLookupError,

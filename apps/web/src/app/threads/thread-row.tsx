@@ -3,25 +3,26 @@
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "~/components/ui/table";
-import type { GistData } from "~/lib/github";
+import type { ThreadListEntry } from "~/lib/thread-list";
 
 interface ThreadRowProps {
-  gist: GistData;
+  thread: ThreadListEntry;
 }
 
-export function ThreadRow({ gist }: ThreadRowProps) {
+export function ThreadRow({ thread }: ThreadRowProps) {
   const router = useRouter();
+  const createdAt = thread.createdAt || thread.updatedAt;
 
   return (
     <TableRow
       className="cursor-pointer"
-      onClick={() => router.push(`/threads/${gist.id}`)}
+      onClick={() => router.push(`/threads/${thread.id}`)}
     >
       <TableCell className="py-2 font-medium">
-        {gist.description || "Untitled Thread"}
+        {thread.title || "Untitled Thread"}
       </TableCell>
       <TableCell className="py-2">
-        {new Date(gist.created_at).toLocaleDateString()}
+        {createdAt ? new Date(createdAt).toLocaleDateString() : "Unknown"}
       </TableCell>
       <TableCell className="py-2 text-right">
         <ArrowRight className="ml-auto h-4 w-4" />

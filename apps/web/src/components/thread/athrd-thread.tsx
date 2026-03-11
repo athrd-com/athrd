@@ -185,7 +185,7 @@ function UserMessage({
   message: AthrdUserMessage;
   markdownOptions: MarkdownOptions;
 }) {
-  const ownerLabel = owner?.login || owner?.displayName || "You";
+  const ownerLabel = owner?.login || "You";
 
   return (
     <div className="flex gap-4 group">

@@ -194,29 +194,19 @@ function extractOwnerFromRawContent(
     getString(rawContent, "githubUsername");
   const ownerRecord = getRecord(rawContent, "owner");
   const ownerLogin = getString(ownerRecord, "login");
-  const ownerDisplayName =
-    getString(ownerRecord, "displayName") || getString(ownerRecord, "name");
   const ownerAvatarUrl = getString(ownerRecord, "avatarUrl");
   const ownerProfileUrl = getString(ownerRecord, "profileUrl");
 
-  if (
-    !githubUsername &&
-    !ownerLogin &&
-    !ownerDisplayName &&
-    !ownerAvatarUrl &&
-    !ownerProfileUrl
-  ) {
+  if (!githubUsername && !ownerLogin) {
     return undefined;
   }
 
   const login = githubUsername || ownerLogin;
 
   return {
-    login: login || undefined,
-    displayName: ownerDisplayName || login || undefined,
+    login,
     avatarUrl: ownerAvatarUrl || undefined,
-    profileUrl:
-      ownerProfileUrl || (login ? `https://github.com/${login}` : undefined),
+    profileUrl: ownerProfileUrl || `https://github.com/${login}`,
   };
 }
 

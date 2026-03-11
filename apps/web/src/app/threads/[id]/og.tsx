@@ -1,7 +1,5 @@
-import { ImageResponse } from "next/og";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
-
-export const runtime = "nodejs";
+import { ImageResponse } from "next/og";
 
 export const alt = "Thread View";
 export const size = {

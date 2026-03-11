@@ -23,12 +23,6 @@ const fileMock = vi.fn(() => ({
   text: textMock,
 }));
 
-vi.mock("bun", () => ({
-  S3Client: class S3Client {
-    file = fileMock;
-  },
-}));
-
 vi.mock("~/lib/github", () => ({
   fetchGist: vi.fn(),
 }));
@@ -66,6 +60,17 @@ describe("thread-source", () => {
     existsMock.mockReset();
     textMock.mockReset();
     fileMock.mockClear();
+    (
+      globalThis as typeof globalThis & {
+        Bun?: {
+          S3Client: new () => { file: typeof fileMock };
+        };
+      }
+    ).Bun = {
+      S3Client: class S3Client {
+        file = fileMock;
+      },
+    };
   });
 
   it("parses bare ids as gist ids", () => {
@@ -134,5 +139,15 @@ describe("thread-source", () => {
     existsMock.mockResolvedValueOnce(false);
 
     await expect(readThreadSourceRecord("S-threads/missing.json")).resolves.toBeNull();
+  });
+
+  it("returns null when Bun S3 is unavailable", async () => {
+    delete (
+      globalThis as typeof globalThis & {
+        Bun?: unknown;
+      }
+    ).Bun;
+
+    await expect(readThreadSourceRecord("S-threads/demo.json")).resolves.toBeNull();
   });
 });

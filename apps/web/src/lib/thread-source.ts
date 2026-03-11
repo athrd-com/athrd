@@ -1,5 +1,4 @@
 import { env } from "@/env";
-import { S3Client } from "bun";
 import { fetchGist, type GistData, type GistFile } from "~/lib/github";
 
 export type ThreadSource = "gist" | "s3";
@@ -11,11 +10,9 @@ export interface ThreadLocator {
 }
 
 export interface ThreadSourceOwner {
-  login?: string;
-  displayName?: string;
+  login: string;
   avatarUrl?: string;
   profileUrl?: string;
-  type?: string;
 }
 
 export interface ThreadSourceRecord {
@@ -85,10 +82,9 @@ export function createThreadSourceRecordFromGist(
     createdAt: gist.created_at,
     updatedAt: gist.updated_at,
     owner: {
-      login: gist.owner?.login,
-      avatarUrl: gist.owner?.avatar_url,
-      profileUrl: gist.owner?.html_url,
-      type: gist.owner?.type,
+      login: gist.owner.login,
+      avatarUrl: gist.owner.avatar_url,
+      profileUrl: gist.owner.html_url,
     },
     filename: file.filename,
     content: file.content || "",
@@ -107,7 +103,7 @@ class GistThreadSourceProvider implements ThreadSourceProvider {
 }
 
 class S3ThreadSourceProvider implements ThreadSourceProvider {
-  private client: S3Client | null = null;
+  private client: BunS3Client | null = null;
 
   async readThread(locator: ThreadLocator): Promise<ThreadSourceRecord | null> {
     const bucket = env.ATHRD_THREADS_S3_BUCKET;
@@ -119,6 +115,10 @@ class S3ThreadSourceProvider implements ThreadSourceProvider {
 
     try {
       const client = this.getClient();
+      if (!client) {
+        return null;
+      }
+
       const file = client.file(locator.sourceId);
       const exists = await file.exists();
 
@@ -140,9 +140,15 @@ class S3ThreadSourceProvider implements ThreadSourceProvider {
     }
   }
 
-  private getClient(): S3Client {
+  private getClient(): BunS3Client | null {
+    const BunRuntime = getBunRuntime();
+
+    if (!BunRuntime?.S3Client) {
+      return null;
+    }
+
     if (!this.client) {
-      this.client = new S3Client({
+      this.client = new BunRuntime.S3Client({
         region: env.ATHRD_THREADS_S3_REGION,
         bucket: env.ATHRD_THREADS_S3_BUCKET,
         endpoint: env.ATHRD_THREADS_S3_ENDPOINT || undefined,
@@ -170,4 +176,27 @@ export async function readThreadSourceRecord(
 function getFileNameFromObjectKey(objectKey: string): string {
   const parts = objectKey.split("/").filter(Boolean);
   return parts[parts.length - 1] || objectKey;
+}
+
+type BunS3File = {
+  exists(): Promise<boolean>;
+  text(): Promise<string>;
+};
+
+type BunS3Client = {
+  file(path: string): BunS3File;
+};
+
+type BunRuntimeLike = {
+  S3Client: new (options: {
+    region?: string;
+    bucket?: string;
+    endpoint?: string;
+    virtualHostedStyle?: boolean;
+  }) => BunS3Client;
+};
+
+function getBunRuntime(): BunRuntimeLike | undefined {
+  const runtime = (globalThis as typeof globalThis & { Bun?: BunRuntimeLike }).Bun;
+  return runtime;
 }

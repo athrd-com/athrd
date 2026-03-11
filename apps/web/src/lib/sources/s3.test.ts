@@ -120,13 +120,13 @@ describe("sources/s3", () => {
 
     await expect(provider.listThreads("456", "123")).resolves.toEqual([
       expect.objectContaining({
-        id: "S-thread-b",
+        id: "S-456-123-thread-b",
         source: "s3",
         sourceId: "456/123/thread-b.json",
         title: "Newer thread",
       }),
       expect.objectContaining({
-        id: "S-thread-a",
+        id: "S-456-123-thread-a",
         source: "s3",
         sourceId: "456/123/thread-a.json",
         title: "Older thread",
@@ -150,7 +150,7 @@ describe("sources/s3", () => {
 
     await expect(provider.listThreads("456", "123")).resolves.toEqual([
       expect.objectContaining({
-        id: "S-thread-a",
+        id: "S-456-123-thread-a",
         source: "s3",
         sourceId: "456/123/thread-a.json",
         title: "Scoped thread",

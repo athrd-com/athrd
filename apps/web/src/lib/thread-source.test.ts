@@ -41,12 +41,12 @@ describe("thread-source", () => {
   });
 
   it("parses S3-prefixed ids", () => {
-    const publicId = createS3PublicId("demo");
+    const publicId = createS3PublicId("456/123/abc123.json");
 
     expect(parseThreadLocator(publicId)).toEqual({
       publicId,
       source: "s3",
-      sourceId: "demo",
+      sourceId: "456/123/abc123.json",
     });
   });
 
@@ -70,7 +70,7 @@ describe("thread-source", () => {
   });
 
   it("routes prefixed ids through the S3 provider", async () => {
-    const publicId = createS3PublicId("demo");
+    const publicId = createS3PublicId("456/123/abc123.json");
 
     await expect(readThreadSourceRecord(publicId)).resolves.toMatchObject({
       source: "s3",

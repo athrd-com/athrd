@@ -5,6 +5,8 @@ vi.mock("@/env", () => ({
   env: {
     ATHRD_THREADS_S3_BUCKET: "athrd-threads",
     ATHRD_THREADS_S3_REGION: "us-west-2",
+    ATHRD_THREADS_S3_ACCESS_KEY_ID: "filebase-key",
+    ATHRD_THREADS_S3_SECRET_ACCESS_KEY: "filebase-secret",
     ATHRD_THREADS_S3_ENDPOINT: undefined,
     ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE: false,
   },

@@ -26,6 +26,14 @@ export const env = createEnv({
 			process.env.NODE_ENV === "production"
 				? z.string()
 				: z.string().optional(),
+		ATHRD_THREADS_S3_ACCESS_KEY_ID:
+			process.env.NODE_ENV === "production"
+				? z.string()
+				: z.string().optional(),
+		ATHRD_THREADS_S3_SECRET_ACCESS_KEY:
+			process.env.NODE_ENV === "production"
+				? z.string()
+				: z.string().optional(),
 		ATHRD_THREADS_S3_ENDPOINT: z.string().url().optional(),
 		ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE: z
 			.enum(["true", "false"])
@@ -58,6 +66,10 @@ export const env = createEnv({
 		DATABASE_URL: process.env.DATABASE_URL,
 		ATHRD_THREADS_S3_BUCKET: process.env.ATHRD_THREADS_S3_BUCKET,
 		ATHRD_THREADS_S3_REGION: process.env.ATHRD_THREADS_S3_REGION,
+		ATHRD_THREADS_S3_ACCESS_KEY_ID:
+			process.env.ATHRD_THREADS_S3_ACCESS_KEY_ID,
+		ATHRD_THREADS_S3_SECRET_ACCESS_KEY:
+			process.env.ATHRD_THREADS_S3_SECRET_ACCESS_KEY,
 		ATHRD_THREADS_S3_ENDPOINT: process.env.ATHRD_THREADS_S3_ENDPOINT,
 		ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE:
 			process.env.ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE,

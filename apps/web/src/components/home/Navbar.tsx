@@ -53,6 +53,9 @@ export function Navbar() {
         </span>
       </div>
       <div className="hidden md:flex gap-6 text-gray-400 absolute left-1/2 -translate-x-1/2">
+        <Link href="/" className="hover:text-white transition-colors">
+          Home
+        </Link>
         <Link href="/threads" className="hover:text-white transition-colors">
           Threads
         </Link>

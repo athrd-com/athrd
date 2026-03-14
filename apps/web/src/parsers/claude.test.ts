@@ -66,6 +66,50 @@ describe("claudeParser", () => {
   });
 
   describe("parse - user messages", () => {
+    it("should generate stable fallback ids across repeated parses", () => {
+      const thread = {
+        requests: [
+          {
+            id: "",
+            message: {
+              role: "user",
+              content: "Hello, Claude!",
+              model: "claude-3-5-sonnet-20241022",
+            },
+            timestamp: "2024-01-07T12:00:00Z",
+            type: "user",
+          },
+          {
+            id: "",
+            message: {
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: "Hello back.",
+                },
+              ],
+              usage: createUsage(),
+              id: "",
+              model: "claude-3-5-sonnet-20241022",
+            },
+            timestamp: "2024-01-07T12:00:01Z",
+            type: "assistant",
+          },
+        ],
+      } satisfies ClaudeThread;
+
+      const firstParse = claudeParser.parse(thread);
+      const secondParse = claudeParser.parse(thread);
+
+      expect(firstParse.messages.map((message) => message.id)).toEqual(
+        secondParse.messages.map((message) => message.id)
+      );
+      expect(firstParse.messages[0]?.id).toBeTruthy();
+      expect(firstParse.messages[1]?.id).toBeTruthy();
+      expect(firstParse.messages[0]?.id).not.toBe(firstParse.messages[1]?.id);
+    });
+
     it("should parse a simple user message", () => {
       const thread: ClaudeThread = {
         requests: [

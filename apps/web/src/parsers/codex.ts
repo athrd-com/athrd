@@ -96,7 +96,7 @@ function createStableCodexMessageId(
     ? `${normalizedTimestamp}:${fallbackKey}`
     : normalizedTimestamp;
 
-  return `codex-${role}-${hashStringToBase36(stableKey)}`;
+  return hashStringToBase36(stableKey);
 }
 
 function hasAssistantContent(state: AssistantState): boolean {

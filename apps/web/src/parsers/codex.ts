@@ -45,7 +45,6 @@ interface AssistantState {
 }
 
 interface ParseContext {
-  sessionId: string;
   messages: (AthrdUserMessage | AthrdAssistantMessage)[];
   functionOutputs: Map<string, CodexFunctionCallOutputPayload["output"]>;
   model: string;
@@ -61,12 +60,7 @@ function createEmptyAssistantState(): AssistantState {
   return { content: [], thoughts: [], toolCalls: [], timestamp: "", id: "" };
 }
 
-function createStableCodexMessageId(
-  sessionId: string,
-  role: "user" | "assistant",
-  sourceIndex: number
-): string {
-  const input = `${sessionId}:${role}:${sourceIndex}`;
+function hashStringToBase36(input: string): string {
   let hashA = 0xdeadbeef ^ input.length;
   let hashB = 0x41c6ce57 ^ input.length;
 
@@ -83,12 +77,26 @@ function createStableCodexMessageId(
     Math.imul(hashB ^ (hashB >>> 16), 2246822507) ^
     Math.imul(hashA ^ (hashA >>> 13), 3266489909);
 
-  const stableHash = (
+  return (
     4294967296 * (2097151 & hashB) +
     (hashA >>> 0)
   ).toString(36);
+}
 
-  return `codex-${role}-${stableHash}`;
+function createStableCodexMessageId(
+  role: "user" | "assistant",
+  timestamp: string,
+  fallbackKey?: string
+): string {
+  const normalizedTimestamp =
+    typeof timestamp === "string" && timestamp.trim().length > 0
+      ? normalizeTimestamp(timestamp)
+      : `missing:${role}`;
+  const stableKey = fallbackKey
+    ? `${normalizedTimestamp}:${fallbackKey}`
+    : normalizedTimestamp;
+
+  return `codex-${role}-${hashStringToBase36(stableKey)}`;
 }
 
 function hasAssistantContent(state: AssistantState): boolean {
@@ -110,9 +118,9 @@ function flushAssistant(ctx: ParseContext): void {
     id:
       ctx.assistant.id ||
       createStableCodexMessageId(
-        ctx.sessionId,
         "assistant",
-        ctx.messages.length
+        ctx.assistant.timestamp,
+        String(ctx.messages.length)
       ),
     type: "assistant",
     content: ctx.assistant.content.join("\n\n"),
@@ -128,16 +136,12 @@ function flushAssistant(ctx: ParseContext): void {
 }
 
 function ensureAssistantId(
-  ctx: ParseContext,
   state: AssistantState,
-  sourceIndex: number
+  timestamp: string,
+  fallbackKey?: string
 ): void {
   if (!state.id) {
-    state.id = createStableCodexMessageId(
-      ctx.sessionId,
-      "assistant",
-      sourceIndex
-    );
+    state.id = createStableCodexMessageId("assistant", timestamp, fallbackKey);
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +175,7 @@ function handleResponseMessage(
     if (textContent.startsWith("<environment_context>")) return;
 
     ctx.messages.push({
-      id: createStableCodexMessageId(ctx.sessionId, "user", sourceIndex),
+      id: createStableCodexMessageId("user", timestamp, String(sourceIndex)),
       type: "user",
       content: textContent,
     });
@@ -190,7 +194,7 @@ function handleResponseMessage(
 
     ctx.assistant.content.push(textContent);
     ctx.assistant.timestamp = normalizeTimestamp(timestamp);
-    ensureAssistantId(ctx, ctx.assistant, sourceIndex);
+    ensureAssistantId(ctx.assistant, timestamp, String(sourceIndex));
   }
 }
 
@@ -208,7 +212,7 @@ function handleFunctionCall(
   const toolCall = parseFunctionCall(payload, timestamp, ctx.functionOutputs);
   ctx.assistant.toolCalls.push(toolCall);
   ctx.assistant.timestamp = normalizeTimestamp(timestamp);
-  ensureAssistantId(ctx, ctx.assistant, sourceIndex);
+  ensureAssistantId(ctx.assistant, timestamp, String(sourceIndex));
 }
 
 function handleReasoning(
@@ -254,7 +258,7 @@ function handleReasoning(
     });
   }
 
-  ensureAssistantId(ctx, ctx.assistant, sourceIndex);
+  ensureAssistantId(ctx.assistant, timestamp, String(sourceIndex));
 }
 
 function processResponseItem(
@@ -634,7 +638,6 @@ export const codexParser: Parser<CodexThread> = {
 
   parse(rawThread: CodexThread): AThrd {
     const ctx: ParseContext = {
-      sessionId: rawThread.sessionId,
       messages: [],
       functionOutputs: buildFunctionOutputMap(rawThread.messages),
       model: "codex",

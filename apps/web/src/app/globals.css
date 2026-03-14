@@ -108,6 +108,7 @@
 .markdown-content {
   @apply text-[15px] leading-7 text-gray-200 antialiased sm:text-base;
   text-wrap: pretty;
+  overflow-wrap: anywhere;
 }
 
 .markdown-content > :first-child {
@@ -144,6 +145,7 @@
 
 .markdown-content a {
   @apply font-medium text-blue-300 underline decoration-2 decoration-blue-400/40 underline-offset-4 transition-colors;
+  overflow-wrap: anywhere;
 }
 
 .markdown-content a:hover {
@@ -201,6 +203,7 @@
 
 .markdown-content code {
   @apply rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[0.85em] text-gray-100;
+  overflow-wrap: anywhere;
 }
 
 .markdown-content pre code {

@@ -21,9 +21,6 @@ import type {
 } from "@/types/athrd";
 import type { ComponentProps, ReactNode } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import {
   extractKnownFilePaths,
   getShortFileLinkLabel,
@@ -33,6 +30,9 @@ import {
   maybeShortenFilePathLinkChildren,
   mergeRel,
 } from "@/components/thread/markdown-render-utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   HoverCard,
   HoverCardContent,
@@ -180,7 +180,7 @@ export default function AThrdThread({
   };
 
   return (
-    <div className="athrd-thread space-y-6 px-4 py-8 sm:px-8 md:px-16 lg:px-32">
+    <div className="athrd-thread space-y-6 lg:px-32 lg:py-8 px-2 md:px-16">
       {messageGroups.map((group, groupIdx) => {
         if (group.type === "user") {
           return group.messages.map((message, index) => (
@@ -222,7 +222,7 @@ function UserMessage({
   return (
     <div
       id={getThreadAnchorId(message.id)}
-      className="group/thread-item flex scroll-mt-24 items-start gap-4"
+      className="group/thread-item flex scroll-mt-24 flex-col items-start gap-2 sm:flex-row sm:gap-4"
     >
       <ThreadAnchor
         href={getThreadAnchorHref(message.id)}
@@ -329,7 +329,7 @@ function AssistantMessageGroup({
   return (
     <div
       id={anchorId}
-      className="group/thread-item flex scroll-mt-24 items-start gap-4"
+      className="group/thread-item flex scroll-mt-24 flex-col items-start gap-2 sm:flex-row sm:gap-4"
     >
       <ThreadAnchor href={`#${anchorId}`} label="Link to this reply">
         <Avatar className="h-8 w-8 border border-white/10">
@@ -424,7 +424,7 @@ function ThreadAnchor({
   children: ReactNode;
 }) {
   return (
-    <div className="group/thread-anchor relative mt-1 flex h-8 w-8 shrink-0 items-center justify-center">
+    <div className="group/thread-anchor relative flex h-8 w-8 shrink-0 items-center justify-center sm:mt-1">
       <a
         href={href}
         aria-label={label}

@@ -83,6 +83,65 @@ describe("codexParser", () => {
   });
 
   describe("parse - user messages", () => {
+    it("should generate stable synthetic ids across repeated parses", () => {
+      const thread = createBaseThread();
+      thread.messages = [
+        createTaskStartedEvent(),
+        {
+          timestamp: "2024-01-07T12:00:00Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Hello, Codex!" }],
+          },
+        },
+        {
+          timestamp: "2024-01-07T12:00:01Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "Hello back." }],
+          },
+        },
+      ];
+
+      const firstParse = codexParser.parse(thread);
+      const secondParse = codexParser.parse(thread);
+
+      expect(firstParse.messages.map((message) => message.id)).toEqual(
+        secondParse.messages.map((message) => message.id)
+      );
+      expect(firstParse.messages[0]?.id).toBeTruthy();
+      expect(firstParse.messages[1]?.id).toBeTruthy();
+      expect(firstParse.messages[0]?.id).not.toBe(firstParse.messages[1]?.id);
+    });
+
+    it("should generate stable assistant ids when the assistant starts with reasoning", () => {
+      const thread = createBaseThread();
+      thread.messages = [
+        createTaskStartedEvent(),
+        {
+          timestamp: "2024-01-07T12:00:00Z",
+          type: "response_item",
+          payload: {
+            type: "reasoning",
+            summary: [{ type: "summary_text", text: "Thinking through it" }],
+            content: null,
+          },
+        },
+      ];
+
+      const firstParse = codexParser.parse(thread);
+      const secondParse = codexParser.parse(thread);
+
+      expect(firstParse.messages.map((message) => message.id)).toEqual(
+        secondParse.messages.map((message) => message.id)
+      );
+      expect(firstParse.messages[0]?.id).toBeTruthy();
+    });
+
     it("should parse a simple user message", () => {
       const thread = createBaseThread();
       thread.messages = [

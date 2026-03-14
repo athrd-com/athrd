@@ -60,6 +60,26 @@ function createEmptyAssistantState(): AssistantState {
   return { content: [], thoughts: [], toolCalls: [], timestamp: "", id: "" };
 }
 
+function encodeBase64Url(input: string): string {
+  return Buffer.from(input, "utf8").toString("base64url");
+}
+
+function createStableCodexMessageId(
+  role: "user" | "assistant",
+  timestamp: string,
+  fallbackKey?: string
+): string {
+  const normalizedTimestamp =
+    typeof timestamp === "string" && timestamp.trim().length > 0
+      ? normalizeTimestamp(timestamp)
+      : `missing:${role}`;
+  const stableKey = fallbackKey
+    ? `${normalizedTimestamp}:${fallbackKey}`
+    : normalizedTimestamp;
+
+  return encodeBase64Url(stableKey);
+}
+
 function hasAssistantContent(state: AssistantState): boolean {
   return (
     state.content.length > 0 ||
@@ -76,7 +96,13 @@ function flushAssistant(ctx: ParseContext): void {
   if (!hasAssistantContent(ctx.assistant)) return;
 
   ctx.messages.push({
-    id: ctx.assistant.id || generateId(),
+    id:
+      ctx.assistant.id ||
+      createStableCodexMessageId(
+        "assistant",
+        ctx.assistant.timestamp,
+        String(ctx.messages.length)
+      ),
     type: "assistant",
     content: ctx.assistant.content.join("\n\n"),
     timestamp: ctx.assistant.timestamp || new Date().toISOString(),
@@ -90,8 +116,14 @@ function flushAssistant(ctx: ParseContext): void {
   ctx.assistant = createEmptyAssistantState();
 }
 
-function ensureAssistantId(state: AssistantState): void {
-  if (!state.id) state.id = generateId();
+function ensureAssistantId(
+  state: AssistantState,
+  timestamp: string,
+  fallbackKey?: string
+): void {
+  if (!state.id) {
+    state.id = createStableCodexMessageId("assistant", timestamp, fallbackKey);
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Response Item Handlers
@@ -110,7 +142,8 @@ function extractTextContent(
 function handleResponseMessage(
   ctx: ParseContext,
   payload: CodexResponseMessagePayload,
-  timestamp: string
+  timestamp: string,
+  sourceIndex: number
 ): void {
   if (!ctx.hasTaskStarted) return;
 
@@ -123,7 +156,7 @@ function handleResponseMessage(
     if (textContent.startsWith("<environment_context>")) return;
 
     ctx.messages.push({
-      id: generateId(),
+      id: createStableCodexMessageId("user", timestamp, String(sourceIndex)),
       type: "user",
       content: textContent,
     });
@@ -142,14 +175,15 @@ function handleResponseMessage(
 
     ctx.assistant.content.push(textContent);
     ctx.assistant.timestamp = normalizeTimestamp(timestamp);
-    ensureAssistantId(ctx.assistant);
+    ensureAssistantId(ctx.assistant, timestamp, String(sourceIndex));
   }
 }
 
 function handleFunctionCall(
   ctx: ParseContext,
   payload: CodexFunctionCallPayload,
-  timestamp: string
+  timestamp: string,
+  sourceIndex: number
 ): void {
   // Preserve event ordering by separating text blocks from reasoning/tool blocks.
   if (hasAssistantText(ctx.assistant)) {
@@ -159,13 +193,14 @@ function handleFunctionCall(
   const toolCall = parseFunctionCall(payload, timestamp, ctx.functionOutputs);
   ctx.assistant.toolCalls.push(toolCall);
   ctx.assistant.timestamp = normalizeTimestamp(timestamp);
-  ensureAssistantId(ctx.assistant);
+  ensureAssistantId(ctx.assistant, timestamp, String(sourceIndex));
 }
 
 function handleReasoning(
   ctx: ParseContext,
   payload: CodexReasoningPayload,
-  timestamp: string
+  timestamp: string,
+  sourceIndex: number
 ): void {
   // Preserve event ordering by separating text blocks from reasoning/tool blocks.
   if (hasAssistantText(ctx.assistant)) {
@@ -204,10 +239,14 @@ function handleReasoning(
     });
   }
 
-  ensureAssistantId(ctx.assistant);
+  ensureAssistantId(ctx.assistant, timestamp, String(sourceIndex));
 }
 
-function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
+function processResponseItem(
+  ctx: ParseContext,
+  msg: CodexResponseItem,
+  sourceIndex: number
+): void {
   const { payload, timestamp } = msg;
 
   switch (payload.type) {
@@ -215,14 +254,25 @@ function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
       handleResponseMessage(
         ctx,
         payload as CodexResponseMessagePayload,
-        timestamp
+        timestamp,
+        sourceIndex
       );
       break;
     case "function_call":
-      handleFunctionCall(ctx, payload as CodexFunctionCallPayload, timestamp);
+      handleFunctionCall(
+        ctx,
+        payload as CodexFunctionCallPayload,
+        timestamp,
+        sourceIndex
+      );
       break;
     case "reasoning":
-      handleReasoning(ctx, payload as CodexReasoningPayload, timestamp);
+      handleReasoning(
+        ctx,
+        payload as CodexReasoningPayload,
+        timestamp,
+        sourceIndex
+      );
       break;
     // Skip ghost_snapshot and function_call_output (handled via map)
   }
@@ -232,7 +282,11 @@ function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
 // Message Processing
 // ─────────────────────────────────────────────────────────────────────────────
 
-function processMessage(ctx: ParseContext, msg: CodexMessage): void {
+function processMessage(
+  ctx: ParseContext,
+  msg: CodexMessage,
+  sourceIndex: number
+): void {
   switch (msg.type) {
     case "event_msg": {
       const payload = (msg as { payload?: { type?: string } }).payload;
@@ -247,7 +301,7 @@ function processMessage(ctx: ParseContext, msg: CodexMessage): void {
       break;
     }
     case "response_item":
-      processResponseItem(ctx, msg as CodexResponseItem);
+      processResponseItem(ctx, msg as CodexResponseItem, sourceIndex);
       break;
     // Skip event_msg - user messages come from response_item
   }
@@ -572,8 +626,8 @@ export const codexParser: Parser<CodexThread> = {
       hasTaskStarted: false,
     };
 
-    for (const msg of rawThread.messages) {
-      processMessage(ctx, msg);
+    for (const [sourceIndex, msg] of rawThread.messages.entries()) {
+      processMessage(ctx, msg, sourceIndex);
     }
 
     // Flush any remaining assistant content

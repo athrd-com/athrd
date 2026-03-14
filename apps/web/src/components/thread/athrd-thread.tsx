@@ -21,9 +21,6 @@ import type {
 } from "@/types/athrd";
 import type { ComponentProps, ReactNode } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import {
   extractKnownFilePaths,
   getShortFileLinkLabel,
@@ -33,6 +30,9 @@ import {
   maybeShortenFilePathLinkChildren,
   mergeRel,
 } from "@/components/thread/markdown-render-utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   HoverCard,
   HoverCardContent,
@@ -180,7 +180,7 @@ export default function AThrdThread({
   };
 
   return (
-    <div className="athrd-thread space-y-6 px-4 py-8 sm:px-8 md:px-16 lg:px-32">
+    <div className="athrd-thread space-y-6 lg:px-32 lg:py-8 px-2 md:px-16">
       {messageGroups.map((group, groupIdx) => {
         if (group.type === "user") {
           return group.messages.map((message, index) => (

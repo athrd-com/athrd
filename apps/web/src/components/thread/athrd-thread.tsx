@@ -222,7 +222,7 @@ function UserMessage({
   return (
     <div
       id={getThreadAnchorId(message.id)}
-      className="group/thread-item flex scroll-mt-24 items-start gap-4"
+      className="group/thread-item flex scroll-mt-24 flex-col items-start gap-2 sm:flex-row sm:gap-4"
     >
       <ThreadAnchor
         href={getThreadAnchorHref(message.id)}
@@ -329,7 +329,7 @@ function AssistantMessageGroup({
   return (
     <div
       id={anchorId}
-      className="group/thread-item flex scroll-mt-24 items-start gap-4"
+      className="group/thread-item flex scroll-mt-24 flex-col items-start gap-2 sm:flex-row sm:gap-4"
     >
       <ThreadAnchor href={`#${anchorId}`} label="Link to this reply">
         <Avatar className="h-8 w-8 border border-white/10">
@@ -424,7 +424,7 @@ function ThreadAnchor({
   children: ReactNode;
 }) {
   return (
-    <div className="group/thread-anchor relative mt-1 flex h-8 w-8 shrink-0 items-center justify-center">
+    <div className="group/thread-anchor relative flex h-8 w-8 shrink-0 items-center justify-center sm:mt-1">
       <a
         href={href}
         aria-label={label}

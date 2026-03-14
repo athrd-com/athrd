@@ -36,38 +36,6 @@ import {
   normalizeTimestamp,
 } from "./utils";
 
-function hashStringToBase36(input: string): string {
-  let hashA = 0xdeadbeef ^ input.length;
-  let hashB = 0x41c6ce57 ^ input.length;
-
-  for (let index = 0; index < input.length; index += 1) {
-    const code = input.charCodeAt(index);
-    hashA = Math.imul(hashA ^ code, 2654435761);
-    hashB = Math.imul(hashB ^ code, 1597334677);
-  }
-
-  hashA =
-    Math.imul(hashA ^ (hashA >>> 16), 2246822507) ^
-    Math.imul(hashB ^ (hashB >>> 13), 3266489909);
-  hashB =
-    Math.imul(hashB ^ (hashB >>> 16), 2246822507) ^
-    Math.imul(hashA ^ (hashA >>> 13), 3266489909);
-
-  return (
-    4294967296 * (2097151 & hashB) +
-    (hashA >>> 0)
-  ).toString(36);
-}
-
-function createStableClaudeMessageId(timestamp: string, fallbackKey: string): string {
-  const normalizedTimestamp =
-    typeof timestamp === "string" && timestamp.trim().length > 0
-      ? normalizeTimestamp(timestamp)
-      : "missing";
-
-  return hashStringToBase36(`${normalizedTimestamp}:${fallbackKey}`);
-}
-
 /**
  * Check if content is a tool result array
  */
@@ -128,8 +96,7 @@ function findToolResult(
  */
 function parseSingleRequest(
   request: ClaudeRequest,
-  _requests: ClaudeRequest[],
-  requestIndex: number
+  _requests: ClaudeRequest[]
 ): AthrdUserMessage | null {
   if (request.message.role === "user") {
     const content = request.message.content;
@@ -150,9 +117,7 @@ function parseSingleRequest(
         : content;
 
       return {
-        id:
-          request.id ||
-          createStableClaudeMessageId(request.timestamp, `user:${requestIndex}`),
+        id: request.id || generateId(),
         type: "user",
         content: extractedContent,
       };
@@ -165,9 +130,7 @@ function parseSingleRequest(
         .map((c) => c.text);
 
       return {
-        id:
-          request.id ||
-          createStableClaudeMessageId(request.timestamp, `user:${requestIndex}`),
+        id: request.id || generateId(),
         type: "user",
         content: textParts.join("\n"),
       };
@@ -182,8 +145,7 @@ function parseSingleRequest(
  */
 function parseAssistantRequest(
   request: ClaudeRequest,
-  allRequests: ClaudeRequest[],
-  requestIndex: number
+  allRequests: ClaudeRequest[]
 ): AthrdAssistantMessage | null {
   const assistantMsg = request.message as RequestAssistantMessage;
 
@@ -217,13 +179,7 @@ function parseAssistantRequest(
   }
 
   return {
-    id:
-      assistantMsg.id ||
-      request.id ||
-      createStableClaudeMessageId(
-        request.timestamp,
-        `assistant:${requestIndex}`
-      ),
+    id: assistantMsg.id || generateId(),
     type: "assistant",
     content: textContent.join("\n\n"),
     timestamp: normalizeTimestamp(request.timestamp),
@@ -405,18 +361,14 @@ export const claudeParser: Parser<ClaudeThread> = {
     // Filter out tool result messages (they're handled in assistant parsing)
     const filteredRequests = filterRequests(requests);
 
-    for (const [requestIndex, request] of filteredRequests.entries()) {
+    for (const request of filteredRequests) {
       if (request.message.role === "assistant") {
-        const assistantMessage = parseAssistantRequest(
-          request,
-          requests,
-          requestIndex
-        );
+        const assistantMessage = parseAssistantRequest(request, requests);
         if (assistantMessage) {
           messages.push(assistantMessage);
         }
       } else {
-        const msg = parseSingleRequest(request, requests, requestIndex);
+        const msg = parseSingleRequest(request, requests);
         if (msg) {
           messages.push(msg);
         }

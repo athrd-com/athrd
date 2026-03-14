@@ -19,7 +19,7 @@ import type {
   WebSearchToolCall,
   WriteFileToolCall,
 } from "@/types/athrd";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -52,8 +52,13 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ToolEditBlock from "./tool-edit-block";
+import {
+  getThreadAnchorHref,
+  getThreadAnchorId,
+  groupMessages,
+} from "./thread-anchor-utils";
 import ToolGenericBlock from "./tool-generic-block";
 import ToolMCPBlock from "./tool-mcp-block";
 import ToolRequestUserInputBlock from "./tool-request-user-input-block";
@@ -70,33 +75,6 @@ interface AThrdThreadProps {
 type MarkdownOptions = NonNullable<ComponentProps<typeof Markdown>["options"]>;
 
 /**
- * Group consecutive messages by type
- */
-function groupMessages(messages: (AthrdUserMessage | AthrdAssistantMessage)[]) {
-  const groups: Array<{
-    type: "user" | "assistant";
-    messages: (AthrdUserMessage | AthrdAssistantMessage)[];
-  }> = [];
-
-  for (const message of messages) {
-    const lastGroup = groups[groups.length - 1];
-
-    if (lastGroup && lastGroup.type === message.type) {
-      // Add to existing group
-      lastGroup.messages.push(message);
-    } else {
-      // Create new group
-      groups.push({
-        type: message.type,
-        messages: [message],
-      });
-    }
-  }
-
-  return groups;
-}
-
-/**
  * Unified thread renderer for the AThrd format.
  * Renders messages from any CLI tool that has been parsed into AThrd.
  */
@@ -109,6 +87,46 @@ export default function AThrdThread({
 }: AThrdThreadProps) {
   const messageGroups = groupMessages(thread.messages);
   const knownFilePaths = extractKnownFilePaths(thread);
+
+  useEffect(() => {
+    const scrollToHashTarget = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const hash = window.location.hash.slice(1);
+
+      if (!hash) {
+        return;
+      }
+
+      const targetId = (() => {
+        try {
+          return decodeURIComponent(hash);
+        } catch {
+          return hash;
+        }
+      })();
+      const target = document.getElementById(targetId);
+
+      if (!target) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        target.scrollIntoView({
+          block: "start",
+        });
+      });
+    };
+
+    scrollToHashTarget();
+    window.addEventListener("hashchange", scrollToHashTarget);
+
+    return () => {
+      window.removeEventListener("hashchange", scrollToHashTarget);
+    };
+  }, [thread.messages]);
 
   const markdownOptions: MarkdownOptions = {
     overrides: {
@@ -177,6 +195,7 @@ export default function AThrdThread({
         return (
           <AssistantMessageGroup
             key={`assistant-group-${groupIdx}`}
+            anchorId={group.anchorId}
             messages={group.messages as AthrdAssistantMessage[]}
             markdownOptions={markdownOptions}
           />
@@ -201,13 +220,21 @@ function UserMessage({
   const ownerLabel = owner?.login || "You";
 
   return (
-    <div className="flex gap-4 group">
-      <Avatar className="h-8 w-8 mt-1 border border-white/10">
-        <AvatarImage src={owner?.avatarUrl} alt={ownerLabel} />
-        <AvatarFallback className="bg-blue-900/30 text-blue-200 text-xs">
-          {ownerLabel.substring(0, 2).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
+    <div
+      id={getThreadAnchorId(message.id)}
+      className="group/thread-item flex scroll-mt-24 items-start gap-4"
+    >
+      <ThreadAnchor
+        href={getThreadAnchorHref(message.id)}
+        label="Link to this prompt"
+      >
+        <Avatar className="h-8 w-8 border border-white/10">
+          <AvatarImage src={owner?.avatarUrl} alt={ownerLabel} />
+          <AvatarFallback className="bg-blue-900/30 text-blue-200 text-xs">
+            {ownerLabel.substring(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      </ThreadAnchor>
       <Card className="w-full max-w-[min(74ch,100%)] min-w-0 gap-2 border-white/10 bg-[#111] p-4 text-gray-300 shadow-none">
         <div className="markdown-content">
           <Markdown options={markdownOptions}>{message.content}</Markdown>
@@ -221,9 +248,11 @@ function UserMessage({
  * Render a group of consecutive assistant messages with a single avatar
  */
 function AssistantMessageGroup({
+  anchorId,
   messages,
   markdownOptions,
 }: {
+  anchorId: string;
   messages: AthrdAssistantMessage[];
   markdownOptions: MarkdownOptions;
 }) {
@@ -298,12 +327,17 @@ function AssistantMessageGroup({
   }
 
   return (
-    <div className="flex gap-4">
-      <Avatar className="h-8 w-8 mt-1 border border-white/10">
-        <AvatarFallback className="bg-purple-900/30 text-purple-200 text-xs">
-          <Bot className="h-4 w-4" />
-        </AvatarFallback>
-      </Avatar>
+    <div
+      id={anchorId}
+      className="group/thread-item flex scroll-mt-24 items-start gap-4"
+    >
+      <ThreadAnchor href={`#${anchorId}`} label="Link to this reply">
+        <Avatar className="h-8 w-8 border border-white/10">
+          <AvatarFallback className="bg-purple-900/30 text-purple-200 text-xs">
+            <Bot className="h-4 w-4" />
+          </AvatarFallback>
+        </Avatar>
+      </ThreadAnchor>
       <div className="space-y-2 min-w-0 max-w-full flex-1">
         {hiddenCount > 0 && (
           <div className="py-1">
@@ -376,6 +410,29 @@ function AssistantMessageGroup({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ThreadAnchor({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="group/thread-anchor relative mt-1 flex h-8 w-8 shrink-0 items-center justify-center">
+      <a
+        href={href}
+        aria-label={label}
+        className="absolute right-full top-1/2 mr-2 -translate-y-1/2 text-sm font-semibold text-white/30 opacity-0 transition-opacity hover:text-white/75 focus-visible:opacity-100 focus-visible:text-white/90 focus-visible:outline-none group-hover/thread-anchor:opacity-100"
+      >
+        <span aria-hidden="true">#</span>
+      </a>
+      {children}
     </div>
   );
 }

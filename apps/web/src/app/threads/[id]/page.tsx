@@ -93,7 +93,7 @@ export default async function ThreadPage({
 
   return (
     <div className="min-h-screen w-full text-white font-sans selection:bg-blue-500/30">
-      <main className="relative z-10 container mx-auto w-full px-4 py-4 sm:px-6 lg:px-8">
+      <main className="relative z-10 container mx-auto w-full md:px-4 py-4 px-1 lg:px-8">
         <Suspense
           fallback={
             <div className="animate-pulse">

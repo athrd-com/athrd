@@ -45,6 +45,7 @@ interface AssistantState {
 }
 
 interface ParseContext {
+  sessionId: string;
   messages: (AthrdUserMessage | AthrdAssistantMessage)[];
   functionOutputs: Map<string, CodexFunctionCallOutputPayload["output"]>;
   model: string;
@@ -58,6 +59,36 @@ interface ParseContext {
 
 function createEmptyAssistantState(): AssistantState {
   return { content: [], thoughts: [], toolCalls: [], timestamp: "", id: "" };
+}
+
+function createStableCodexMessageId(
+  sessionId: string,
+  role: "user" | "assistant",
+  sourceIndex: number
+): string {
+  const input = `${sessionId}:${role}:${sourceIndex}`;
+  let hashA = 0xdeadbeef ^ input.length;
+  let hashB = 0x41c6ce57 ^ input.length;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    hashA = Math.imul(hashA ^ code, 2654435761);
+    hashB = Math.imul(hashB ^ code, 1597334677);
+  }
+
+  hashA =
+    Math.imul(hashA ^ (hashA >>> 16), 2246822507) ^
+    Math.imul(hashB ^ (hashB >>> 13), 3266489909);
+  hashB =
+    Math.imul(hashB ^ (hashB >>> 16), 2246822507) ^
+    Math.imul(hashA ^ (hashA >>> 13), 3266489909);
+
+  const stableHash = (
+    4294967296 * (2097151 & hashB) +
+    (hashA >>> 0)
+  ).toString(36);
+
+  return `codex-${role}-${stableHash}`;
 }
 
 function hasAssistantContent(state: AssistantState): boolean {
@@ -76,7 +107,13 @@ function flushAssistant(ctx: ParseContext): void {
   if (!hasAssistantContent(ctx.assistant)) return;
 
   ctx.messages.push({
-    id: ctx.assistant.id || generateId(),
+    id:
+      ctx.assistant.id ||
+      createStableCodexMessageId(
+        ctx.sessionId,
+        "assistant",
+        ctx.messages.length
+      ),
     type: "assistant",
     content: ctx.assistant.content.join("\n\n"),
     timestamp: ctx.assistant.timestamp || new Date().toISOString(),
@@ -90,8 +127,18 @@ function flushAssistant(ctx: ParseContext): void {
   ctx.assistant = createEmptyAssistantState();
 }
 
-function ensureAssistantId(state: AssistantState): void {
-  if (!state.id) state.id = generateId();
+function ensureAssistantId(
+  ctx: ParseContext,
+  state: AssistantState,
+  sourceIndex: number
+): void {
+  if (!state.id) {
+    state.id = createStableCodexMessageId(
+      ctx.sessionId,
+      "assistant",
+      sourceIndex
+    );
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Response Item Handlers
@@ -110,7 +157,8 @@ function extractTextContent(
 function handleResponseMessage(
   ctx: ParseContext,
   payload: CodexResponseMessagePayload,
-  timestamp: string
+  timestamp: string,
+  sourceIndex: number
 ): void {
   if (!ctx.hasTaskStarted) return;
 
@@ -123,7 +171,7 @@ function handleResponseMessage(
     if (textContent.startsWith("<environment_context>")) return;
 
     ctx.messages.push({
-      id: generateId(),
+      id: createStableCodexMessageId(ctx.sessionId, "user", sourceIndex),
       type: "user",
       content: textContent,
     });
@@ -142,14 +190,15 @@ function handleResponseMessage(
 
     ctx.assistant.content.push(textContent);
     ctx.assistant.timestamp = normalizeTimestamp(timestamp);
-    ensureAssistantId(ctx.assistant);
+    ensureAssistantId(ctx, ctx.assistant, sourceIndex);
   }
 }
 
 function handleFunctionCall(
   ctx: ParseContext,
   payload: CodexFunctionCallPayload,
-  timestamp: string
+  timestamp: string,
+  sourceIndex: number
 ): void {
   // Preserve event ordering by separating text blocks from reasoning/tool blocks.
   if (hasAssistantText(ctx.assistant)) {
@@ -159,13 +208,14 @@ function handleFunctionCall(
   const toolCall = parseFunctionCall(payload, timestamp, ctx.functionOutputs);
   ctx.assistant.toolCalls.push(toolCall);
   ctx.assistant.timestamp = normalizeTimestamp(timestamp);
-  ensureAssistantId(ctx.assistant);
+  ensureAssistantId(ctx, ctx.assistant, sourceIndex);
 }
 
 function handleReasoning(
   ctx: ParseContext,
   payload: CodexReasoningPayload,
-  timestamp: string
+  timestamp: string,
+  sourceIndex: number
 ): void {
   // Preserve event ordering by separating text blocks from reasoning/tool blocks.
   if (hasAssistantText(ctx.assistant)) {
@@ -204,10 +254,14 @@ function handleReasoning(
     });
   }
 
-  ensureAssistantId(ctx.assistant);
+  ensureAssistantId(ctx, ctx.assistant, sourceIndex);
 }
 
-function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
+function processResponseItem(
+  ctx: ParseContext,
+  msg: CodexResponseItem,
+  sourceIndex: number
+): void {
   const { payload, timestamp } = msg;
 
   switch (payload.type) {
@@ -215,14 +269,25 @@ function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
       handleResponseMessage(
         ctx,
         payload as CodexResponseMessagePayload,
-        timestamp
+        timestamp,
+        sourceIndex
       );
       break;
     case "function_call":
-      handleFunctionCall(ctx, payload as CodexFunctionCallPayload, timestamp);
+      handleFunctionCall(
+        ctx,
+        payload as CodexFunctionCallPayload,
+        timestamp,
+        sourceIndex
+      );
       break;
     case "reasoning":
-      handleReasoning(ctx, payload as CodexReasoningPayload, timestamp);
+      handleReasoning(
+        ctx,
+        payload as CodexReasoningPayload,
+        timestamp,
+        sourceIndex
+      );
       break;
     // Skip ghost_snapshot and function_call_output (handled via map)
   }
@@ -232,7 +297,11 @@ function processResponseItem(ctx: ParseContext, msg: CodexResponseItem): void {
 // Message Processing
 // ─────────────────────────────────────────────────────────────────────────────
 
-function processMessage(ctx: ParseContext, msg: CodexMessage): void {
+function processMessage(
+  ctx: ParseContext,
+  msg: CodexMessage,
+  sourceIndex: number
+): void {
   switch (msg.type) {
     case "event_msg": {
       const payload = (msg as { payload?: { type?: string } }).payload;
@@ -247,7 +316,7 @@ function processMessage(ctx: ParseContext, msg: CodexMessage): void {
       break;
     }
     case "response_item":
-      processResponseItem(ctx, msg as CodexResponseItem);
+      processResponseItem(ctx, msg as CodexResponseItem, sourceIndex);
       break;
     // Skip event_msg - user messages come from response_item
   }
@@ -565,6 +634,7 @@ export const codexParser: Parser<CodexThread> = {
 
   parse(rawThread: CodexThread): AThrd {
     const ctx: ParseContext = {
+      sessionId: rawThread.sessionId,
       messages: [],
       functionOutputs: buildFunctionOutputMap(rawThread.messages),
       model: "codex",
@@ -572,8 +642,8 @@ export const codexParser: Parser<CodexThread> = {
       hasTaskStarted: false,
     };
 
-    for (const msg of rawThread.messages) {
-      processMessage(ctx, msg);
+    for (const [sourceIndex, msg] of rawThread.messages.entries()) {
+      processMessage(ctx, msg, sourceIndex);
     }
 
     // Flush any remaining assistant content

@@ -122,7 +122,8 @@ export interface CodexResponseMessagePayload {
 
 export type CodexMessageContent =
   | CodexInputTextContent
-  | CodexOutputTextContent;
+  | CodexOutputTextContent
+  | CodexInputImageContent;
 
 export interface CodexInputTextContent {
   type: "input_text";
@@ -132,6 +133,11 @@ export interface CodexInputTextContent {
 export interface CodexOutputTextContent {
   type: "output_text";
   text: string;
+}
+
+export interface CodexInputImageContent {
+  type: "input_image";
+  image_url: string;
 }
 
 export interface CodexFunctionCallPayload {
@@ -147,8 +153,8 @@ export interface CodexFunctionCallOutputPayload {
   output:
     | string
     | Array<
-        | { type: "input_text"; text: string }
-        | { type: "input_image"; image_url: string }
+        | CodexInputTextContent
+        | CodexInputImageContent
       >;
 }
 

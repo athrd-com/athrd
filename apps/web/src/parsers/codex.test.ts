@@ -190,6 +190,48 @@ describe("codexParser", () => {
       expect(result.messages[0]?.content).toBe("First part\nSecond part");
     });
 
+    it("renders inline user input images from Codex content blocks", () => {
+      const thread = createBaseThread();
+      thread.messages = [
+        createTaskStartedEvent(),
+        {
+          timestamp: "2026-03-16T18:52:44.497Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "It should be collapsed into a single group,\n",
+              },
+              {
+                type: "input_text",
+                text: "<image>",
+              },
+              {
+                type: "input_image",
+                image_url: "data:image/png;base64,base64imagedata",
+              },
+              {
+                type: "input_text",
+                text: "</image>",
+              },
+            ],
+          },
+        },
+      ];
+
+      const result = codexParser.parse(thread);
+
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0]).toMatchObject({
+        type: "user",
+        content:
+          "It should be collapsed into a single group,\n\n![User image 1](data:image/png;base64,base64imagedata)",
+      });
+    });
+
     it("should skip user and assistant messages before task_started", () => {
       const thread = createBaseThread();
       thread.messages = [

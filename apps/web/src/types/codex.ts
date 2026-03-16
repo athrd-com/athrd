@@ -45,10 +45,18 @@ export interface CodexEventMessage {
   timestamp: string;
   type: "event_msg";
   payload:
+    | CodexTaskStartedEvent
     | CodexAgentMessageEvent
     | CodexAgentReasoningEvent
     | CodexUserMessageEvent
     | CodexTokenCountPayload;
+}
+
+export interface CodexTaskStartedEvent {
+  type: "task_started";
+  turn_id?: string;
+  model_context_window?: number;
+  collaboration_mode_kind?: string;
 }
 
 export interface CodexAgentMessageEvent {

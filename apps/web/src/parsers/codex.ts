@@ -19,6 +19,7 @@ import type {
   CodexTurnContextMessage,
 } from "@/types/codex";
 import { IDE } from "@/types/ide";
+import { isAgentInstructionsMessageContent } from "@/lib/codex-message-utils";
 import type { Parser } from "./base";
 import {
   createMCPToolCall,
@@ -159,6 +160,9 @@ function handleResponseMessage(
       id: createStableCodexMessageId("user", timestamp, String(sourceIndex)),
       type: "user",
       content: textContent,
+      variant: isAgentInstructionsMessageContent(textContent)
+        ? "agent-instructions"
+        : undefined,
     });
     return;
   }

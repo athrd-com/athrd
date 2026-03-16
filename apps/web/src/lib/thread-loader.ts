@@ -1,5 +1,5 @@
 import { detectIDE, parseThread } from "@/parsers";
-import type { AThrd } from "@/types/athrd";
+import type { AThrd, AthrdUserMessage } from "@/types/athrd";
 import type { ClaudeThread as ClaudeThreadType } from "@/types/claude";
 import type { CodexThread as CodexThreadType } from "@/types/codex";
 import type { GeminiThread as GeminiThreadType } from "@/types/gemini";
@@ -13,6 +13,7 @@ import {
   type ThreadSourceOwner,
   type ThreadSourceRecord,
 } from "./thread-source";
+import { isAgentInstructionsUserMessage } from "./codex-message-utils";
 
 export type ThreadLoadErrorCode =
   | "NOT_FOUND"
@@ -215,7 +216,10 @@ function extractOwnerFromRawContent(
 }
 
 function getFirstUserMessageContent(thread: AThrd): string | undefined {
-  const firstUserMessage = thread.messages.find((message) => message.type === "user");
+  const firstUserMessage = thread.messages.find(
+    (message): message is AthrdUserMessage =>
+      message.type === "user" && !isAgentInstructionsUserMessage(message),
+  );
   if (!firstUserMessage || !firstUserMessage.content.trim()) {
     return undefined;
   }

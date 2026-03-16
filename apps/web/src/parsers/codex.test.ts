@@ -280,6 +280,50 @@ describe("codexParser", () => {
       expect(result.messages[0]?.content).toBe("Real user message");
     });
 
+    it("marks AGENTS.md bootstrap messages for collapsed display", () => {
+      const thread = createBaseThread();
+      thread.messages = [
+        createTaskStartedEvent(),
+        {
+          timestamp: "2024-01-07T12:00:00Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "# AGENTS.md instructions for /Users/example/project\n\n<INSTRUCTIONS>...</INSTRUCTIONS>",
+              },
+            ],
+          },
+        },
+        {
+          timestamp: "2024-01-07T12:00:01Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Real user message" }],
+          },
+        },
+      ];
+
+      const result = codexParser.parse(thread);
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[0]).toMatchObject({
+        type: "user",
+        content:
+          "# AGENTS.md instructions for /Users/example/project\n\n<INSTRUCTIONS>...</INSTRUCTIONS>",
+        variant: "agent-instructions",
+      });
+      expect(result.messages[1]).toMatchObject({
+        type: "user",
+        content: "Real user message",
+      });
+    });
+
     it("should skip empty user messages", () => {
       const thread = createBaseThread();
       thread.messages = [

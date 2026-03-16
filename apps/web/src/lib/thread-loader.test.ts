@@ -227,4 +227,79 @@ describe("thread-loader", () => {
     });
     expect(context.record.createdAt).toBe("2026-03-03T00:00:00.000Z");
   });
+
+  it("ignores agent instructions when falling back to the first user message for title", () => {
+    const context = parseThreadContextFromSourceRecord({
+      id: "S-threads/codex.json",
+      source: "s3",
+      sourceId: "threads/codex.json",
+      filename: "codex.json",
+      content: JSON.stringify({
+        __athrd: {
+          ide: "codex",
+        },
+        sessionId: "session_1",
+        timestamp: "2026-03-03T00:00:00.000Z",
+        type: "message",
+        payload: {
+          id: "session_1",
+          timestamp: "2026-03-03T00:00:00.000Z",
+          cwd: "/repo",
+          originator: "codex",
+          cli_version: "1.0.0",
+          instructions: null,
+          source: "cli",
+          model_provider: "openai",
+          git: {
+            commit_hash: "deadbeef",
+            branch: "main",
+            repository_url: "https://github.com/athrd-com/athrd",
+          },
+        },
+        messages: [
+          {
+            timestamp: "2026-03-03T00:00:00.000Z",
+            type: "event_msg",
+            payload: {
+              type: "task_started",
+            },
+          },
+          {
+            timestamp: "2026-03-03T00:00:01.000Z",
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text: "# AGENTS.md instructions for /Users/example/project\n\n<INSTRUCTIONS>...</INSTRUCTIONS>",
+                },
+              ],
+            },
+          },
+          {
+            timestamp: "2026-03-03T00:00:02.000Z",
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text: "Real title source",
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+
+    expect(context.parsedThread.messages[0]).toMatchObject({
+      type: "user",
+      variant: "agent-instructions",
+    });
+    expect(context.title).toBe("Real title source");
+  });
 });

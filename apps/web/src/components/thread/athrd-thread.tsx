@@ -30,6 +30,7 @@ import {
   maybeShortenFilePathLinkChildren,
   mergeRel,
 } from "@/components/thread/markdown-render-utils";
+import { shouldCollapseUserMessageGroup } from "@/components/thread/user-message-group-utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -53,12 +54,8 @@ import {
 } from "lucide-react";
 import Markdown from "markdown-to-jsx";
 import { useEffect, useState } from "react";
+import { getThreadAnchorId, groupMessages } from "./thread-anchor-utils";
 import ToolEditBlock from "./tool-edit-block";
-import {
-  getThreadAnchorHref,
-  getThreadAnchorId,
-  groupMessages,
-} from "./thread-anchor-utils";
 import ToolGenericBlock from "./tool-generic-block";
 import ToolMCPBlock from "./tool-mcp-block";
 import ToolRequestUserInputBlock from "./tool-request-user-input-block";
@@ -183,14 +180,15 @@ export default function AThrdThread({
     <div className="athrd-thread space-y-6 lg:px-32 lg:py-8 px-2 md:px-16">
       {messageGroups.map((group, groupIdx) => {
         if (group.type === "user") {
-          return group.messages.map((message, index) => (
-            <UserMessage
-              key={`${message.id}-${groupIdx}-${index}`}
+          return (
+            <UserMessageGroup
+              key={`user-group-${groupIdx}`}
+              anchorId={group.anchorId}
               owner={owner}
-              message={message as AthrdUserMessage}
+              messages={group.messages as AthrdUserMessage[]}
               markdownOptions={markdownOptions}
             />
-          ));
+          );
         }
         return (
           <AssistantMessageGroup
@@ -206,28 +204,36 @@ export default function AThrdThread({
 }
 
 /**
- * Render a user message
+ * Render a group of consecutive user messages with a single avatar.
  */
-function UserMessage({
+function UserMessageGroup({
+  anchorId,
   owner,
-  message,
+  messages,
   markdownOptions,
 }: {
+  anchorId: string;
   owner?: ThreadSourceOwner;
-  message: AthrdUserMessage;
+  messages: AthrdUserMessage[];
   markdownOptions: MarkdownOptions;
 }) {
   const ownerLabel = owner?.login || "You";
+  const [showPreviousDetails, setShowPreviousDetails] = useState(false);
+  const shouldCollapsePreviousMessages =
+    shouldCollapseUserMessageGroup(messages);
+  const hiddenMessages = shouldCollapsePreviousMessages
+    ? messages.slice(0, -1)
+    : [];
+  const visibleMessages = shouldCollapsePreviousMessages
+    ? messages.slice(-1)
+    : messages;
 
   return (
     <div
-      id={getThreadAnchorId(message.id)}
+      id={anchorId}
       className="group/thread-item flex scroll-mt-24 flex-col items-start gap-2 sm:flex-row sm:gap-4"
     >
-      <ThreadAnchor
-        href={getThreadAnchorHref(message.id)}
-        label="Link to this prompt"
-      >
+      <ThreadAnchor href={`#${anchorId}`} label="Link to this prompt">
         <Avatar className="h-8 w-8 border border-white/10">
           <AvatarImage src={owner?.avatarUrl} alt={ownerLabel} />
           <AvatarFallback className="bg-blue-900/30 text-blue-200 text-xs">
@@ -235,11 +241,56 @@ function UserMessage({
           </AvatarFallback>
         </Avatar>
       </ThreadAnchor>
-      <Card className="w-full max-w-[min(74ch,100%)] min-w-0 gap-2 border-white/10 bg-[#111] p-4 text-gray-300 shadow-none">
-        <div className="markdown-content">
-          <Markdown options={markdownOptions}>{message.content}</Markdown>
-        </div>
-      </Card>
+      <div className="space-y-2 min-w-0 max-w-full flex-1">
+        {hiddenMessages.length > 0 && (
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setShowPreviousDetails((prev) => !prev)}
+              className="group flex w-full items-center gap-3 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              aria-expanded={showPreviousDetails}
+              aria-label={
+                showPreviousDetails
+                  ? "Collapse agent instructions"
+                  : "Expand agent instructions"
+              }
+            >
+              {showPreviousDetails ? (
+                <ChevronDownIcon className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <ChevronRightIcon className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
+              <span>Agent instructions</span>
+              <span className="h-px flex-1 bg-white/20 transition-colors group-hover:bg-white/40" />
+            </button>
+            {hiddenMessages.map((message) => (
+              <div
+                key={message.id}
+                id={getThreadAnchorId(message.id)}
+                className={cn(
+                  "markdown-content max-w-[74ch] py-2 text-white/92",
+                  !showPreviousDetails && "hidden",
+                )}
+              >
+                <Markdown options={markdownOptions}>{message.content}</Markdown>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {visibleMessages.map((message) => (
+          <Card
+            key={message.id}
+            id={getThreadAnchorId(message.id)}
+            className="w-full max-w-[min(74ch,100%)] min-w-0 gap-2 border-white/10 bg-[#111] p-4 text-gray-300 shadow-none"
+          >
+            <div className="markdown-content">
+              <Markdown options={markdownOptions}>{message.content}</Markdown>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

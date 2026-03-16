@@ -17,6 +17,7 @@ export interface AthrdUserMessage {
   id: string;
   type: "user";
   content: string;
+  variant?: "agent-instructions";
   variables?: Array<
     AthrdUserMessageFileVariable | AthrdUserMessageImageVariable
   >;

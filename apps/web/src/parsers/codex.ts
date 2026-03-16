@@ -11,7 +11,9 @@ import type {
 import type {
   CodexFunctionCallOutputPayload,
   CodexFunctionCallPayload,
+  CodexInputImageContent,
   CodexMessage,
+  CodexMessageContent,
   CodexReasoningPayload,
   CodexResponseItem,
   CodexResponseMessagePayload,
@@ -131,12 +133,54 @@ function ensureAssistantId(
 // ─────────────────────────────────────────────────────────────────────────────
 
 function extractTextContent(
-  content: Array<{ type: string; text: string }>,
+  content: Array<{ type: string; text?: string }>,
   textType: string
 ): string {
   return content
-    .filter((c) => c.type === textType)
+    .filter((c): c is { type: string; text: string } => {
+      return c.type === textType && typeof c.text === "string";
+    })
     .map((c) => c.text)
+    .join("\n");
+}
+
+function stripCodexImageDelimiters(text: string, hasInlineImage: boolean): string {
+  if (!hasInlineImage) {
+    return text;
+  }
+
+  return text.replaceAll("<image>", "").replaceAll("</image>", "");
+}
+
+function renderCodexImageMarkdown(
+  content: CodexInputImageContent,
+  imageIndex: number
+): string {
+  return `![User image ${imageIndex}](${content.image_url})`;
+}
+
+function extractUserContent(content: CodexMessageContent[]): string {
+  const hasInlineImage = content.some((item) => item.type === "input_image");
+  let imageIndex = 0;
+
+  return content
+    .map((item) => {
+      if (item.type === "input_text") {
+        const cleanedText = stripCodexImageDelimiters(
+          item.text,
+          hasInlineImage
+        );
+        return cleanedText.trim().length > 0 ? cleanedText : null;
+      }
+
+      if (item.type === "input_image") {
+        imageIndex += 1;
+        return renderCodexImageMarkdown(item, imageIndex);
+      }
+
+      return null;
+    })
+    .filter((item): item is string => item !== null)
     .join("\n");
 }
 
@@ -150,7 +194,7 @@ function handleResponseMessage(
 
   if (payload.role === "user") {
     flushAssistant(ctx);
-    const textContent = extractTextContent(payload.content, "input_text");
+    const textContent = extractUserContent(payload.content);
     if (!textContent.trim()) return;
 
     // Skip environment context messages

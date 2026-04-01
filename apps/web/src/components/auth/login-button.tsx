@@ -3,7 +3,7 @@
 import { Github, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { authClient } from "~/server/better-auth/client";
+import { startGithubSignIn } from "~/lib/github-auth";
 
 export function LoginButton() {
   const [isLoading, setIsLoading] = useState(false);
@@ -11,10 +11,9 @@ export function LoginButton() {
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      await authClient.signIn.social({
-        provider: "github",
-        callbackURL: "/threads",
-      });
+      await startGithubSignIn();
+    } catch (error) {
+      console.error("Failed to start GitHub sign-in", error);
     } finally {
       setIsLoading(false);
     }

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { authClient } from "~/server/better-auth/client";
+import { refreshGithubOrganizations } from "~/lib/github-auth";
 
 interface OrganizationOption {
   id: string;
@@ -67,10 +67,9 @@ export function OrgSwitcher({
             setIsRefreshing(true);
 
             try {
-              await authClient.signIn.social({
-                provider: "github",
-                callbackURL: "/threads",
-              });
+              await refreshGithubOrganizations();
+            } catch (error) {
+              console.error("Failed to refresh GitHub organizations", error);
             } finally {
               setIsRefreshing(false);
             }

@@ -6,10 +6,10 @@ import { dirname, join } from "path";
 import updateNotifier from "update-notifier";
 import { fileURLToPath } from "url";
 import { authCommand } from "./commands/auth.js";
+import { enableCommand } from "./commands/enable.js";
 import { logoutCommand } from "./commands/logout.js";
 import { meCommand } from "./commands/me.js";
 import { shareCommand } from "./commands/share.js";
-import { hooksCommand } from "./commands/hooks.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,6 +29,6 @@ shareCommand(program);
 authCommand(program);
 logoutCommand(program);
 meCommand(program);
-hooksCommand(program);
+enableCommand(program);
 
 program.parse();

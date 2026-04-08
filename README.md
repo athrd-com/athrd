@@ -32,7 +32,7 @@ Use athrd to make AI-assisted changes easier to understand:
 - **Commit and PR Traceability**: Attach AI sessions to commits and surface them in pull requests.
 - **Universal Support**: Works with VS Code, Claude, Cursor, Codex, and Gemini.
 - **Reviewable Thread Views**: Renders code blocks, tool calls, and assistant reasoning clearly.
-- **CLI + Hooks Automation**: Sync sessions from supported CLIs with one install command.
+- **CLI + Hooks Automation**: Sync sessions from supported CLIs with one repo enable command.
 - **Open Source**
 
 ## Quickstart
@@ -55,11 +55,11 @@ yarn global add @athrd/cli
 
 ### Usage
 
-Authenticate, then install hooks for automatic session syncing:
+Authenticate, then enable ATHRD inside each repository you want to connect:
 
 ```bash
 athrd auth
-athrd hooks install
+athrd enable
 ```
 
 To share sessions manually:

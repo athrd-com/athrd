@@ -6,7 +6,6 @@ import { getProvider, providers } from "../providers/index.js";
 import { ChatSession } from "../types/index.js";
 import { requireAuth } from "../utils/auth.js";
 import { formatDate } from "../utils/date.js";
-import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
 import { getGitHeadCommitHash, getGitHubRepo } from "../utils/git.js";
 import {
   getGitHubOrgInfo,
@@ -70,6 +69,32 @@ function extractWorkspacePathFromHookPayload(
   } catch {
     return null;
   }
+}
+
+interface MarkSharedSessionInRepoParams {
+  cwd?: string;
+  hookPayloadJson?: string;
+  mark: boolean;
+  url: string;
+}
+
+export function markSharedSessionInRepo(
+  params: MarkSharedSessionInRepoParams,
+): void {
+  if (!params.mark) {
+    return;
+  }
+
+  appendAthrdUrlMarker({
+    cwd: params.cwd,
+    url: params.url,
+  });
+  maybeBackfillHookDrivenCommit({
+    cwd: params.cwd,
+    mark: true,
+    hookPayloadJson: params.hookPayloadJson,
+    url: params.url,
+  });
 }
 
 export function shareCommand(program: Command) {
@@ -341,16 +366,11 @@ export function shareCommand(program: Command) {
 
             if (options.mark) {
               try {
-                appendAthrdUrlMarker({
-                  cwd: repoCwd,
-                  url: athrdUrl,
-                });
-                ensureRepoCommitMsgHookCompatibility(repoCwd);
-                maybeBackfillHookDrivenCommit({
+                markSharedSessionInRepo({
                   cwd: repoCwd,
                   mark: options.mark === true,
-                  hookPayloadJson: options.json,
                   url: athrdUrl,
+                  hookPayloadJson: options.json,
                 });
               } catch (error) {
                 console.warn(

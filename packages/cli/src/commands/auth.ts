@@ -4,8 +4,13 @@ import { Command } from "commander";
 import inquirer from "inquirer";
 import open from "open";
 import { config } from "../config.js";
-import { installAllHooks } from "./hooks.js";
+import { getGitRepoRoot } from "../utils/git.js";
 import { saveCredentials } from "../utils/credentials.js";
+import { enableAthrdForRepo } from "./enable.js";
+
+export function getAuthEnableRepoRoot(cwd = process.cwd()): string | null {
+  return getGitRepoRoot(cwd);
+}
 
 export function authCommand(program: Command) {
   program
@@ -60,19 +65,44 @@ export function authCommand(program: Command) {
         // Save the token
         await saveCredentials({ token });
 
-        const { shouldInstallHooks } = await inquirer.prompt([
-          {
-            type: "confirm",
-            name: "shouldInstallHooks",
-            message: "Install hooks for automatic thread syncing?",
-            default: true,
-          },
-        ]);
+        const repoRoot = getAuthEnableRepoRoot();
+        if (repoRoot) {
+          const { shouldEnable } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "shouldEnable",
+              message: "Enable ATHRD for this repository?",
+              default: true,
+            },
+          ]);
 
-        if (shouldInstallHooks) {
-          installAllHooks();
+          if (shouldEnable) {
+            try {
+              enableAthrdForRepo(repoRoot);
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.error(
+                chalk.red("\n⚠ Failed to enable ATHRD for this repository:"),
+                message
+              );
+              console.log(
+                chalk.yellow(
+                  "Authentication still succeeded. Resolve the repo hook issue and rerun `athrd enable` in this repository."
+                )
+              );
+            }
+          } else {
+            console.log(
+              chalk.yellow("Skipped enabling ATHRD for this repository.")
+            );
+          }
         } else {
-          console.log(chalk.yellow("Skipped hooks installation."));
+          console.log(
+            chalk.blue(
+              "Authentication succeeded. Run `athrd enable` inside each git repository you want to connect."
+            )
+          );
         }
 
         console.log(chalk.green("\n✓ Authentication successful!"));

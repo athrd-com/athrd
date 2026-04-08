@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "child_process";
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -106,54 +105,5 @@ describe("enableAthrdForRepo", () => {
       command: `${hookScriptPath} gemini`,
       type: "command",
     });
-  });
-
-  test("migrates legacy ATHRD global hook state before enabling the repo", () => {
-    const repo = makeTempDir("athrd-enable-legacy-repo-");
-    runGit(["init"], repo);
-
-    const globalHooksDir = join(process.env.ATHRD_HOME!, "git-hooks");
-    const statePath = join(globalHooksDir, "state.json");
-    const legacyHookPath = join(globalHooksDir, "commit-msg");
-
-    mkdirSync(globalHooksDir, { recursive: true });
-    writeFileSync(
-      statePath,
-      JSON.stringify(
-        {
-          managedByAthrd: true,
-          updatedGlobalHooksPath: true,
-          previousHooksPath: null,
-          targetHooksPath: globalHooksDir,
-          backupHookPath: null,
-        },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
-    writeFileSync(
-      legacyHookPath,
-      "#!/bin/bash\n# ATHRD_MANAGED_COMMIT_MSG\nexit 0\n",
-      "utf-8",
-    );
-    chmodSync(legacyHookPath, 0o755);
-    runGit(["config", "--global", "core.hooksPath", globalHooksDir]);
-
-    const result = enableAthrdForRepo(repo);
-
-    expect(result.migratedLegacyGlobalHook).toBeTrue();
-    expect(existsSync(statePath)).toBeFalse();
-    expect(existsSync(legacyHookPath)).toBeFalse();
-    expect(existsSync(join(repo, ".git", "hooks", "commit-msg"))).toBeTrue();
-    expect(
-      (() => {
-        try {
-          return runGit(["config", "--global", "--get", "core.hooksPath"]);
-        } catch {
-          return null;
-        }
-      })(),
-    ).toBeNull();
   });
 });

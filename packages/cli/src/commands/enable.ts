@@ -7,7 +7,6 @@ import * as path from "path";
 import { installRepoCommitMsgHook } from "../utils/git-hooks.js";
 
 export interface EnableAthrdResult {
-  migratedLegacyGlobalHook: boolean;
   repoRoot: string;
 }
 
@@ -224,9 +223,6 @@ export function enableAthrdForRepo(cwd = process.cwd()): EnableAthrdResult {
   console.log(chalk.blue("Enabling ATHRD for this repository..."));
 
   const gitHookResult = installRepoCommitMsgHook(cwd);
-  if (gitHookResult.migratedLegacyGlobalHook) {
-    console.log(chalk.green("✓ Removed legacy ATHRD global git hook"));
-  }
   if (gitHookResult.installedCommitMsgHook) {
     console.log(
       chalk.green(`✓ Repo git commit-msg hook installed at ${gitHookResult.hookPath}`),
@@ -239,7 +235,6 @@ export function enableAthrdForRepo(cwd = process.cwd()): EnableAthrdResult {
   console.log(chalk.green("ATHRD enable complete!"));
 
   return {
-    migratedLegacyGlobalHook: gitHookResult.migratedLegacyGlobalHook,
     repoRoot: gitHookResult.repoRoot,
   };
 }

@@ -1,56 +1,15 @@
 import { execFileSync } from "child_process";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
-
-interface GitHookState {
-  managedByAthrd: true;
-  updatedGlobalHooksPath: boolean;
-  previousHooksPath: string | null;
-  targetHooksPath: string;
-  backupHookPath: string | null;
-}
 
 export interface RepoCommitMsgHookInstallResult {
   hookPath: string;
   installedCommitMsgHook: boolean;
-  migratedLegacyGlobalHook: boolean;
   repoRoot: string;
-}
-
-function getAthrdDir(): string {
-  if (process.env.ATHRD_HOME) {
-    return process.env.ATHRD_HOME;
-  }
-  return path.join(process.env.HOME || os.homedir(), ".athrd");
-}
-
-function getLegacyGlobalHooksDir(): string {
-  return path.join(getAthrdDir(), "git-hooks");
-}
-
-function getStatePath(): string {
-  return path.join(getLegacyGlobalHooksDir(), "state.json");
 }
 
 function getCommitMsgHookPathForDir(hooksDir: string): string {
   return path.join(hooksDir, "commit-msg");
-}
-
-function getCurrentGlobalHooksPath(): string | null {
-  try {
-    const value = execFileSync(
-      "git",
-      ["config", "--global", "--get", "core.hooksPath"],
-      {
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "ignore"],
-      },
-    ).trim();
-    return value || null;
-  } catch {
-    return null;
-  }
 }
 
 function getRepoRoot(cwd?: string): string | null {
@@ -80,56 +39,6 @@ function getLocalHooksPath(cwd?: string): string | null {
     return value || null;
   } catch {
     return null;
-  }
-}
-
-function setGlobalHooksPath(hooksPath: string): void {
-  execFileSync("git", ["config", "--global", "core.hooksPath", hooksPath], {
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-}
-
-function unsetGlobalHooksPath(): void {
-  execFileSync("git", ["config", "--global", "--unset", "core.hooksPath"], {
-    stdio: ["pipe", "pipe", "ignore"],
-  });
-}
-
-function loadState(): GitHookState | null {
-  const statePath = getStatePath();
-  if (!fs.existsSync(statePath)) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(statePath, "utf-8"));
-    if (parsed?.managedByAthrd !== true) {
-      return null;
-    }
-
-    return {
-      managedByAthrd: true,
-      updatedGlobalHooksPath: parsed.updatedGlobalHooksPath === true,
-      previousHooksPath:
-        typeof parsed.previousHooksPath === "string"
-          ? parsed.previousHooksPath
-          : null,
-      targetHooksPath:
-        typeof parsed.targetHooksPath === "string"
-          ? parsed.targetHooksPath
-          : getLegacyGlobalHooksDir(),
-      backupHookPath:
-        typeof parsed.backupHookPath === "string" ? parsed.backupHookPath : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function removeState(): void {
-  const statePath = getStatePath();
-  if (fs.existsSync(statePath)) {
-    fs.unlinkSync(statePath);
   }
 }
 
@@ -316,79 +225,6 @@ function writeCommitMsgHook(
   return hookPath;
 }
 
-function cleanupLegacyGlobalHooksDir(globalHooksDir: string): void {
-  if (
-    fs.existsSync(globalHooksDir) &&
-    fs.readdirSync(globalHooksDir).length === 0
-  ) {
-    fs.rmdirSync(globalHooksDir);
-  }
-}
-
-function cleanupManagedLegacyGlobalCommitMsgHook(state: GitHookState): boolean {
-  const globalHooksDir = getLegacyGlobalHooksDir();
-  const currentHooksPath = getCurrentGlobalHooksPath();
-  const hookPath = getCommitMsgHookPathForDir(state.targetHooksPath);
-  let changed = false;
-
-  if (fs.existsSync(hookPath) && isAthrdManagedHook(hookPath)) {
-    fs.unlinkSync(hookPath);
-    changed = true;
-  }
-
-  if (state.backupHookPath && fs.existsSync(state.backupHookPath)) {
-    fs.renameSync(state.backupHookPath, hookPath);
-    changed = true;
-  }
-
-  if (state.updatedGlobalHooksPath && currentHooksPath === globalHooksDir) {
-    if (state.previousHooksPath) {
-      setGlobalHooksPath(state.previousHooksPath);
-    } else {
-      try {
-        unsetGlobalHooksPath();
-      } catch {
-        // Ignore missing key.
-      }
-    }
-    changed = true;
-  }
-
-  removeState();
-  cleanupLegacyGlobalHooksDir(globalHooksDir);
-  return changed;
-}
-
-export function cleanupLegacyGlobalCommitMsgHook(): boolean {
-  const state = loadState();
-  if (state?.managedByAthrd) {
-    return cleanupManagedLegacyGlobalCommitMsgHook(state);
-  }
-
-  const globalHooksDir = getLegacyGlobalHooksDir();
-  const currentHooksPath = getCurrentGlobalHooksPath();
-  const hookPath = getCommitMsgHookPathForDir(globalHooksDir);
-  let changed = false;
-
-  if (
-    currentHooksPath === globalHooksDir &&
-    fs.existsSync(hookPath) &&
-    isAthrdManagedHook(hookPath)
-  ) {
-    fs.unlinkSync(hookPath);
-    try {
-      unsetGlobalHooksPath();
-    } catch {
-      // Ignore missing key.
-    }
-    changed = true;
-  }
-
-  removeState();
-  cleanupLegacyGlobalHooksDir(globalHooksDir);
-  return changed;
-}
-
 export function installRepoCommitMsgHook(
   cwd?: string,
 ): RepoCommitMsgHookInstallResult {
@@ -397,7 +233,6 @@ export function installRepoCommitMsgHook(
     throw new Error("ATHRD enable must be run inside a git repository.");
   }
 
-  const migratedLegacyGlobalHook = cleanupLegacyGlobalCommitMsgHook();
   const localHooksPath = getLocalHooksPath(repoRoot);
   if (localHooksPath) {
     throw new Error(
@@ -412,7 +247,6 @@ export function installRepoCommitMsgHook(
     return {
       hookPath,
       installedCommitMsgHook: false,
-      migratedLegacyGlobalHook,
       repoRoot,
     };
   }
@@ -426,7 +260,6 @@ export function installRepoCommitMsgHook(
   return {
     hookPath: writeCommitMsgHook(hooksDir, backupHookPath),
     installedCommitMsgHook: true,
-    migratedLegacyGlobalHook,
     repoRoot,
   };
 }

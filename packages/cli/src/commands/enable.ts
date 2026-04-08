@@ -10,31 +10,12 @@ export interface EnableAthrdResult {
   repoRoot: string;
 }
 
-function getHomeDir(): string {
-  return process.env.HOME || os.homedir();
-}
-
 function getAthrdDir(): string {
   if (process.env.ATHRD_HOME) {
     return process.env.ATHRD_HOME;
   }
-  return path.join(getHomeDir(), ".athrd");
-}
-
-function getHookScriptPath(): string {
-  return path.join(getAthrdDir(), "hook.sh");
-}
-
-function getClaudeConfigPath(): string {
-  return path.join(getHomeDir(), ".claude", "settings.json");
-}
-
-function getCodexConfigPath(): string {
-  return path.join(getHomeDir(), ".codex", "config.toml");
-}
-
-function getGeminiConfigPath(): string {
-  return path.join(getHomeDir(), ".gemini", "settings.json");
+  const homeDir = process.env.HOME || os.homedir();
+  return path.join(homeDir, ".athrd");
 }
 
 const hookScriptContent = `#!/bin/bash
@@ -53,20 +34,18 @@ if [ -n "$EVENT_JSON" ]; then
 fi
 `;
 
-function ensureAthrdDir(): void {
-  fs.mkdirSync(getAthrdDir(), { recursive: true });
-}
-
 function writeHookScript(): void {
-  const hookScriptPath = getHookScriptPath();
-  ensureAthrdDir();
+  const athrdDir = getAthrdDir();
+  const hookScriptPath = path.join(athrdDir, "hook.sh");
+  fs.mkdirSync(athrdDir, { recursive: true });
   fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
   console.log(chalk.green(`✓ Hook script created at ${hookScriptPath}`));
 }
 
 function installClaudeHook(): void {
-  const claudeConfigPath = getClaudeConfigPath();
-  const hookScriptPath = getHookScriptPath();
+  const homeDir = process.env.HOME || os.homedir();
+  const claudeConfigPath = path.join(homeDir, ".claude", "settings.json");
+  const hookScriptPath = path.join(getAthrdDir(), "hook.sh");
 
   try {
     if (!fs.existsSync(claudeConfigPath)) {
@@ -123,34 +102,96 @@ function installClaudeHook(): void {
   }
 }
 
-function installCodexHook(): void {
-  const codexConfigPath = getCodexConfigPath();
-  const hookScriptPath = getHookScriptPath();
+function installCodexHook(repoRoot: string): void {
+  const repoCodexDir = path.join(repoRoot, ".codex");
+  const codexConfigPath = path.join(repoCodexDir, "config.toml");
+  const codexHooksPath = path.join(repoCodexDir, "hooks.json");
+  const hookScriptPath = path.join(getAthrdDir(), "hook.sh");
+  const quotedHookScriptPath = hookScriptPath.replace(/'/g, `'\"'\"'`);
+  const hookCommand = `bash '${quotedHookScriptPath}' codex`;
 
   try {
-    const codexDir = path.dirname(codexConfigPath);
-    if (!fs.existsSync(codexDir)) {
-      console.log(
-        chalk.yellow(`Codex config dir not found at ${codexDir}, skipping.`),
-      );
-      return;
+    fs.mkdirSync(repoCodexDir, { recursive: true });
+
+    let config: Record<string, unknown> = {};
+    if (fs.existsSync(codexConfigPath)) {
+      config = toml.parse(
+        fs.readFileSync(codexConfigPath, "utf-8"),
+      ) as Record<string, unknown>;
     }
 
-    let config: { notify?: string[] } = {};
-    if (fs.existsSync(codexConfigPath)) {
-      config = toml.parse(fs.readFileSync(codexConfigPath, "utf-8")) as {
-        notify?: string[];
+    const existingFeatures =
+      (config.features as Record<string, unknown> | undefined) || {};
+    const codexHooksAlreadyEnabled = existingFeatures.codex_hooks === true;
+
+    config.features = {
+      ...existingFeatures,
+      codex_hooks: true,
+    };
+
+    if (!codexHooksAlreadyEnabled) {
+      fs.writeFileSync(codexConfigPath, toml.stringify(config as any));
+      console.log(chalk.green("✓ Codex project config enabled"));
+    } else if (!fs.existsSync(codexConfigPath)) {
+      fs.writeFileSync(codexConfigPath, toml.stringify(config as any));
+      console.log(chalk.green("✓ Codex project config enabled"));
+    } else {
+      fs.writeFileSync(codexConfigPath, toml.stringify(config as any));
+    }
+
+    let hooksConfig: {
+      hooks?: Record<
+        string,
+        Array<{
+          matcher?: string;
+          hooks?: Array<Record<string, unknown>>;
+        }>
+      >;
+    } = {};
+    if (fs.existsSync(codexHooksPath)) {
+      hooksConfig = JSON.parse(fs.readFileSync(codexHooksPath, "utf-8")) as {
+        hooks?: Record<
+          string,
+          Array<{
+            matcher?: string;
+            hooks?: Array<Record<string, unknown>>;
+          }>
+        >;
       };
     }
 
-    const newNotify = ["bash", hookScriptPath, "codex"];
-    if (JSON.stringify(config.notify) === JSON.stringify(newNotify)) {
+    if (!hooksConfig.hooks) {
+      hooksConfig.hooks = {};
+    }
+
+    if (!hooksConfig.hooks.Stop) {
+      hooksConfig.hooks.Stop = [];
+    }
+
+    const hasHook = hooksConfig.hooks.Stop.some((group) =>
+      group.hooks?.some(
+        (hook) =>
+          hook.type === "command" &&
+          typeof hook.command === "string" &&
+          hook.command === hookCommand,
+      ),
+    );
+
+    if (hasHook) {
+      fs.writeFileSync(codexHooksPath, JSON.stringify(hooksConfig, null, 2));
       console.log(chalk.blue("ℹ Codex hook is already installed"));
       return;
     }
 
-    config.notify = newNotify;
-    fs.writeFileSync(codexConfigPath, toml.stringify(config));
+    hooksConfig.hooks.Stop.push({
+      hooks: [
+        {
+          type: "command",
+          command: hookCommand,
+        },
+      ],
+    });
+    fs.writeFileSync(codexHooksPath, JSON.stringify(hooksConfig, null, 2));
     console.log(chalk.green("✓ Codex hook installed"));
   } catch (error) {
     console.error(chalk.red("Error installing Codex hook:"), error);
@@ -158,8 +199,9 @@ function installCodexHook(): void {
 }
 
 function installGeminiHook(): void {
-  const geminiConfigPath = getGeminiConfigPath();
-  const hookScriptPath = getHookScriptPath();
+  const homeDir = process.env.HOME || os.homedir();
+  const geminiConfigPath = path.join(homeDir, ".gemini", "settings.json");
+  const hookScriptPath = path.join(getAthrdDir(), "hook.sh");
 
   try {
     if (!fs.existsSync(geminiConfigPath)) {
@@ -212,10 +254,10 @@ function installGeminiHook(): void {
   }
 }
 
-export function installAiCliHooks(): void {
+export function installAiCliHooks(repoRoot: string): void {
   writeHookScript();
   installClaudeHook();
-  installCodexHook();
+  installCodexHook(repoRoot);
   installGeminiHook();
 }
 
@@ -231,7 +273,7 @@ export function enableAthrdForRepo(cwd = process.cwd()): EnableAthrdResult {
     console.log(chalk.blue("ℹ Repo git commit-msg hook is already installed"));
   }
 
-  installAiCliHooks();
+  installAiCliHooks(gitHookResult.repoRoot);
   console.log(chalk.green("ATHRD enable complete!"));
 
   return {

@@ -3,9 +3,9 @@
 const steps = [
   {
     label: "Step 01",
-    title: "Connect athrd once",
-    body: "Connect athrd to your AI CLI tooling so sessions sync automatically in the background.",
-    command: "athrd auth && athrd hooks install",
+    title: "Enable athrd per repo",
+    body: "Authenticate once, then run athrd inside each Git repository you want to connect so repo-local hook config syncs sessions in the background.",
+    command: "athrd auth && athrd enable",
   },
   {
     label: "Step 02",

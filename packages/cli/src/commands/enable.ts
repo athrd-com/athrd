@@ -54,11 +54,6 @@ PROVIDER=$1
 INPUT=$(cat 2>/dev/null || true)
 EVENT_JSON="$INPUT"
 
-# Legacy Codex notify hooks pass the payload as the second argument.
-if [ "$PROVIDER" = "codex" ] && [ -n "$2" ]; then
-  EVENT_JSON="$2"
-fi
-
 if [ -z "$EVENT_JSON" ]; then
   exit 0
 fi
@@ -106,10 +101,6 @@ function getGeminiProjectConfigPath(repoRoot: string): string {
   return path.join(repoRoot, ".gemini", "settings.json");
 }
 
-function getClaudeHomeConfigPath(): string {
-  return path.join(getHomeDir(), ".claude", "settings.json");
-}
-
 function getClaudeHomeDir(): string {
   return path.join(getHomeDir(), ".claude");
 }
@@ -120,10 +111,6 @@ function getCodexHomeConfigPath(): string {
 
 function getCodexHomeDir(): string {
   return path.join(getHomeDir(), ".codex");
-}
-
-function getGeminiHomeConfigPath(): string {
-  return path.join(getHomeDir(), ".gemini", "settings.json");
 }
 
 function getGeminiHomeDir(): string {
@@ -189,16 +176,7 @@ function isAthrdManagedProviderCommand(
   command: unknown,
   provider: ProviderId,
 ): boolean {
-  return (
-    typeof command === "string" &&
-    command.includes("hook.sh") &&
-    command.includes(provider) &&
-    (
-      command.includes(".athrd/hook.sh") ||
-      command.includes("ATHRD_HOME") ||
-      command.includes("$HOME/.athrd")
-    )
-  );
+  return typeof command === "string" && command.trim() === buildRepoHookCommand(provider);
 }
 
 function stripManagedHookCommands(
@@ -319,50 +297,10 @@ function hasProviderHomeDir(provider: ProviderId): boolean {
   }
 }
 
-function removeLegacyClaudeHomeHook(): void {
-  const claudeConfigPath = getClaudeHomeConfigPath();
-  if (!fs.existsSync(claudeConfigPath)) {
-    return;
-  }
-
-  const config = readJsonFile<ClaudeSettings>(claudeConfigPath);
-  if (!config.hooks) {
-    return;
-  }
-
-  const stopGroups = Array.isArray(config.hooks.Stop) ? config.hooks.Stop : [];
-  const { groups, removed } = stripManagedHookCommands(stopGroups, "claude");
-  if (!removed) {
-    return;
-  }
-
-  if (groups.length > 0) {
-    config.hooks.Stop = groups;
-  } else {
-    delete config.hooks.Stop;
-  }
-
-  if (Object.keys(config.hooks).length === 0) {
-    delete config.hooks;
-  }
-
-  writeJsonFile(claudeConfigPath, config);
-  console.log(chalk.green("✓ Removed legacy Claude home hook"));
-}
-
 function updateCodexHomeConfig(repoRoot: string): void {
   const codexConfigPath = getCodexHomeConfigPath();
   const config = readTomlFile(codexConfigPath);
   let changed = false;
-
-  if (
-    Array.isArray(config.notify) &&
-    config.notify.some((entry) => typeof entry === "string" && entry.includes(".athrd/hook.sh")) &&
-    config.notify.some((entry) => entry === "codex")
-  ) {
-    delete config.notify;
-    changed = true;
-  }
 
   const existingProjects = isRecord(config.projects)
     ? (config.projects as Record<string, unknown>)
@@ -393,72 +331,6 @@ function updateCodexHomeConfig(repoRoot: string): void {
   if (changed) {
     console.log(chalk.green("✓ Updated Codex home config for project trust"));
   }
-}
-
-function removeLegacyGeminiHooksFromConfig(config: GeminiSettings): boolean {
-  let changed = false;
-
-  if (config.hooks) {
-    const afterModelGroups = Array.isArray(config.hooks.AfterModel)
-      ? config.hooks.AfterModel
-      : [];
-    const { groups, removed } = stripManagedHookCommands(afterModelGroups, "gemini");
-    if (removed) {
-      changed = true;
-      if (groups.length > 0) {
-        config.hooks.AfterModel = groups;
-      } else {
-        delete config.hooks.AfterModel;
-      }
-    }
-
-    if (Object.keys(config.hooks).length === 0) {
-      delete config.hooks;
-      changed = true;
-    }
-  }
-
-  if (config.hooksConfig?.hooks) {
-    const afterModelGroups = Array.isArray(config.hooksConfig.hooks.AfterModel)
-      ? config.hooksConfig.hooks.AfterModel
-      : [];
-    const { groups, removed } = stripManagedHookCommands(afterModelGroups, "gemini");
-    if (removed) {
-      changed = true;
-      if (groups.length > 0) {
-        config.hooksConfig.hooks.AfterModel = groups;
-      } else {
-        delete config.hooksConfig.hooks.AfterModel;
-      }
-    }
-
-    if (Object.keys(config.hooksConfig.hooks).length === 0) {
-      delete config.hooksConfig.hooks;
-      changed = true;
-    }
-  }
-
-  if (config.hooksConfig && Object.keys(config.hooksConfig).length === 0) {
-    delete config.hooksConfig;
-    changed = true;
-  }
-
-  return changed;
-}
-
-function removeLegacyGeminiHomeHook(): void {
-  const geminiConfigPath = getGeminiHomeConfigPath();
-  if (!fs.existsSync(geminiConfigPath)) {
-    return;
-  }
-
-  const config = readJsonFile<GeminiSettings>(geminiConfigPath);
-  if (!removeLegacyGeminiHooksFromConfig(config)) {
-    return;
-  }
-
-  writeJsonFile(geminiConfigPath, config);
-  console.log(chalk.green("✓ Removed legacy Gemini home hook"));
 }
 
 function installClaudeHook(repoRoot: string): void {
@@ -516,8 +388,6 @@ function installGeminiHook(repoRoot: string): void {
   }
   config.hooksConfig.enabled = true;
 
-  removeLegacyGeminiHooksFromConfig(config);
-
   if (!config.hooks) {
     config.hooks = {};
   }
@@ -538,7 +408,6 @@ export function installAiCliHooks(repoRoot: string): ProviderId[] {
 
   if (hasProviderHomeDir("claude")) {
     installClaudeHook(repoRoot);
-    removeLegacyClaudeHomeHook();
     installedProviders.push("claude");
   } else {
     console.log(
@@ -558,7 +427,6 @@ export function installAiCliHooks(repoRoot: string): ProviderId[] {
 
   if (hasProviderHomeDir("gemini")) {
     installGeminiHook(repoRoot);
-    removeLegacyGeminiHomeHook();
     installedProviders.push("gemini");
   } else {
     console.log(

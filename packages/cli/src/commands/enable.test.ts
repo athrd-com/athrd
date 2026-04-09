@@ -363,7 +363,7 @@ describe("enableAthrdForRepo", () => {
     expect(gitignoreContent).toContain("node_modules/");
   });
 
-  test("removes legacy home-scoped provider hooks while preserving unrelated settings", () => {
+  test("leaves existing home-scoped provider config untouched", () => {
     const home = process.env.HOME!;
     const repo = makeTempDir("athrd-enable-migrate-repo-");
     runGit(["init"], repo);
@@ -452,6 +452,7 @@ describe("enableAthrdForRepo", () => {
       };
     };
     expect(getHookCommands(claudeConfig.hooks?.Stop)).toEqual([
+      `${join(home, ".athrd", "hook.sh")} claude`,
       "echo keep-claude-hook",
     ]);
 
@@ -463,7 +464,11 @@ describe("enableAthrdForRepo", () => {
       projects?: Record<string, { trust_level?: string }>;
     };
     expect(codexConfig.model).toBe("gpt-5.4");
-    expect(codexConfig.notify).toBeUndefined();
+    expect(codexConfig.notify).toEqual([
+      "bash",
+      join(home, ".athrd", "hook.sh"),
+      "codex",
+    ]);
     expect(codexConfig.projects?.[repoRoot]?.trust_level).toBe("trusted");
 
     const geminiConfig = JSON.parse(
@@ -477,7 +482,7 @@ describe("enableAthrdForRepo", () => {
     };
     expect(
       getHookCommands(geminiConfig.hooksConfig?.hooks?.AfterModel),
-    ).toEqual(["echo keep-gemini-hook"]);
+    ).toEqual([`${join(home, ".athrd", "hook.sh")} gemini`, "echo keep-gemini-hook"]);
   });
 
   test("only installs providers whose home directories exist and ignores only those directories", () => {

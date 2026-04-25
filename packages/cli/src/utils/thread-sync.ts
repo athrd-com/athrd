@@ -2,9 +2,32 @@ import { config } from "../config.js";
 
 export type ThreadSyncSource = "gist" | "s3";
 
+export interface ThreadIndexOrganizationMetadata {
+  id: string;
+  login: string;
+  avatarUrl?: string;
+}
+
+export interface ThreadIndexMetadata {
+  ownerGithubId: string;
+  ownerGithubLogin: string;
+  title?: string;
+  ide?: string;
+  model?: string;
+  modelProvider?: string;
+  repoName?: string;
+  commitHash?: string;
+  ghRepoId?: string;
+  organization?: ThreadIndexOrganizationMetadata;
+  createdAt?: string | number;
+  updatedAt?: string | number;
+  contentSha256: string;
+}
+
 export interface SyncThreadIndexInput {
   source: ThreadSyncSource;
   sourceId: string;
+  metadata: ThreadIndexMetadata;
   token: string;
   baseUrl?: string;
 }
@@ -31,6 +54,7 @@ export async function syncThreadIndex(
     body: JSON.stringify({
       source: input.source,
       sourceId: input.sourceId,
+      metadata: input.metadata,
     }),
   });
 

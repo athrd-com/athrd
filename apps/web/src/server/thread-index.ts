@@ -16,10 +16,27 @@ export interface SyncThreadIndexInput {
   source: ThreadSyncSource;
   sourceId: string;
   accessToken: string;
+  metadata?: ClientThreadIndexMetadata;
 }
 
 export interface SyncThreadIndexResult {
   publicId: string;
+}
+
+export interface ClientThreadIndexMetadata {
+  ownerGithubId: string;
+  ownerGithubLogin?: string;
+  title?: string;
+  ide?: string;
+  model?: string;
+  modelProvider?: string;
+  repoName?: string;
+  commitHash?: string;
+  ghRepoId?: string;
+  organization?: GithubOrganizationMetadata;
+  createdAt?: string | number;
+  updatedAt?: string | number;
+  contentSha256: string;
 }
 
 interface GithubTokenUser {
@@ -27,7 +44,7 @@ interface GithubTokenUser {
   login: string;
 }
 
-interface GithubOrganizationMetadata {
+export interface GithubOrganizationMetadata {
   id: string;
   login: string;
   avatarUrl?: string;
@@ -81,8 +98,12 @@ export async function syncThreadIndex(
   }
 
   const githubUser = await fetchGithubTokenUser(accessToken);
-  const sourceRecord = await readCanonicalSourceRecord(input, githubUser);
-  const indexRecord = buildThreadIndexRecord(sourceRecord, githubUser);
+  const indexRecord = input.metadata
+    ? buildThreadIndexRecordFromClientMetadata(input, input.metadata, githubUser)
+    : buildThreadIndexRecord(
+        await readCanonicalSourceRecord(input, githubUser),
+        githubUser,
+      );
   await upsertThreadIndex(indexRecord);
 
   return {
@@ -148,6 +169,115 @@ export function buildThreadIndexRecord(
         ),
     ),
     contentSha256,
+  };
+}
+
+export function parseClientThreadIndexMetadata(
+  value: unknown,
+): ClientThreadIndexMetadata | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    throw new ThreadSyncError(
+      400,
+      "invalid_metadata",
+      "Thread metadata must be an object.",
+    );
+  }
+
+  const contentSha256 = getString(value, "contentSha256");
+  if (!contentSha256 || !/^[a-f0-9]{64}$/i.test(contentSha256)) {
+    throw new ThreadSyncError(
+      400,
+      "invalid_metadata",
+      "Thread metadata must include contentSha256.",
+    );
+  }
+
+  const ownerGithubId = getString(value, "ownerGithubId");
+  if (!ownerGithubId) {
+    throw new ThreadSyncError(
+      400,
+      "invalid_metadata",
+      "Thread metadata must include ownerGithubId.",
+    );
+  }
+
+  return {
+    ownerGithubId,
+    ownerGithubLogin: getString(value, "ownerGithubLogin"),
+    title: getString(value, "title"),
+    ide: getString(value, "ide"),
+    model: getString(value, "model"),
+    modelProvider: getString(value, "modelProvider"),
+    repoName: getString(value, "repoName"),
+    commitHash: getString(value, "commitHash"),
+    ghRepoId: getString(value, "ghRepoId"),
+    organization: parseClientOrganizationMetadata(value.organization),
+    createdAt: getStringOrNumber(value, "createdAt"),
+    updatedAt: getStringOrNumber(value, "updatedAt"),
+    contentSha256,
+  };
+}
+
+function buildThreadIndexRecordFromClientMetadata(
+  input: SyncThreadIndexInput,
+  metadata: ClientThreadIndexMetadata,
+  owner: GithubTokenUser,
+): ThreadIndexRecord {
+  const sourceId =
+    input.source === "s3" ? normalizeS3SourceId(input.sourceId) : input.sourceId.trim();
+
+  if (!sourceId) {
+    throw new ThreadSyncError(400, "invalid_source_id", "Source id is required.");
+  }
+
+  if (metadata.ownerGithubId !== owner.id) {
+    throw new ThreadSyncError(
+      403,
+      "owner_mismatch",
+      "Thread metadata owner does not match the authenticated GitHub user.",
+    );
+  }
+
+  if (input.source === "s3") {
+    const s3OwnerId = getS3OwnerId(sourceId);
+    if (!s3OwnerId) {
+      throw new ThreadSyncError(
+        400,
+        "invalid_source_id",
+        "S3 source id must include org id, owner GitHub id, and file name.",
+      );
+    }
+
+    if (s3OwnerId !== owner.id) {
+      throw new ThreadSyncError(
+        403,
+        "owner_mismatch",
+        "The authenticated GitHub user does not own this S3 thread.",
+      );
+    }
+  }
+
+  return {
+    publicId: input.source === "s3" ? createS3PublicId(sourceId) : sourceId,
+    source: input.source,
+    sourceId,
+    ownerGithubId: metadata.ownerGithubId,
+    ownerGithubLogin: metadata.ownerGithubLogin || owner.login,
+    title: metadata.title || getFilenameTitle(sourceId),
+    ide: metadata.ide,
+    model: metadata.model,
+    modelProvider: metadata.modelProvider,
+    repoName: metadata.repoName,
+    commitHash: metadata.commitHash,
+    ghRepoId: metadata.ghRepoId,
+    organization: metadata.organization,
+    createdAt: toDate(metadata.createdAt),
+    updatedAt: toDate(metadata.updatedAt),
+    contentSha256: metadata.contentSha256,
   };
 }
 
@@ -262,6 +392,37 @@ function normalizeS3SourceId(rawSourceId: string): string {
 function getS3OwnerId(sourceId: string): string | null {
   const [, ownerId] = sourceId.split("/").filter(Boolean);
   return ownerId || null;
+}
+
+function parseClientOrganizationMetadata(
+  value: unknown,
+): GithubOrganizationMetadata | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    throw new ThreadSyncError(
+      400,
+      "invalid_metadata",
+      "Thread metadata organization must be an object.",
+    );
+  }
+
+  const id = getString(value, "id");
+  if (!id) {
+    throw new ThreadSyncError(
+      400,
+      "invalid_metadata",
+      "Thread metadata organization must include id.",
+    );
+  }
+
+  return {
+    id,
+    login: getString(value, "login") || id,
+    avatarUrl: getString(value, "avatarUrl"),
+  };
 }
 
 async function fetchGithubTokenUser(accessToken: string): Promise<GithubTokenUser> {
@@ -493,6 +654,16 @@ function getString(
 ): string | undefined {
   const value = input?.[key];
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function getStringOrNumber(
+  input: Record<string, unknown>,
+  key: string,
+): string | number | undefined {
+  const value = input[key];
+  return typeof value === "string" || typeof value === "number"
+    ? value
+    : undefined;
 }
 
 function getNestedString(

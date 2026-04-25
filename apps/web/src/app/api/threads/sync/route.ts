@@ -1,5 +1,6 @@
 import {
   isThreadSyncSource,
+  parseClientThreadIndexMetadata,
   syncThreadIndex,
   ThreadSyncError,
 } from "~/server/thread-index";
@@ -49,6 +50,7 @@ export async function POST(request: Request): Promise<Response> {
       source,
       sourceId,
       accessToken,
+      metadata: parseClientThreadIndexMetadata(body.metadata),
     });
 
     return jsonResponse({ ok: true, ...result }, 200);

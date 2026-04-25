@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Octokit } from "@octokit/rest";
 import chalk from "chalk";
 import { Command } from "commander";
@@ -12,6 +13,9 @@ import {
   getGitHubOrgInfo,
   getGitHubRepoInfo,
   getGitHubUserInfo,
+  type GitHubOrgInfo,
+  type GitHubRepoInfo,
+  type GitHubUserInfo,
 } from "../utils/github.js";
 import { appendAthrdUrlMarker } from "../utils/marker.js";
 import { maybeBackfillHookDrivenCommit } from "../utils/hook-share-backfill.js";
@@ -19,7 +23,10 @@ import {
   getGistIdForThread,
   upsertThreadGistMapping,
 } from "../utils/sessions.js";
-import { syncThreadIndex } from "../utils/thread-sync.js";
+import {
+  syncThreadIndex,
+  type ThreadIndexMetadata,
+} from "../utils/thread-sync.js";
 
 function extractSessionIdFromHookPayload(
   payload: string,
@@ -71,6 +78,190 @@ function extractWorkspacePathFromHookPayload(
   } catch {
     return null;
   }
+}
+
+function buildThreadIndexMetadata(input: {
+  content: string;
+  enrichedData: unknown;
+  session: ChatSession;
+  providerId: string;
+  userInfo: GitHubUserInfo;
+  githubRepo?: string | null;
+  commitHash?: string | null;
+  repoInfo?: GitHubRepoInfo | null;
+  orgInfo?: GitHubOrgInfo | null;
+}): ThreadIndexMetadata {
+  return {
+    ownerGithubId: String(input.userInfo.userId),
+    ownerGithubLogin: input.userInfo.username,
+    title:
+      input.session.customTitle ||
+      extractTitle(input.enrichedData) ||
+      "AI Chat Thread",
+    ide: input.providerId,
+    model: extractFirstModel(input.enrichedData, input.providerId),
+    modelProvider: extractModelProvider(input.enrichedData),
+    repoName: input.githubRepo || undefined,
+    commitHash: input.commitHash || undefined,
+    ghRepoId:
+      typeof input.repoInfo?.repoId === "number"
+        ? String(input.repoInfo.repoId)
+        : undefined,
+    organization: input.orgInfo
+      ? {
+          id: String(input.orgInfo.orgId),
+          login: input.orgInfo.orgName,
+          avatarUrl: input.orgInfo.orgIcon,
+        }
+      : undefined,
+    createdAt: normalizeTimestampValue(input.session.creationDate),
+    updatedAt: normalizeTimestampValue(input.session.lastMessageDate),
+    contentSha256: createHash("sha256").update(input.content).digest("hex"),
+  };
+}
+
+function extractTitle(input: unknown): string | undefined {
+  if (!isRecord(input)) {
+    return undefined;
+  }
+
+  const athrdMeta = getRecord(input, "__athrd");
+  const metadata = getRecord(input, "metadata");
+
+  return firstNonEmptyString(
+    getString(athrdMeta, "title"),
+    getString(metadata, "name"),
+    getString(input, "title"),
+    getString(input, "customTitle"),
+    getString(input, "summary"),
+  );
+}
+
+function extractFirstModel(input: unknown, providerId: string): string | undefined {
+  if (!isRecord(input)) {
+    return undefined;
+  }
+
+  if (providerId === "vscode") {
+    return firstModelFromArray(input.requests, (item) => getString(item, "modelId"));
+  }
+
+  if (providerId === "claude") {
+    return firstModelFromArray(input.requests, (item) =>
+      getString(getRecord(item, "message"), "model"),
+    );
+  }
+
+  if (providerId === "gemini") {
+    return firstModelFromArray(input.messages, (item) => getString(item, "model"));
+  }
+
+  if (providerId === "codex") {
+    const model = getString(getRecord(input, "payload"), "model");
+    if (model) {
+      return model;
+    }
+
+    return firstModelFromArray(input.messages, (item) =>
+      getString(getRecord(item, "payload"), "model"),
+    );
+  }
+
+  if (providerId === "pi") {
+    const entries = Array.isArray(input.entries) ? input.entries : input.messages;
+    return firstModelFromArray(entries, (item) => {
+      if (getString(item, "type") === "model_change") {
+        return getString(item, "modelId");
+      }
+
+      const message = getRecord(item, "message");
+      return getString(message, "model");
+    });
+  }
+
+  return (
+    getString(input, "model") ||
+    getString(getRecord(input, "payload"), "model") ||
+    firstModelFromArray(input.messages, (item) =>
+      getString(getRecord(item, "payload"), "model") ||
+      getString(getRecord(item, "message"), "model") ||
+      getString(item, "model"),
+    )
+  );
+}
+
+function extractModelProvider(input: unknown): string | undefined {
+  if (!isRecord(input)) {
+    return undefined;
+  }
+
+  const athrdMeta = getRecord(input, "__athrd");
+  const payload = getRecord(input, "payload");
+
+  return (
+    getString(athrdMeta, "modelProvider") ||
+    getString(athrdMeta, "model_provider") ||
+    getString(payload, "model_provider") ||
+    firstModelFromArray(input.messages, (item) =>
+      getString(getRecord(item, "payload"), "model_provider"),
+    )
+  );
+}
+
+function firstModelFromArray(
+  value: unknown,
+  select: (item: Record<string, unknown>) => string | undefined,
+): string | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const model = select(item);
+    if (model) {
+      return model;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeTimestampValue(value: number | undefined): string | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return new Date(value).toISOString();
+}
+
+function getRecord(
+  input: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | undefined {
+  const value = input[key];
+  return isRecord(value) ? value : undefined;
+}
+
+function getString(
+  input: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = input?.[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function firstNonEmptyString(
+  ...values: Array<string | undefined>
+): string | undefined {
+  return values.find((value) => typeof value === "string" && value.trim());
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function shareCommand(program: Command) {
@@ -346,6 +537,17 @@ export function shareCommand(program: Command) {
               await syncThreadIndex({
                 source: "gist",
                 sourceId: gistId,
+                metadata: buildThreadIndexMetadata({
+                  content,
+                  enrichedData,
+                  session,
+                  providerId: provider.id,
+                  userInfo,
+                  githubRepo,
+                  commitHash,
+                  repoInfo,
+                  orgInfo,
+                }),
                 token,
               });
             } catch (error) {

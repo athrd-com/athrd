@@ -1,10 +1,16 @@
-import { describe, expect, test } from "bun:test";
-import { syncThreadIndex, type ThreadSyncFetch } from "./thread-sync.js";
+import { afterEach, describe, expect, test } from "bun:test";
+import { syncThreadIndex } from "./thread-sync.js";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  setFetch(originalFetch);
+});
 
 describe("syncThreadIndex", () => {
   test("posts source identity with the bearer token", async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
-    const fetchImpl: ThreadSyncFetch = async (input, init) => {
+    setFetch(async (input, init) => {
       calls.push({ input, init });
       return new Response(
         JSON.stringify({
@@ -16,7 +22,7 @@ describe("syncThreadIndex", () => {
           headers: { "content-type": "application/json" },
         },
       );
-    };
+    });
 
     await expect(
       syncThreadIndex({
@@ -24,7 +30,6 @@ describe("syncThreadIndex", () => {
         sourceId: "gist-1",
         token: "github-token",
         baseUrl: "https://athrd.example",
-        fetchImpl,
       }),
     ).resolves.toEqual({
       ok: true,
@@ -44,8 +49,7 @@ describe("syncThreadIndex", () => {
   });
 
   test("throws on sync failures", async () => {
-    const fetchImpl: ThreadSyncFetch = async () =>
-      new Response("forbidden", { status: 403 });
+    setFetch(async () => new Response("forbidden", { status: 403 }));
 
     await expect(
       syncThreadIndex({
@@ -53,8 +57,13 @@ describe("syncThreadIndex", () => {
         sourceId: "gist-1",
         token: "github-token",
         baseUrl: "https://athrd.example",
-        fetchImpl,
       }),
     ).rejects.toThrow("Metadata sync failed (403): forbidden");
   });
 });
+
+function setFetch(
+  fetchImpl: (input: string | URL | Request, init?: RequestInit) => Promise<Response>,
+): void {
+  (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchImpl as typeof fetch;
+}

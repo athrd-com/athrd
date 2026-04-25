@@ -39,6 +39,8 @@ function getIDEIcon(ide?: IDE) {
       return <OpenaiDark className="h-6 w-6" />;
     case IDE.CURSOR:
       return <CursorWordmarkLight className="h-6 w-6" />;
+    case IDE.PI:
+      return null;
     default:
       return null;
   }
@@ -56,6 +58,8 @@ function getIDEName(ide?: IDE) {
       return "Codex";
     case IDE.CURSOR:
       return "Cursor";
+    case IDE.PI:
+      return "Pi";
     default:
       return null;
   }

@@ -1,17 +1,12 @@
 import { config } from "../config.js";
 
 export type ThreadSyncSource = "gist" | "s3";
-export type ThreadSyncFetch = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<Response>;
 
 export interface SyncThreadIndexInput {
   source: ThreadSyncSource;
   sourceId: string;
   token: string;
   baseUrl?: string;
-  fetchImpl?: ThreadSyncFetch;
 }
 
 export interface SyncThreadIndexResult {
@@ -27,7 +22,7 @@ export async function syncThreadIndex(
     throw new Error("GitHub token is required to sync thread metadata");
   }
 
-  const response = await (input.fetchImpl ?? fetch)(buildSyncUrl(input.baseUrl), {
+  const response = await fetch(buildSyncUrl(input.baseUrl), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

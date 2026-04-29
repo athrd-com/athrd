@@ -54,86 +54,31 @@ describe("thread-index sync", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses client-provided metadata without fetching the canonical thread", async () => {
-    const { syncThreadIndex } = await import("./thread-index");
-
-    await expect(
-      syncThreadIndex({
-        source: "gist",
-        sourceId: "gist-1",
-        accessToken: "github-token",
-        metadata: {
-          ownerGithubId: "123",
-          ownerGithubLogin: "octo",
-          title: "Client title",
-          ide: "codex",
-          model: "gpt-5",
-          modelProvider: "openai",
-          repoName: "athrd-com/athrd",
-          commitHash: "deadbeef",
-          ghRepoId: "789",
-          organization: {
-            id: "456",
-            login: "athrd-com",
-            avatarUrl: "https://example.com/org.png",
+  it("verifies the GitHub token, reads the canonical gist, and stores the thread", async () => {
+    const content = JSON.stringify({
+      __athrd: {
+        ide: "claude",
+        title: "Indexed title",
+        githubRepo: "athrd-com/athrd",
+        commitHash: "deadbeef",
+        ghRepoId: 789,
+        orgId: 456,
+        orgName: "athrd-com",
+      },
+      requests: [
+        {
+          id: "req-1",
+          type: "user",
+          message: {
+            role: "user",
+            content: "Hello",
+            model: "claude-3-5-sonnet-20241022",
           },
-          createdAt: "2026-04-22T00:00:00.000Z",
-          updatedAt: "2026-04-23T00:00:00.000Z",
-          contentSha256:
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          timestamp: "2026-04-22T00:00:00.000Z",
         },
-      }),
-    ).resolves.toEqual({
-      publicId: "gist-1",
+      ],
     });
 
-    expect(fetchGistMock).not.toHaveBeenCalled();
-    expect(s3ReadThreadMock).not.toHaveBeenCalled();
-    expect(dbQueryMock.mock.calls[0]?.[1]).toEqual([
-      "456",
-      "athrd-com",
-      "https://example.com/org.png",
-    ]);
-
-    const params = dbQueryMock.mock.calls[1]?.[1] as unknown[];
-    expect(params[0]).toBe("gist-1");
-    expect(params[1]).toBe("gist");
-    expect(params[3]).toBe("123");
-    expect(params[4]).toBe("octo");
-    expect(params[5]).toBe("Client title");
-    expect(params[6]).toBe("codex");
-    expect(params[7]).toBe("gpt-5");
-    expect(params[8]).toBe("openai");
-    expect(params[9]).toBe("athrd-com/athrd");
-    expect(params[10]).toBe("deadbeef");
-    expect(params[11]).toBe("789");
-    expect(params[12]).toBe("456");
-    expect(params[15]).toBe(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    );
-  });
-
-  it("rejects client metadata when the owner does not match the token", async () => {
-    const { syncThreadIndex, ThreadSyncError } = await import("./thread-index");
-
-    await expect(
-      syncThreadIndex({
-        source: "gist",
-        sourceId: "gist-1",
-        accessToken: "github-token",
-        metadata: {
-          ownerGithubId: "999",
-          contentSha256:
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        },
-      }),
-    ).rejects.toBeInstanceOf(ThreadSyncError);
-
-    expect(fetchGistMock).not.toHaveBeenCalled();
-    expect(dbQueryMock).not.toHaveBeenCalled();
-  });
-
-  it("verifies the GitHub token, reads the canonical gist, and upserts metadata", async () => {
     fetchGistMock.mockResolvedValue({
       gist: {
         id: "gist-1",
@@ -156,29 +101,7 @@ describe("thread-index sync", () => {
         language: "JSON",
         raw_url: "https://example.com/raw",
         size: 100,
-        content: JSON.stringify({
-          __athrd: {
-            ide: "claude",
-            title: "Indexed title",
-            githubRepo: "athrd-com/athrd",
-            commitHash: "deadbeef",
-            ghRepoId: 789,
-            orgId: 456,
-            orgName: "athrd-com",
-          },
-          requests: [
-            {
-              id: "req-1",
-              type: "user",
-              message: {
-                role: "user",
-                content: "Hello",
-                model: "claude-3-5-sonnet-20241022",
-              },
-              timestamp: "2026-04-22T00:00:00.000Z",
-            },
-          ],
-        }),
+        content,
       },
     });
 
@@ -207,13 +130,23 @@ describe("thread-index sync", () => {
       noStore: true,
     });
 
-    expect(dbQueryMock.mock.calls[0]?.[1]).toEqual([
+    const contentParams = dbQueryMock.mock.calls[0]?.[1] as unknown[];
+    expect(contentParams[0]).toBe("gist-1");
+    expect(contentParams[1]).toBe("gist");
+    expect(contentParams[2]).toBe("gist-1");
+    expect(contentParams[3]).toBe("123");
+    expect(contentParams[4]).toBe("octo");
+    expect(contentParams[5]).toBe("athrd-thread.json");
+    expect(contentParams[6]).toBe(content);
+    expect(contentParams[7]).toEqual(expect.stringMatching(/^[a-f0-9]{64}$/));
+
+    expect(dbQueryMock.mock.calls[1]?.[1]).toEqual([
       "456",
       "athrd-com",
       null,
     ]);
 
-    const params = dbQueryMock.mock.calls[1]?.[1] as unknown[];
+    const params = dbQueryMock.mock.calls[2]?.[1] as unknown[];
     expect(params[0]).toBe("gist-1");
     expect(params[1]).toBe("gist");
     expect(params[3]).toBe("123");
@@ -302,7 +235,11 @@ describe("thread-index sync", () => {
       }),
     ).resolves.toMatchObject({ publicId: "gist-1" });
 
-    const params = dbQueryMock.mock.calls[0]?.[1] as unknown[];
+    const contentParams = dbQueryMock.mock.calls[0]?.[1] as unknown[];
+    expect(contentParams[5]).toBe("athrd-broken.json");
+    expect(contentParams[6]).toBe("{");
+
+    const params = dbQueryMock.mock.calls[1]?.[1] as unknown[];
     expect(params[5]).toBe("Broken thread");
     expect(params[6]).toBeNull();
     expect(params[7]).toBeNull();

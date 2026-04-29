@@ -1,6 +1,5 @@
 import {
   isThreadSyncSource,
-  parseClientThreadIndexMetadata,
   syncThreadIndex,
   ThreadSyncError,
 } from "~/server/thread-index";
@@ -50,7 +49,6 @@ export async function POST(request: Request): Promise<Response> {
       source,
       sourceId,
       accessToken,
-      metadata: parseClientThreadIndexMetadata(body.metadata),
     });
 
     return jsonResponse({ ok: true, ...result }, 200);
@@ -78,7 +76,7 @@ export async function POST(request: Request): Promise<Response> {
         ok: false,
         error: {
           code: "internal_error",
-          message: "Unable to sync thread metadata.",
+          message: "Unable to sync thread.",
         },
       },
       500,

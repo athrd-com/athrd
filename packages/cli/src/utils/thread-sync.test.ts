@@ -28,26 +28,6 @@ describe("syncThreadIndex", () => {
       syncThreadIndex({
         source: "gist",
         sourceId: "gist-1",
-        metadata: {
-          ownerGithubId: "123",
-          ownerGithubLogin: "octo",
-          title: "Indexed title",
-          ide: "codex",
-          model: "gpt-5",
-          modelProvider: "openai",
-          repoName: "athrd-com/athrd",
-          commitHash: "deadbeef",
-          ghRepoId: "789",
-          organization: {
-            id: "456",
-            login: "athrd-com",
-            avatarUrl: "https://example.com/org.png",
-          },
-          createdAt: "2026-04-22T00:00:00.000Z",
-          updatedAt: "2026-04-23T00:00:00.000Z",
-          contentSha256:
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        },
         token: "github-token",
         baseUrl: "https://athrd.example",
       }),
@@ -65,26 +45,6 @@ describe("syncThreadIndex", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
       source: "gist",
       sourceId: "gist-1",
-      metadata: {
-        ownerGithubId: "123",
-        ownerGithubLogin: "octo",
-        title: "Indexed title",
-        ide: "codex",
-        model: "gpt-5",
-        modelProvider: "openai",
-        repoName: "athrd-com/athrd",
-        commitHash: "deadbeef",
-        ghRepoId: "789",
-        organization: {
-          id: "456",
-          login: "athrd-com",
-          avatarUrl: "https://example.com/org.png",
-        },
-        createdAt: "2026-04-22T00:00:00.000Z",
-        updatedAt: "2026-04-23T00:00:00.000Z",
-        contentSha256:
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      },
     });
   });
 
@@ -95,16 +55,10 @@ describe("syncThreadIndex", () => {
       syncThreadIndex({
         source: "gist",
         sourceId: "gist-1",
-        metadata: {
-          ownerGithubId: "123",
-          ownerGithubLogin: "octo",
-          contentSha256:
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        },
         token: "github-token",
         baseUrl: "https://athrd.example",
       }),
-    ).rejects.toThrow("Metadata sync failed (403): forbidden");
+    ).rejects.toThrow("Thread sync failed (403): forbidden");
   });
 });
 

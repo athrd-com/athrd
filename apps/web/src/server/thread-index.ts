@@ -16,27 +16,10 @@ export interface SyncThreadIndexInput {
   source: ThreadSyncSource;
   sourceId: string;
   accessToken: string;
-  metadata?: ClientThreadIndexMetadata;
 }
 
 export interface SyncThreadIndexResult {
   publicId: string;
-}
-
-export interface ClientThreadIndexMetadata {
-  ownerGithubId: string;
-  ownerGithubLogin?: string;
-  title?: string;
-  ide?: string;
-  model?: string;
-  modelProvider?: string;
-  repoName?: string;
-  commitHash?: string;
-  ghRepoId?: string;
-  organization?: GithubOrganizationMetadata;
-  createdAt?: string | number;
-  updatedAt?: string | number;
-  contentSha256: string;
 }
 
 interface GithubTokenUser {
@@ -56,6 +39,8 @@ interface ThreadIndexRecord {
   sourceId: string;
   ownerGithubId: string;
   ownerGithubLogin?: string;
+  filename: string;
+  content: string;
   title?: string;
   ide?: string;
   model?: string;
@@ -98,13 +83,12 @@ export async function syncThreadIndex(
   }
 
   const githubUser = await fetchGithubTokenUser(accessToken);
-  const indexRecord = input.metadata
-    ? buildThreadIndexRecordFromClientMetadata(input, input.metadata, githubUser)
-    : buildThreadIndexRecord(
-        await readCanonicalSourceRecord(input, githubUser),
-        githubUser,
-      );
-  await upsertThreadIndex(indexRecord);
+  const sourceRecord = await readCanonicalSourceRecord(
+    { ...input, accessToken },
+    githubUser,
+  );
+  const indexRecord = buildThreadIndexRecord(sourceRecord, githubUser);
+  await upsertThreadSnapshot(indexRecord);
 
   return {
     publicId: indexRecord.publicId,
@@ -137,6 +121,8 @@ export function buildThreadIndexRecord(
     sourceId: normalizedRecord.sourceId,
     ownerGithubId: owner.id,
     ownerGithubLogin: owner.login,
+    filename: normalizedRecord.filename,
+    content,
     title:
       context?.title ||
       normalizedRecord.title ||
@@ -169,115 +155,6 @@ export function buildThreadIndexRecord(
         ),
     ),
     contentSha256,
-  };
-}
-
-export function parseClientThreadIndexMetadata(
-  value: unknown,
-): ClientThreadIndexMetadata | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!isRecord(value)) {
-    throw new ThreadSyncError(
-      400,
-      "invalid_metadata",
-      "Thread metadata must be an object.",
-    );
-  }
-
-  const contentSha256 = getString(value, "contentSha256");
-  if (!contentSha256 || !/^[a-f0-9]{64}$/i.test(contentSha256)) {
-    throw new ThreadSyncError(
-      400,
-      "invalid_metadata",
-      "Thread metadata must include contentSha256.",
-    );
-  }
-
-  const ownerGithubId = getString(value, "ownerGithubId");
-  if (!ownerGithubId) {
-    throw new ThreadSyncError(
-      400,
-      "invalid_metadata",
-      "Thread metadata must include ownerGithubId.",
-    );
-  }
-
-  return {
-    ownerGithubId,
-    ownerGithubLogin: getString(value, "ownerGithubLogin"),
-    title: getString(value, "title"),
-    ide: getString(value, "ide"),
-    model: getString(value, "model"),
-    modelProvider: getString(value, "modelProvider"),
-    repoName: getString(value, "repoName"),
-    commitHash: getString(value, "commitHash"),
-    ghRepoId: getString(value, "ghRepoId"),
-    organization: parseClientOrganizationMetadata(value.organization),
-    createdAt: getStringOrNumber(value, "createdAt"),
-    updatedAt: getStringOrNumber(value, "updatedAt"),
-    contentSha256,
-  };
-}
-
-function buildThreadIndexRecordFromClientMetadata(
-  input: SyncThreadIndexInput,
-  metadata: ClientThreadIndexMetadata,
-  owner: GithubTokenUser,
-): ThreadIndexRecord {
-  const sourceId =
-    input.source === "s3" ? normalizeS3SourceId(input.sourceId) : input.sourceId.trim();
-
-  if (!sourceId) {
-    throw new ThreadSyncError(400, "invalid_source_id", "Source id is required.");
-  }
-
-  if (metadata.ownerGithubId !== owner.id) {
-    throw new ThreadSyncError(
-      403,
-      "owner_mismatch",
-      "Thread metadata owner does not match the authenticated GitHub user.",
-    );
-  }
-
-  if (input.source === "s3") {
-    const s3OwnerId = getS3OwnerId(sourceId);
-    if (!s3OwnerId) {
-      throw new ThreadSyncError(
-        400,
-        "invalid_source_id",
-        "S3 source id must include org id, owner GitHub id, and file name.",
-      );
-    }
-
-    if (s3OwnerId !== owner.id) {
-      throw new ThreadSyncError(
-        403,
-        "owner_mismatch",
-        "The authenticated GitHub user does not own this S3 thread.",
-      );
-    }
-  }
-
-  return {
-    publicId: input.source === "s3" ? createS3PublicId(sourceId) : sourceId,
-    source: input.source,
-    sourceId,
-    ownerGithubId: metadata.ownerGithubId,
-    ownerGithubLogin: metadata.ownerGithubLogin || owner.login,
-    title: metadata.title || getFilenameTitle(sourceId),
-    ide: metadata.ide,
-    model: metadata.model,
-    modelProvider: metadata.modelProvider,
-    repoName: metadata.repoName,
-    commitHash: metadata.commitHash,
-    ghRepoId: metadata.ghRepoId,
-    organization: metadata.organization,
-    createdAt: toDate(metadata.createdAt),
-    updatedAt: toDate(metadata.updatedAt),
-    contentSha256: metadata.contentSha256,
   };
 }
 
@@ -394,37 +271,6 @@ function getS3OwnerId(sourceId: string): string | null {
   return ownerId || null;
 }
 
-function parseClientOrganizationMetadata(
-  value: unknown,
-): GithubOrganizationMetadata | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!isRecord(value)) {
-    throw new ThreadSyncError(
-      400,
-      "invalid_metadata",
-      "Thread metadata organization must be an object.",
-    );
-  }
-
-  const id = getString(value, "id");
-  if (!id) {
-    throw new ThreadSyncError(
-      400,
-      "invalid_metadata",
-      "Thread metadata organization must include id.",
-    );
-  }
-
-  return {
-    id,
-    login: getString(value, "login") || id,
-    avatarUrl: getString(value, "avatarUrl"),
-  };
-}
-
 async function fetchGithubTokenUser(accessToken: string): Promise<GithubTokenUser> {
   const response = await fetch("https://api.github.com/user", {
     headers: {
@@ -477,11 +323,61 @@ async function fetchGithubTokenUser(accessToken: string): Promise<GithubTokenUse
   };
 }
 
-async function upsertThreadIndex(record: ThreadIndexRecord): Promise<void> {
+async function upsertThreadSnapshot(record: ThreadIndexRecord): Promise<void> {
+  await upsertThreadContent(record);
+
   if (record.organization) {
     await upsertGithubOrganization(record.organization);
   }
 
+  await upsertThreadIndex(record);
+}
+
+async function upsertThreadContent(record: ThreadIndexRecord): Promise<void> {
+  await db.query(
+    `
+      INSERT INTO threads (
+        id,
+        source,
+        source_id,
+        owner_github_id,
+        owner_github_login,
+        filename,
+        content,
+        content_sha256,
+        source_created_at,
+        source_updated_at,
+        stored_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ON CONFLICT (source, source_id) DO UPDATE SET
+        id = EXCLUDED.id,
+        owner_github_id = EXCLUDED.owner_github_id,
+        owner_github_login = EXCLUDED.owner_github_login,
+        filename = EXCLUDED.filename,
+        content = EXCLUDED.content,
+        content_sha256 = EXCLUDED.content_sha256,
+        source_created_at = EXCLUDED.source_created_at,
+        source_updated_at = EXCLUDED.source_updated_at,
+        updated_at = NOW()
+    `,
+    [
+      record.publicId,
+      record.source,
+      record.sourceId,
+      record.ownerGithubId,
+      record.ownerGithubLogin ?? null,
+      record.filename,
+      record.content,
+      record.contentSha256,
+      record.createdAt,
+      record.updatedAt,
+    ],
+  );
+}
+
+async function upsertThreadIndex(record: ThreadIndexRecord): Promise<void> {
   await db.query<ThreadIndexUpsertRow>(
     `
       INSERT INTO thread_index (
@@ -654,16 +550,6 @@ function getString(
 ): string | undefined {
   const value = input?.[key];
   return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function getStringOrNumber(
-  input: Record<string, unknown>,
-  key: string,
-): string | number | undefined {
-  const value = input[key];
-  return typeof value === "string" || typeof value === "number"
-    ? value
-    : undefined;
 }
 
 function getNestedString(

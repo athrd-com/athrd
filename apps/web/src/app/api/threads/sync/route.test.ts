@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
-const { parseClientThreadIndexMetadataMock, syncThreadIndexMock } = vi.hoisted(() => ({
-  parseClientThreadIndexMetadataMock: vi.fn((value) => value),
+const { syncThreadIndexMock } = vi.hoisted(() => ({
   syncThreadIndexMock: vi.fn(),
 }));
 
@@ -21,7 +20,6 @@ vi.mock("~/server/thread-index", () => {
 
   return {
     isThreadSyncSource: (value: unknown) => value === "gist" || value === "s3",
-    parseClientThreadIndexMetadata: parseClientThreadIndexMetadataMock,
     syncThreadIndex: syncThreadIndexMock,
     ThreadSyncError,
   };
@@ -30,7 +28,6 @@ vi.mock("~/server/thread-index", () => {
 describe("POST /api/threads/sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    parseClientThreadIndexMetadataMock.mockImplementation((value) => value);
   });
 
   it("rejects requests without a bearer token", async () => {
@@ -71,9 +68,8 @@ describe("POST /api/threads/sync", () => {
           source: "gist",
           sourceId: "gist-1",
           metadata: {
-            ownerGithubId: "123",
-            contentSha256:
-              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            ownerGithubId: "attacker",
+            title: "Ignored title",
           },
         }),
       }),
@@ -88,11 +84,6 @@ describe("POST /api/threads/sync", () => {
       source: "gist",
       sourceId: "gist-1",
       accessToken: "github-token",
-      metadata: {
-        ownerGithubId: "123",
-        contentSha256:
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      },
     });
   });
 

@@ -48,8 +48,9 @@ CREATE TABLE IF NOT EXISTS "verification" (
   "updatedAt" TIMESTAMP DEFAULT NOW()
 );
 
--- Derived metadata projection for thread list/search surfaces.
--- S3 and GitHub Gist remain the canonical stores for full thread content.
+-- Stored thread snapshots and a derived metadata projection for list/search
+-- surfaces. External source ids are retained for ownership verification and
+-- re-syncs, but the database stores the thread body.
 CREATE TABLE IF NOT EXISTS github_organizations (
   id TEXT PRIMARY KEY,
   login TEXT NOT NULL,
@@ -57,8 +58,24 @@ CREATE TABLE IF NOT EXISTS github_organizations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS thread_index (
+CREATE TABLE IF NOT EXISTS threads (
   id TEXT PRIMARY KEY,
+  source TEXT NOT NULL CHECK (source IN ('gist', 's3')),
+  source_id TEXT NOT NULL,
+  owner_github_id TEXT NOT NULL,
+  owner_github_login TEXT,
+  filename TEXT NOT NULL,
+  content TEXT NOT NULL,
+  content_sha256 TEXT NOT NULL,
+  source_created_at TIMESTAMPTZ,
+  source_updated_at TIMESTAMPTZ,
+  stored_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (source, source_id)
+);
+
+CREATE TABLE IF NOT EXISTS thread_index (
+  id TEXT PRIMARY KEY REFERENCES threads(id) ON DELETE CASCADE,
   source TEXT NOT NULL CHECK (source IN ('gist', 's3')),
   source_id TEXT NOT NULL,
   owner_github_id TEXT NOT NULL,

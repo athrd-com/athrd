@@ -1,5 +1,5 @@
 export interface PiThread {
-  sessionId: string;
+  sessionId?: string;
   id?: string;
   type: "session";
   version?: number;
@@ -101,6 +101,7 @@ export interface PiImageContent {
 export interface PiThinkingContent {
   type: "thinking";
   thinking: string;
+  thinkingSignature?: string;
 }
 
 export interface PiToolCallContent {
@@ -130,9 +131,11 @@ export interface PiAssistantMessage {
   api?: string;
   provider?: string;
   model?: string;
-  stopReason?: "stop" | "length" | "toolUse" | "error" | "aborted";
+  usage?: PiUsage;
+  stopReason?: PiStopReason;
   errorMessage?: string;
   timestamp?: number;
+  responseId?: string;
 }
 
 export interface PiToolResultMessage {
@@ -188,3 +191,28 @@ export type PiAgentMessage =
   | PiCustomMessage
   | PiBranchSummaryMessage
   | PiCompactionSummaryMessage;
+
+export type PiStopReason =
+  | "stop"
+  | "length"
+  | "toolUse"
+  | "error"
+  | "aborted"
+  | (string & {});
+
+export interface PiUsageCost {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  total?: number;
+}
+
+export interface PiUsage {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  totalTokens?: number;
+  cost?: PiUsageCost;
+}

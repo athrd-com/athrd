@@ -20,6 +20,19 @@ describe("piParser", () => {
       expect(piParser.canParse(thread)).toBe(true);
     });
 
+    it("identifies raw Pi JSONL session headers without sessionId", () => {
+      expect(
+        piParser.canParse({
+          type: "session",
+          version: 3,
+          id: "019dd768-665c-7732-9503-55e7b465009c",
+          timestamp: "2026-04-29T04:03:56.636Z",
+          cwd: "/Users/gregorymarcilhacy/code/athrd",
+          entries: [],
+        }),
+      ).toBe(true);
+    });
+
     it("rejects unrelated structures", () => {
       expect(piParser.canParse(null)).toBe(false);
       expect(piParser.canParse({})).toBe(false);
@@ -76,6 +89,225 @@ describe("piParser", () => {
       id: "asst0001",
       type: "assistant",
       content: "Hello world!",
+      model: "gpt-5.4",
+    });
+  });
+
+  it("maps the observed Pi JSONL session fields", () => {
+    const toolCallId =
+      "call_Q6UCYwz4TyQc69jFhHkoFxny|fc_00f8285a1f5191860169f1834310988193a39e6de2ae043aa6";
+    const thread: PiThread = {
+      type: "session",
+      version: 3,
+      id: "019dd768-665c-7732-9503-55e7b465009c",
+      timestamp: "2026-04-29T04:03:56.636Z",
+      cwd: "/Users/gregorymarcilhacy/code/athrd",
+      entries: [
+        {
+          type: "model_change",
+          id: "65e73f9f",
+          parentId: null,
+          timestamp: "2026-04-29T04:04:02.875Z",
+          provider: "openai-codex",
+          modelId: "gpt-5.4",
+        },
+        {
+          type: "thinking_level_change",
+          id: "1713a56e",
+          parentId: "65e73f9f",
+          timestamp: "2026-04-29T04:04:02.876Z",
+          thinkingLevel: "medium",
+        },
+        {
+          type: "message",
+          id: "98cc6cd0",
+          parentId: "1713a56e",
+          timestamp: "2026-04-29T04:04:06.786Z",
+          message: {
+            role: "user",
+            content: [{ type: "text", text: "Hello" }],
+            timestamp: 1777435446783,
+          },
+        },
+        {
+          type: "message",
+          id: "08c7da16",
+          parentId: "98cc6cd0",
+          timestamp: "2026-04-29T04:04:08.214Z",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Hello! How can I help?",
+                textSignature:
+                  '{"v":1,"id":"msg_00f8285a1f5191860169f18337e6008193a9a1d01a1cbe7dda","phase":"final_answer"}',
+              },
+            ],
+            api: "openai-codex-responses",
+            provider: "openai-codex",
+            model: "gpt-5.4",
+            usage: {
+              input: 1531,
+              output: 11,
+              cacheRead: 0,
+              cacheWrite: 0,
+              totalTokens: 1542,
+              cost: {
+                input: 0.0038275,
+                output: 0.000165,
+                cacheRead: 0,
+                cacheWrite: 0,
+                total: 0.0039925,
+              },
+            },
+            stopReason: "stop",
+            timestamp: 1777435446794,
+            responseId: "resp_00f8285a1f5191860169f183373fcc81939f264eb23932aa1d",
+          },
+        },
+        {
+          type: "message",
+          id: "a160bf57",
+          parentId: "08c7da16",
+          timestamp: "2026-04-29T04:04:15.584Z",
+          message: {
+            role: "user",
+            content: [{ type: "text", text: "How many folders are in there?" }],
+            timestamp: 1777435455583,
+          },
+        },
+        {
+          type: "message",
+          id: "da0a1c46",
+          parentId: "a160bf57",
+          timestamp: "2026-04-29T04:04:19.268Z",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "thinking",
+                thinking: "**Figuring out current directory**",
+                thinkingSignature:
+                  '{"id":"rs_00f8285a1f5191860169f1834134f88193a03c4ab86793dc49","type":"reasoning"}',
+              },
+              {
+                type: "toolCall",
+                id: toolCallId,
+                name: "bash",
+                arguments: {
+                  command: "find . -maxdepth 1 -mindepth 1 -type d | wc -l",
+                },
+              },
+            ],
+            api: "openai-codex-responses",
+            provider: "openai-codex",
+            model: "gpt-5.4",
+            usage: {
+              input: 531,
+              output: 64,
+              cacheRead: 1024,
+              cacheWrite: 0,
+              totalTokens: 1619,
+              cost: {
+                input: 0.0013275000000000001,
+                output: 0.00096,
+                cacheRead: 0.000256,
+                cacheWrite: 0,
+                total: 0.0025435,
+              },
+            },
+            stopReason: "toolUse",
+            timestamp: 1777435455585,
+            responseId: "resp_00f8285a1f5191860169f1833fd2408193a0cd284fc315d487",
+          },
+        },
+        {
+          type: "message",
+          id: "34ce9aae",
+          parentId: "da0a1c46",
+          timestamp: "2026-04-29T04:04:19.294Z",
+          message: {
+            role: "toolResult",
+            toolCallId,
+            toolName: "bash",
+            content: [{ type: "text", text: "      10\n" }],
+            isError: false,
+            timestamp: 1777435459294,
+          },
+        },
+        {
+          type: "message",
+          id: "16b43ef2",
+          parentId: "34ce9aae",
+          timestamp: "2026-04-29T04:04:20.607Z",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "There are 10 folders in `/Users/gregorymarcilhacy/code/athrd`.",
+                textSignature:
+                  '{"v":1,"id":"msg_00f8285a1f5191860169f183441cf481938fa27c46e57991ef","phase":"final_answer"}',
+              },
+            ],
+            api: "openai-codex-responses",
+            provider: "openai-codex",
+            model: "gpt-5.4",
+            usage: {
+              input: 610,
+              output: 24,
+              cacheRead: 1024,
+              cacheWrite: 0,
+              totalTokens: 1658,
+              cost: {
+                input: 0.001525,
+                output: 0.00036,
+                cacheRead: 0.000256,
+                cacheWrite: 0,
+                total: 0.002141,
+              },
+            },
+            stopReason: "stop",
+            timestamp: 1777435459295,
+            responseId: "resp_00f8285a1f5191860169f183438ac88193a713502335a8a99e",
+          },
+        },
+      ],
+    };
+
+    const result = piParser.parse(thread);
+    const toolCallMessage = result.messages[3] as AthrdAssistantMessage;
+
+    expect(result.messages).toHaveLength(5);
+    expect(result.messages[0]).toMatchObject({
+      id: "98cc6cd0",
+      type: "user",
+      content: "Hello",
+    });
+    expect(result.messages[1]).toMatchObject({
+      id: "08c7da16",
+      type: "assistant",
+      content: "Hello! How can I help?",
+      model: "gpt-5.4",
+    });
+    expect(toolCallMessage.toolCalls?.[0]).toMatchObject({
+      id: toolCallId,
+      name: "terminal_command",
+      args: {
+        command: "find . -maxdepth 1 -mindepth 1 -type d | wc -l",
+      },
+      result: [
+        {
+          name: "bash",
+          output: { type: "text", text: "      10\n" },
+        },
+      ],
+    });
+    expect(result.messages[4]).toMatchObject({
+      id: "16b43ef2",
+      type: "assistant",
+      content: "There are 10 folders in `/Users/gregorymarcilhacy/code/athrd`.",
       model: "gpt-5.4",
     });
   });

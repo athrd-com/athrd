@@ -19,6 +19,7 @@ import {
   getGistIdForThread,
   upsertThreadGistMapping,
 } from "../utils/sessions.js";
+import { syncThreadIndex } from "../utils/thread-sync.js";
 
 function extractSessionIdFromHookPayload(
   payload: string,
@@ -338,6 +339,20 @@ export function shareCommand(program: Command) {
             });
 
             const athrdUrl = `https://athrd.com/threads/${gistId}`;
+
+            try {
+              await syncThreadIndex({
+                source: "gist",
+                sourceId: gistId,
+                token,
+              });
+            } catch (error) {
+              console.warn(
+                chalk.yellow(
+                  `⚠ Failed to sync thread for session ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+                ),
+              );
+            }
 
             if (options.mark) {
               try {

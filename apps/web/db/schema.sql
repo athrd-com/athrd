@@ -47,3 +47,66 @@ CREATE TABLE IF NOT EXISTS "verification" (
   "createdAt" TIMESTAMP DEFAULT NOW(),
   "updatedAt" TIMESTAMP DEFAULT NOW()
 );
+
+-- Stored thread snapshots and a derived metadata projection for list/search
+-- surfaces. External source ids are retained for ownership verification and
+-- re-syncs, but the database stores the thread body.
+CREATE TABLE IF NOT EXISTS github_organizations (
+  id TEXT PRIMARY KEY,
+  login TEXT NOT NULL,
+  avatar_url TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS threads (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL CHECK (source IN ('gist', 's3')),
+  source_id TEXT NOT NULL,
+  owner_github_id TEXT NOT NULL,
+  owner_github_login TEXT,
+  filename TEXT NOT NULL,
+  content TEXT NOT NULL,
+  content_sha256 TEXT NOT NULL,
+  source_created_at TIMESTAMPTZ,
+  source_updated_at TIMESTAMPTZ,
+  stored_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (source, source_id)
+);
+
+CREATE TABLE IF NOT EXISTS thread_index (
+  id TEXT PRIMARY KEY REFERENCES threads(id) ON DELETE CASCADE,
+  source TEXT NOT NULL CHECK (source IN ('gist', 's3')),
+  source_id TEXT NOT NULL,
+  owner_github_id TEXT NOT NULL,
+  owner_github_login TEXT,
+  title TEXT,
+  ide TEXT,
+  model TEXT,
+  model_provider TEXT,
+  repo_name TEXT,
+  commit_hash TEXT,
+  gh_repo_id TEXT,
+  org_id TEXT REFERENCES github_organizations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  content_sha256 TEXT NOT NULL,
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (source, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS thread_index_owner_updated_idx
+  ON thread_index (owner_github_id, (COALESCE(updated_at, created_at)) DESC)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS thread_index_org_owner_updated_idx
+  ON thread_index (org_id, owner_github_id, (COALESCE(updated_at, created_at)) DESC)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS thread_index_repo_name_idx
+  ON thread_index (repo_name)
+  WHERE deleted_at IS NULL AND repo_name IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS thread_index_model_idx
+  ON thread_index (model)
+  WHERE deleted_at IS NULL AND model IS NOT NULL;

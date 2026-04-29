@@ -42,16 +42,29 @@ export interface GistPage {
   nextPage?: number;
 }
 
+export interface FetchGistOptions {
+  accessToken?: string;
+  noStore?: boolean;
+}
+
 export async function fetchGist(
-  id: string
+  id: string,
+  options: FetchGistOptions = {},
 ): Promise<{ gist?: GistData; file?: GistFile }> {
   try {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github.v3+json",
+    };
+
+    if (options.accessToken) {
+      headers.Authorization = `Bearer ${options.accessToken}`;
+    }
+
     const response = await fetch(`https://api.github.com/gists/${id}`, {
-      headers: {
-        Accept: "application/vnd.github.v3+json",
-      },
-      // Revalidate every day
-      next: { revalidate: 3600 * 24 },
+      headers,
+      ...(options.noStore
+        ? { cache: "no-store" as RequestCache }
+        : { next: { revalidate: 3600 * 24 } }),
     });
 
     if (!response.ok) {
@@ -64,7 +77,12 @@ export async function fetchGist(
 
     if (file.truncated === true) {
       const full = await fetch(file.raw_url, {
-        next: { revalidate: 3600 * 24 },
+        headers: options.accessToken
+          ? { Authorization: `Bearer ${options.accessToken}` }
+          : undefined,
+        ...(options.noStore
+          ? { cache: "no-store" as RequestCache }
+          : { next: { revalidate: 3600 * 24 } }),
       }).then((res) => res.text());
 
       file.content = full;

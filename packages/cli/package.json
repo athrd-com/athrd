@@ -1,6 +1,6 @@
 {
   "name": "@athrd/cli",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "",
   "homepage": "https://github.com/athrd-com/cli#readme",
   "bugs": {
@@ -17,8 +17,12 @@
   "bin": {
     "athrd": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "build": "bun run tsc",
+    "build": "rm -rf dist && bun run tsc",
     "dev": "bun run tsc --watch",
     "start": "bun dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",

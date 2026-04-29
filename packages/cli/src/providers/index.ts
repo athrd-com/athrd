@@ -5,6 +5,7 @@ import { CodexProvider } from "./codex.js";
 import { CursorProvider } from "./cursor.js";
 import { GeminiProvider } from "./gemini.js";
 import { OpenCodeProvider } from "./opencode.js";
+import { PiProvider } from "./pi.js";
 
 export const providers: ChatProvider[] = [
 	new VSCodeProvider(),
@@ -13,6 +14,7 @@ export const providers: ChatProvider[] = [
 	new CursorProvider(),
 	new GeminiProvider(),
 	new OpenCodeProvider(),
+	new PiProvider(),
 ];
 
 export function getProvider(id: string): ChatProvider | undefined {
@@ -26,3 +28,4 @@ export * from "./codex.js";
 export * from "./cursor.js";
 export * from "./gemini.js";
 export * from "./opencode.js";
+export * from "./pi.js";

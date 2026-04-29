@@ -7,6 +7,7 @@ import { claudeParser } from "./claude";
 import { codexParser } from "./codex";
 import { cursorParser } from "./cursor";
 import { geminiParser } from "./gemini";
+import { piParser } from "./pi";
 import { vscodeParser } from "./vscode";
 
 // Export individual parsers
@@ -14,6 +15,7 @@ export { claudeParser } from "./claude";
 export { codexParser } from "./codex";
 export { cursorParser } from "./cursor";
 export { geminiParser } from "./gemini";
+export { piParser } from "./pi";
 export { vscodeParser } from "./vscode";
 
 // Export base types and utilities
@@ -43,6 +45,7 @@ export const parsers: Record<IDE, Parser> = {
   [IDE.CODEX]: codexParser,
   [IDE.VSCODE]: vscodeParser,
   [IDE.CURSOR]: cursorParser,
+  [IDE.PI]: piParser,
 };
 
 /**
@@ -54,6 +57,7 @@ const parserList: Parser[] = [
   codexParser,
   vscodeParser,
   cursorParser,
+  piParser,
 ];
 
 /**

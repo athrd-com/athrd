@@ -127,6 +127,14 @@ const TOOL_NAME_MAPPINGS: Record<IDE, Record<string, CanonicalToolName>> = {
     run_terminal_command: "terminal_command",
     todo_write: "todos",
   },
+  [IDE.PI]: {
+    read: "read_file",
+    write: "write_file",
+    edit: "replace",
+    bash: "terminal_command",
+    ls: "ls",
+    grep: "grep_search",
+  },
 };
 
 /**

@@ -6,7 +6,7 @@ export interface PiThread {
   timestamp: string;
   cwd?: string;
   parentSession?: string;
-  customTitle?: string;
+  title?: string;
   updatedAt?: string;
   entries?: PiEntry[];
   messages?: PiEntry[];

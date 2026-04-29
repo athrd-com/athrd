@@ -87,16 +87,13 @@ describe("ClaudeCodeProvider", () => {
     ]);
 
     const provider = new ClaudeCodeProvider();
-    const sessions = await provider.findSessions();
+    const sessions = await provider.list();
 
     expect(sessions).toHaveLength(1);
     expect(sessions[0]?.sessionId).toBe(sessionId);
-    expect(sessions[0]?.customTitle).toBe(
+    expect(sessions[0]?.title).toBe(
       "Fix unknown command error message",
     );
     expect(sessions[0]?.workspacePath).toBe("/Users/test/code/athrd");
-
-    const parsed = await provider.parseSession(sessions[0]!);
-    expect(parsed.customTitle).toBe("Fix unknown command error message");
   });
 });

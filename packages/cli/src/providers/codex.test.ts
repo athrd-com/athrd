@@ -39,7 +39,7 @@ describe("CodexProvider", () => {
 
     const session = provider.createSessionFromEntries(entries, "/tmp/test.jsonl");
     expect(session).not.toBeNull();
-    expect(session.customTitle).toBe("FOO\nBAR");
+    expect(session.title).toBe("FOO\nBAR");
     expect(session.requestCount).toBe(1);
   });
 
@@ -91,7 +91,7 @@ describe("CodexProvider", () => {
       expect(provider.readThreadTitleFromSQLite(sessionId)).toBe(
         "SQLite title",
       );
-      expect(session?.customTitle).toBe("SQLite title");
+      expect(session?.title).toBe("SQLite title");
     } finally {
       if (previousStatePath === undefined) {
         delete process.env.ATHRD_CODEX_STATE_SQLITE;

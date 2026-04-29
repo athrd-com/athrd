@@ -1,15 +1,27 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { ChatProvider } from "./base.js";
 import { ChatSession } from "../types/index.js";
+import { readJsonFile } from "../utils/bun-parsing.js";
+import {
+    ChatProvider,
+    getDefaultProviderThreadMetadata,
+    parseRawSessionFile,
+    ProviderActionResult,
+    ProviderInstallContext,
+    ProviderListContext,
+    ProviderMetadataContext,
+    ProviderParseResult,
+    ProviderThreadMetadata,
+    unsupportedHooks,
+} from "./base.js";
 
 interface VSCodeChatSessionFile {
     version: number;
     sessionId: string;
     creationDate: number;
     lastMessageDate: number;
-    customTitle?: string;
+    title?: string;
     requests: any[];
 }
 
@@ -17,7 +29,15 @@ export class VSCodeProvider implements ChatProvider {
     readonly id = "vscode";
     readonly name = "VS Code";
 
-    async findSessions(): Promise<ChatSession[]> {
+    async install(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+        return unsupportedHooks(this.name);
+    }
+
+    async uninstall(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+        return unsupportedHooks(this.name);
+    }
+
+    async list(_context?: ProviderListContext): Promise<ChatSession[]> {
         const workspaceStoragePath = path.join(
             os.homedir(),
             "Library/Application Support/Code/User/workspaceStorage"
@@ -43,9 +63,7 @@ export class VSCodeProvider implements ChatProvider {
                     "workspace.json"
                 );
                 if (fs.existsSync(workspaceJsonPath)) {
-                    const workspaceJson = JSON.parse(
-                        fs.readFileSync(workspaceJsonPath, "utf-8")
-                    );
+                    const workspaceJson = await readJsonFile<any>(workspaceJsonPath);
                     if (workspaceJson.folder) {
                         // Extract folder name from URI like "file:///Users/user/code/project-name"
                         const folderUri = workspaceJson.folder;
@@ -68,8 +86,9 @@ export class VSCodeProvider implements ChatProvider {
                     if (chatFile.endsWith(".json")) {
                         try {
                             const filePath = path.join(chatSessionsPath, chatFile);
-                            const content = fs.readFileSync(filePath, "utf-8");
-                            const session: VSCodeChatSessionFile = JSON.parse(content);
+                            const session = await readJsonFile<VSCodeChatSessionFile>(
+                                filePath
+                            );
 
                             const requestCount = session.requests?.length || 0;
 
@@ -82,7 +101,7 @@ export class VSCodeProvider implements ChatProvider {
                                 sessionId: session.sessionId,
                                 creationDate: session.creationDate,
                                 lastMessageDate: session.lastMessageDate,
-                                customTitle: session.customTitle,
+                                title: session.title,
                                 requestCount,
                                 filePath,
                                 source: this.id,
@@ -101,8 +120,14 @@ export class VSCodeProvider implements ChatProvider {
         return sessions;
     }
 
-    async parseSession(session: ChatSession): Promise<any> {
-        const fileContent = await fs.promises.readFile(session.filePath, "utf-8");
-        return JSON.parse(fileContent);
+    async parse(session: ChatSession): Promise<ProviderParseResult> {
+        return parseRawSessionFile(session);
+    }
+
+    async getMetadata(
+        session: ChatSession,
+        _context: ProviderMetadataContext,
+    ): Promise<ProviderThreadMetadata> {
+        return getDefaultProviderThreadMetadata(this, session);
     }
 }

@@ -2,8 +2,13 @@ import { Octokit } from "@octokit/rest";
 import chalk from "chalk";
 import { Command } from "commander";
 import inquirer from "inquirer";
+import { config } from "../config.js";
 import { getProvider, providers } from "../providers/index.js";
 import { ChatSession } from "../types/index.js";
+import {
+  injectAthrdMetadata,
+  type AthrdMetadata,
+} from "../utils/athrd-metadata.js";
 import { requireAuth } from "../utils/auth.js";
 import { formatDate } from "../utils/date.js";
 import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
@@ -72,6 +77,32 @@ function extractWorkspacePathFromHookPayload(
   }
 }
 
+function getStaleAthrdFileName(currentFileName: string): string | null {
+  if (currentFileName.endsWith(".jsonl")) {
+    return currentFileName.replace(/\.jsonl$/i, ".json");
+  }
+
+  if (currentFileName.endsWith(".json")) {
+    return currentFileName.replace(/\.json$/i, ".jsonl");
+  }
+
+  return null;
+}
+
+async function getExistingStaleAthrdFileName(
+  octokit: Octokit,
+  gistId: string,
+  currentFileName: string,
+): Promise<string | null> {
+  const staleFileName = getStaleAthrdFileName(currentFileName);
+  if (!staleFileName) {
+    return null;
+  }
+
+  const response = await octokit.gists.get({ gist_id: gistId });
+  return response.data.files?.[staleFileName] ? staleFileName : null;
+}
+
 export function shareCommand(program: Command) {
   program
     .command("share")
@@ -118,7 +149,7 @@ export function shareCommand(program: Command) {
 
         // Find sessions from selected providers only
         const allSessions = await Promise.all(
-          targetProviders.map((p) => p.findSessions()),
+          targetProviders.map((p) => p.list()),
         );
         let sessions = allSessions.flat();
 
@@ -163,7 +194,7 @@ export function shareCommand(program: Command) {
 
         // Create choices for multi-select
         const choices = displaySessions.map((session: ChatSession) => {
-          const title = session.customTitle || "Untitled Chat";
+          const title = session.title || "Untitled Chat";
           const date = formatDate(session.lastMessageDate);
           const messages = chalk.dim(`${session.requestCount} messages`);
           const dateStr = chalk.dim(date);
@@ -215,7 +246,7 @@ export function shareCommand(program: Command) {
 
         selectedSessions.forEach((session: ChatSession) => {
           console.log(
-            chalk.cyan(`  • ${session.customTitle || "Untitled Chat"}`),
+            chalk.cyan(`  • ${session.title || "Untitled Chat"}`),
           );
         });
 
@@ -236,6 +267,8 @@ export function shareCommand(program: Command) {
 
           // Fetch GitHub user info once
           const userInfo = await getGitHubUserInfo(octokit);
+          let uploadedCount = 0;
+          let skippedCount = 0;
 
           for (const session of selectedSessions) {
             const provider = getProvider(session.source);
@@ -248,7 +281,17 @@ export function shareCommand(program: Command) {
               continue;
             }
 
-            const sessionData = await provider.parseSession(session);
+            const artifact = await provider.parse(session);
+            if (artifact.kind === "skip") {
+              skippedCount++;
+              console.warn(
+                chalk.yellow(
+                  `⚠ Skipping ${session.title || session.sessionId}: ${artifact.reason}`,
+                ),
+              );
+              continue;
+            }
+
             const repoCwd =
               hookWorkspacePath ?? session.workspacePath ?? process.cwd();
 
@@ -269,40 +312,39 @@ export function shareCommand(program: Command) {
                 ? await getGitHubRepoInfo(octokit, orgName, repoName)
                 : null;
 
-            const existingAthrdMetadata =
-              typeof sessionData?.__athrd === "object" &&
-              sessionData.__athrd !== null
-                ? (sessionData.__athrd as Record<string, unknown>)
-                : {};
-
-            // Add/refresh __athrd metadata on the session data.
-            const enrichedData = {
-              ...sessionData,
-              __athrd: {
-                ...existingAthrdMetadata,
+            const threadMetadata = await provider.getMetadata(session, {
+              cliVersion: config.version,
+            });
+            const athrdMetadata: AthrdMetadata = {
+              schemaVersion: 1,
+              thread: threadMetadata,
+              actor: {
+                githubUserId: userInfo.id,
                 githubUsername: userInfo.username,
-                githubRepo: githubRepo,
-                ide: provider.id, // Use provider ID as 'ide'
-                ...(session.customTitle && {
-                  title: session.customTitle,
-                }),
-                ...(commitHash && {
-                  commitHash,
-                }),
-                ...(repoInfo && {
-                  ghRepoId: repoInfo.repoId,
-                  name: repoInfo.name,
-                }),
-                ...(orgInfo && {
-                  orgId: orgInfo.orgId,
-                  orgName: orgInfo.orgName,
-                  orgIcon: orgInfo.orgIcon,
-                }),
+                avatarUrl: userInfo.avatarImage,
+              },
+              ...(orgInfo && {
+                organization: {
+                  githubOrgId: String(orgInfo.orgId),
+                },
+              }),
+              ...(repoInfo && {
+                repository: {
+                  githubRepoId: String(repoInfo.repoId),
+                },
+              }),
+              ...(commitHash && {
+                commit: {
+                  sha: commitHash,
+                },
+              }),
+              upload: {
+                cliVersion: config.version,
               },
             };
 
-            const content = JSON.stringify(enrichedData, null, 2);
-            const fileName = `athrd-${session.sessionId}.json`;
+            const content = injectAthrdMetadata(artifact, athrdMetadata);
+            const fileName = artifact.fileName;
 
             const existingGistId = await getGistIdForThread(session.sessionId);
 
@@ -310,12 +352,22 @@ export function shareCommand(program: Command) {
             let actionLabel: string;
 
             if (existingGistId) {
+              const staleFileName = await getExistingStaleAthrdFileName(
+                octokit,
+                existingGistId,
+                fileName,
+              );
+              const files: Record<string, any> = {
+                [fileName]: { content },
+              };
+              if (staleFileName) {
+                files[staleFileName] = null;
+              }
+
               await octokit.gists.update({
                 gist_id: existingGistId,
-                files: {
-                  [fileName]: { content },
-                },
-                description: session.customTitle || "AI Chat Thread",
+                files,
+                description: threadMetadata.title || "AI Chat Thread",
               });
 
               gistId = existingGistId;
@@ -325,7 +377,7 @@ export function shareCommand(program: Command) {
                 files: {
                   [fileName]: { content },
                 },
-                description: session.customTitle || "AI Chat Thread",
+                description: threadMetadata.title || "AI Chat Thread",
                 public: false,
               });
 
@@ -343,6 +395,7 @@ export function shareCommand(program: Command) {
             });
 
             const athrdUrl = `https://athrd.com/threads/${gistId}`;
+            uploadedCount++;
 
             if (options.mark) {
               try {
@@ -369,10 +422,14 @@ export function shareCommand(program: Command) {
             console.log(
               chalk.green(
                 `✓ ${
-                  session.customTitle || "Untitled Chat"
+                  session.title || "Untitled Chat"
                 }: (${actionLabel}) ${athrdUrl}`,
               ),
             );
+          }
+
+          if (uploadedCount === 0 && skippedCount > 0) {
+            console.log(chalk.yellow("No selected sessions were uploaded."));
           }
         } catch (error) {
           console.error(chalk.red("\n❌ Failed to upload:"), error);

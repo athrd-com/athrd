@@ -70,7 +70,7 @@ export function authCommand(program: Command) {
         ]);
 
         if (shouldInstallHooks) {
-          installAllHooks();
+          await installAllHooks();
         } else {
           console.log(chalk.yellow("Skipped hooks installation."));
         }

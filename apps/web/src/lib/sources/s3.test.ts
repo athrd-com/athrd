@@ -120,8 +120,8 @@ describe("sources/s3", () => {
     });
 
     textMock
-      .mockResolvedValueOnce('{"customTitle":"Older thread"}')
-      .mockResolvedValueOnce('{"customTitle":"Newer thread"}');
+      .mockResolvedValueOnce('{"title":"Older thread"}')
+      .mockResolvedValueOnce('{"title":"Newer thread"}');
 
     const provider = new S3ThreadSourceProvider();
 
@@ -154,7 +154,7 @@ describe("sources/s3", () => {
       ],
       hasMore: false,
     });
-    textMock.mockResolvedValueOnce('{"customTitle":"Scoped thread"}');
+    textMock.mockResolvedValueOnce('{"title":"Scoped thread"}');
 
     const provider = new S3ThreadSourceProvider();
 
@@ -186,7 +186,7 @@ describe("sources/s3", () => {
       cursor: "cursor-2",
       hasMore: true,
     });
-    textMock.mockResolvedValueOnce('{"customTitle":"Scoped thread"}');
+    textMock.mockResolvedValueOnce('{"title":"Scoped thread"}');
 
     const provider = new S3ThreadSourceProvider();
 

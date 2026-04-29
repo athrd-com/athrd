@@ -163,7 +163,6 @@ function mergeRecordMetadata(
         getNestedString(rawContent, ["__athrd", "title"]),
         getNestedString(rawContent, ["metadata", "name"]),
         getString(rawContent, "title"),
-        getString(rawContent, "customTitle"),
         getString(rawContent, "summary"),
         getFirstUserMessageContent(parsedThread),
       ),

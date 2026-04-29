@@ -3,13 +3,111 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChatSession } from "../types/index.js";
-import { ChatProvider } from "./base.js";
+import { readJsonlFile } from "../utils/bun-parsing.js";
+import {
+  ChatProvider,
+  getDefaultProviderThreadMetadata,
+  parseRawSessionFile,
+  ProviderActionResult,
+  ProviderInstallContext,
+  ProviderListContext,
+  ProviderMetadataContext,
+  ProviderParseResult,
+  ProviderThreadMetadata,
+} from "./base.js";
 
 export class CodexProvider implements ChatProvider {
   readonly id = "codex";
   readonly name = "Codex";
 
-  async findSessions(): Promise<ChatSession[]> {
+  async install(context: ProviderInstallContext): Promise<ProviderActionResult> {
+    const codexHooksPath = path.join(context.homeDir, ".codex", "hooks.json");
+    const codexDir = path.dirname(codexHooksPath);
+    if (!fs.existsSync(codexDir)) {
+      return {
+        status: "skipped",
+        message: `Codex config dir not found at ${codexDir}`,
+      };
+    }
+
+    const config = context.readJsonObject(codexHooksPath);
+
+    if (config.hooks === undefined) {
+      config.hooks = {};
+    } else if (!this.isRecord(config.hooks)) {
+      throw new Error(`${codexHooksPath} hooks must be an object.`);
+    }
+
+    if (config.hooks.Stop === undefined) {
+      config.hooks.Stop = [];
+    } else if (!Array.isArray(config.hooks.Stop)) {
+      throw new Error(`${codexHooksPath} hooks.Stop must be an array.`);
+    }
+
+    const hasHook = config.hooks.Stop.some((hookGroup: any) =>
+      Array.isArray(hookGroup?.hooks) &&
+      hookGroup.hooks.some((hook: unknown) => this.isAthrdCodexHook(hook)),
+    );
+
+    if (hasHook) {
+      return { status: "already_installed", message: "Codex hook is already installed" };
+    }
+
+    config.hooks.Stop.push({
+      hooks: [
+        {
+          type: "command",
+          command: context.getProviderHookCommand(this.id),
+          timeout: 30,
+        },
+      ],
+    });
+    context.writeJsonObject(codexHooksPath, config);
+
+    return { status: "installed", message: "Codex hook installed" };
+  }
+
+  async uninstall(context: ProviderInstallContext): Promise<ProviderActionResult> {
+    const codexHooksPath = path.join(context.homeDir, ".codex", "hooks.json");
+    if (!fs.existsSync(codexHooksPath)) {
+      return { status: "skipped", message: "Codex hook is not installed" };
+    }
+
+    const config = context.readJsonObject(codexHooksPath);
+    if (!this.isRecord(config.hooks) || !Array.isArray(config.hooks.Stop)) {
+      return { status: "skipped", message: "Codex hook is not installed" };
+    }
+
+    let changed = false;
+    config.hooks.Stop = config.hooks.Stop.flatMap((hookGroup: any) => {
+      if (!this.isRecord(hookGroup) || !Array.isArray(hookGroup.hooks)) {
+        return [hookGroup];
+      }
+
+      const hooks = hookGroup.hooks.filter(
+        (hook: unknown) => !this.isAthrdCodexHook(hook),
+      );
+      if (hooks.length === hookGroup.hooks.length) {
+        return [hookGroup];
+      }
+
+      changed = true;
+      if (hooks.length === 0) {
+        return [];
+      }
+
+      return [{ ...hookGroup, hooks }];
+    });
+
+    if (!changed) {
+      return { status: "skipped", message: "Codex hook is not installed" };
+    }
+
+    context.writeJsonObject(codexHooksPath, config);
+    return { status: "uninstalled", message: "Codex hook removed" };
+  }
+
+  async list(_context?: ProviderListContext): Promise<ChatSession[]> {
     const sessionsDir = path.join(os.homedir(), ".codex", "sessions");
     if (!fs.existsSync(sessionsDir)) {
       return [];
@@ -17,15 +115,16 @@ export class CodexProvider implements ChatProvider {
 
     const sessions: ChatSession[] = [];
 
-    const walk = (dir: string) => {
+    const walk = async (dir: string): Promise<void> => {
       for (const entry of fs.readdirSync(dir)) {
         const fullPath = path.join(dir, entry);
         if (fs.statSync(fullPath).isDirectory()) {
-          walk(fullPath);
+          await walk(fullPath);
         } else if (entry.endsWith(".jsonl")) {
           try {
-            const content = fs.readFileSync(fullPath, "utf-8");
-            const entries = this.parseJSONL(content);
+            const entries = await readJsonlFile<any>(fullPath, {
+              skipInvalid: true,
+            });
             if (entries.length === 0) {
               continue;
             }
@@ -41,15 +140,19 @@ export class CodexProvider implements ChatProvider {
       }
     };
 
-    walk(sessionsDir);
+    await walk(sessionsDir);
     return sessions;
   }
 
-  async parseSession(session: ChatSession): Promise<any> {
-    const content = fs.readFileSync(session.filePath, "utf-8");
-    const entries = this.parseJSONL(content);
-    const [first, ...rest] = entries;
-    return { sessionId: session.sessionId, ...first, messages: rest };
+  async parse(session: ChatSession): Promise<ProviderParseResult> {
+    return parseRawSessionFile(session);
+  }
+
+  async getMetadata(
+    session: ChatSession,
+    _context: ProviderMetadataContext,
+  ): Promise<ProviderThreadMetadata> {
+    return getDefaultProviderThreadMetadata(this, session);
   }
 
   private createSessionFromEntries(
@@ -127,7 +230,7 @@ export class CodexProvider implements ChatProvider {
       sessionId: resolvedSessionId,
       creationDate,
       lastMessageDate,
-      customTitle: stateTitle || firstUserMessage || "Codex Chat",
+      title: stateTitle || firstUserMessage || "Codex Chat",
       requestCount: messageCount,
       filePath,
       source: this.id,
@@ -296,17 +399,22 @@ export class CodexProvider implements ChatProvider {
     return trimmed;
   }
 
-  private parseJSONL(content: string): any[] {
-    return content
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => {
-        try {
-          return JSON.parse(l);
-        } catch {
-          return null;
-        }
-      })
-      .filter((e): e is any => e !== null);
+  private isAthrdCodexHook(hook: unknown): boolean {
+    if (
+      !this.isRecord(hook) ||
+      hook.type !== "command" ||
+      typeof hook.command !== "string"
+    ) {
+      return false;
+    }
+
+    return (
+      hook.command.includes("hook.sh") &&
+      /(^|[\s"'])codex($|[\s"'])/.test(hook.command)
+    );
+  }
+
+  private isRecord(value: unknown): value is Record<string, any> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 }

@@ -8,7 +8,8 @@ import {
 } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { installCodexHook, uninstallCodexHook } from "./hooks.js";
+import { CodexProvider } from "../providers/codex.js";
+import { createProviderInstallContext } from "./hooks.js";
 
 const tempDirs: string[] = [];
 const originalHome = process.env.HOME;
@@ -23,6 +24,16 @@ function makeTempDir(prefix: string): string {
 
 function readHooksJson(home: string): any {
     return JSON.parse(readFileSync(join(home, ".codex", "hooks.json"), "utf-8"));
+}
+
+async function installCodexHook() {
+    const provider = new CodexProvider();
+    await provider.install(createProviderInstallContext());
+}
+
+async function uninstallCodexHook() {
+    const provider = new CodexProvider();
+    await provider.uninstall(createProviderInstallContext());
 }
 
 beforeEach(() => {
@@ -47,10 +58,10 @@ afterEach(() => {
 });
 
 describe("Codex hook install", () => {
-    test("writes a Stop hook to hooks.json", () => {
+    test("writes a Stop hook to hooks.json", async () => {
         const home = process.env.HOME!;
 
-        installCodexHook();
+        await installCodexHook();
 
         const config = readHooksJson(home);
         expect(config).toEqual({
@@ -70,7 +81,7 @@ describe("Codex hook install", () => {
         });
     });
 
-    test("preserves existing hooks and does not duplicate the athrd hook", () => {
+    test("preserves existing hooks and does not duplicate the athrd hook", async () => {
         const home = process.env.HOME!;
         writeFileSync(
             join(home, ".codex", "hooks.json"),
@@ -100,8 +111,8 @@ describe("Codex hook install", () => {
             ),
         );
 
-        installCodexHook();
-        installCodexHook();
+        await installCodexHook();
+        await installCodexHook();
 
         const config = readHooksJson(home);
         const stopHooks = config.hooks.Stop.flatMap((group: any) => group.hooks);
@@ -118,7 +129,7 @@ describe("Codex hook install", () => {
 });
 
 describe("Codex hook uninstall", () => {
-    test("removes only the athrd Codex Stop hook", () => {
+    test("removes only the athrd Codex Stop hook", async () => {
         const home = process.env.HOME!;
         writeFileSync(
             join(home, ".codex", "hooks.json"),
@@ -151,7 +162,7 @@ describe("Codex hook uninstall", () => {
             ),
         );
 
-        uninstallCodexHook();
+        await uninstallCodexHook();
 
         expect(readHooksJson(home)).toEqual({
             hooks: {

@@ -2,13 +2,33 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChatSession } from "../types/index.js";
-import { ChatProvider } from "./base.js";
+import { readJsonlFile } from "../utils/bun-parsing.js";
+import {
+  ChatProvider,
+  getDefaultProviderThreadMetadata,
+  parseRawSessionFile,
+  ProviderActionResult,
+  ProviderInstallContext,
+  ProviderListContext,
+  ProviderMetadataContext,
+  ProviderParseResult,
+  ProviderThreadMetadata,
+  unsupportedHooks,
+} from "./base.js";
 
 export class PiProvider implements ChatProvider {
   readonly id = "pi";
   readonly name = "Pi";
 
-  async findSessions(): Promise<ChatSession[]> {
+  async install(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+    return unsupportedHooks(this.name);
+  }
+
+  async uninstall(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+    return unsupportedHooks(this.name);
+  }
+
+  async list(_context?: ProviderListContext): Promise<ChatSession[]> {
     const sessionsDir = this.getSessionsDir();
     if (!fs.existsSync(sessionsDir)) {
       return [];
@@ -16,13 +36,13 @@ export class PiProvider implements ChatProvider {
 
     const sessions: ChatSession[] = [];
 
-    const walk = (dir: string) => {
+    const walk = async (dir: string): Promise<void> => {
       for (const entry of fs.readdirSync(dir)) {
         const fullPath = path.join(dir, entry);
         const stat = fs.statSync(fullPath);
 
         if (stat.isDirectory()) {
-          walk(fullPath);
+          await walk(fullPath);
           continue;
         }
 
@@ -31,8 +51,9 @@ export class PiProvider implements ChatProvider {
         }
 
         try {
-          const content = fs.readFileSync(fullPath, "utf-8");
-          const entries = this.parseJSONL(content);
+          const entries = await readJsonlFile<any>(fullPath, {
+            skipInvalid: true,
+          });
           const session = this.createSessionFromEntries(entries, fullPath);
           if (session) {
             sessions.push(session);
@@ -43,23 +64,19 @@ export class PiProvider implements ChatProvider {
       }
     };
 
-    walk(sessionsDir);
+    await walk(sessionsDir);
     return sessions;
   }
 
-  async parseSession(session: ChatSession): Promise<any> {
-    const content = fs.readFileSync(session.filePath, "utf-8");
-    const entries = this.parseJSONL(content);
-    const header = entries.find((entry) => entry?.type === "session") || {};
-    const bodyEntries = entries.filter((entry) => entry?.type !== "session");
+  async parse(session: ChatSession): Promise<ProviderParseResult> {
+    return parseRawSessionFile(session);
+  }
 
-    return {
-      sessionId: session.sessionId,
-      ...header,
-      customTitle: session.customTitle,
-      updatedAt: new Date(session.lastMessageDate).toISOString(),
-      entries: bodyEntries,
-    };
+  async getMetadata(
+    session: ChatSession,
+    _context: ProviderMetadataContext,
+  ): Promise<ProviderThreadMetadata> {
+    return getDefaultProviderThreadMetadata(this, session);
   }
 
   private getSessionsDir(): string {
@@ -135,7 +152,7 @@ export class PiProvider implements ChatProvider {
       sessionId: this.extractSessionId(header, filePath),
       creationDate,
       lastMessageDate,
-      customTitle: sessionName || firstUserMessage || "Pi Chat",
+      title: sessionName || firstUserMessage || "Pi Chat",
       requestCount,
       filePath,
       source: this.id,
@@ -240,17 +257,4 @@ export class PiProvider implements ChatProvider {
     return `/${encoded.replace(/-/g, "/")}`;
   }
 
-  private parseJSONL(content: string): any[] {
-    return content
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      })
-      .filter((entry): entry is any => entry !== null);
-  }
 }

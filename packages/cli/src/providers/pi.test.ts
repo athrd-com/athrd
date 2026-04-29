@@ -155,28 +155,35 @@ describe("PiProvider", () => {
     );
 
     const provider = new PiProvider();
-    const sessions = await provider.findSessions();
+    const sessions = await provider.list();
 
     expect(sessions).toHaveLength(1);
     expect(sessions[0]?.sessionId).toBe("019db5b0-5765-740b-9c85-535e5009fd9b");
-    expect(sessions[0]?.customTitle).toBe("list the folders in ~/.pi/");
+    expect(sessions[0]?.title).toBe("list the folders in ~/.pi/");
     expect(sessions[0]?.requestCount).toBe(1);
     expect(sessions[0]?.workspacePath).toBe("/Users/gregorymarcilhacy/code/athrd");
 
-    const parsed = await provider.parseSession(sessions[0]!);
-    expect(parsed.type).toBe("session");
-    expect(parsed.sessionId).toBe("019db5b0-5765-740b-9c85-535e5009fd9b");
-    expect(parsed.cwd).toBe("/Users/gregorymarcilhacy/code/athrd");
-    expect(parsed.entries).toHaveLength(6);
-    expect(parsed.entries[2].message.content[0].text).toBe(
+    const artifact = await provider.parse(sessions[0]!);
+    expect(artifact.kind).toBe("raw");
+    if (artifact.kind !== "raw") {
+      throw new Error("Expected Pi session to produce a raw artifact");
+    }
+
+    expect(artifact.format).toBe("jsonl");
+    const parsed = Bun.JSONL.parse(artifact.content) as any[];
+    expect(parsed).toHaveLength(7);
+    expect(parsed[0].type).toBe("session");
+    expect(parsed[0].id).toBe("019db5b0-5765-740b-9c85-535e5009fd9b");
+    expect(parsed[0].cwd).toBe("/Users/gregorymarcilhacy/code/athrd");
+    expect(parsed[3].message.content[0].text).toBe(
       "list the folders in ~/.pi/",
     );
-    expect(parsed.entries[3].message.content[1]).toMatchObject({
+    expect(parsed[4].message.content[1]).toMatchObject({
       type: "toolCall",
       id: toolCallId,
       name: "bash",
     });
-    expect(parsed.entries[4].message).toMatchObject({
+    expect(parsed[5].message).toMatchObject({
       role: "toolResult",
       toolCallId,
       toolName: "bash",

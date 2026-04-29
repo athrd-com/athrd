@@ -2,8 +2,20 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import Database from "better-sqlite3";
-import { ChatProvider } from "./base.js";
 import { ChatSession } from "../types/index.js";
+import { readJsonFile } from "../utils/bun-parsing.js";
+import {
+    ChatProvider,
+    getDefaultProviderThreadMetadata,
+    parseRawSessionFile,
+    ProviderActionResult,
+    ProviderInstallContext,
+    ProviderListContext,
+    ProviderMetadataContext,
+    ProviderParseResult,
+    ProviderThreadMetadata,
+    unsupportedHooks,
+} from "./base.js";
 
 interface ComposerMetadata {
     composerId: string;
@@ -14,40 +26,12 @@ interface ComposerMetadata {
     filesChangedCount?: number;
 }
 
-interface Bubble {
-    _v: number;
-    type: 0 | 1 | 2; // 0=METADATA, 1=USER, 2=ASSISTANT
-    bubbleId: string;
-    text?: string;
-    createdAt: string;
-    toolFormerData?: {
-        tool: number;
-        toolIndex: number;
-        name: string;
-        status: string;
-        params: string; // JSON string
-        result: string; // JSON string
-        additionalData?: any;
-    };
-    tokenCount?: {
-        inputTokens: number;
-        outputTokens: number;
-    };
-    supportedTools?: number[];
-    codeBlocks?: any[];
-    attachedCodeChunks?: any[];
-    codebaseContextChunks?: any[];
-    relevantFiles?: any[];
-    capabilities?: any[];
-    todos?: any[];
-}
-
 interface ChatSessionFile {
     version: number;
     sessionId: string;
     creationDate: number;
     lastMessageDate: number;
-    customTitle?: string;
+    title?: string;
     requests: any[];
 }
 
@@ -55,7 +39,15 @@ export class CursorProvider implements ChatProvider {
     readonly id = "cursor";
     readonly name = "Cursor";
 
-    async findSessions(): Promise<ChatSession[]> {
+    async install(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+        return unsupportedHooks(this.name);
+    }
+
+    async uninstall(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+        return unsupportedHooks(this.name);
+    }
+
+    async list(_context?: ProviderListContext): Promise<ChatSession[]> {
         const workspaceStoragePath = path.join(
             os.homedir(),
             "Library/Application Support/Cursor/User/workspaceStorage"
@@ -77,9 +69,7 @@ export class CursorProvider implements ChatProvider {
             try {
                 const workspaceJsonPath = path.join(workspaceStorageDir, "workspace.json");
                 if (fs.existsSync(workspaceJsonPath)) {
-                    const workspaceJson = JSON.parse(
-                        fs.readFileSync(workspaceJsonPath, "utf-8")
-                    );
+                    const workspaceJson = await readJsonFile<any>(workspaceJsonPath);
                     if (workspaceJson.folder) {
                         const folderUri = workspaceJson.folder;
                         const folderPath = folderUri.replace(/^file:\/\//, "");
@@ -130,8 +120,7 @@ export class CursorProvider implements ChatProvider {
                 if (chatFile.endsWith(".json")) {
                     try {
                         const filePath = path.join(chatSessionsPath, chatFile);
-                        const content = fs.readFileSync(filePath, "utf-8");
-                        const session: ChatSessionFile = JSON.parse(content);
+                        const session = await readJsonFile<ChatSessionFile>(filePath);
 
                         const requestCount = session.requests?.length || 0;
 
@@ -144,7 +133,7 @@ export class CursorProvider implements ChatProvider {
                             sessionId: session.sessionId,
                             creationDate: session.creationDate,
                             lastMessageDate: session.lastMessageDate,
-                            customTitle: session.customTitle,
+                            title: session.title,
                             requestCount,
                             filePath,
                             source: this.id,
@@ -228,7 +217,7 @@ export class CursorProvider implements ChatProvider {
                         sessionId: composer.composerId,
                         creationDate: composer.createdAt,
                         lastMessageDate: composer.lastUpdatedAt,
-                        customTitle: composer.name,
+                        title: composer.name,
                         requestCount: bubbleCount,
                         filePath: globalDbPath, // Points to global DB
                         source: this.id,
@@ -255,131 +244,22 @@ export class CursorProvider implements ChatProvider {
         return sessions;
     }
 
-    async parseSession(session: ChatSession): Promise<any> {
-        const sessionType = session.metadata?.sessionType;
-
-        if (sessionType === "chat") {
-            // Parse Chat session from JSON file
-            const fileContent = await fs.promises.readFile(session.filePath, "utf-8");
-            return JSON.parse(fileContent);
-        } else if (sessionType === "composer") {
-            // Parse Composer session from global database
-            return this.parseComposerSession(session);
-        } else {
-            throw new Error(`Unknown session type: ${sessionType}`);
-        }
-    }
-
-    private parseComposerSession(session: ChatSession): any {
-        const globalDbPath = session.filePath;
-
-        if (!fs.existsSync(globalDbPath)) {
-            throw new Error(`Global database not found: ${globalDbPath}`);
-        }
-
-        const db = new Database(globalDbPath, { readonly: true });
-
-        try {
-            // Get all bubbles for this composer
-            const rows = db
-                .prepare(
-                    "SELECT key, value FROM cursorDiskKV WHERE key LIKE ? ORDER BY key"
-                )
-                .all(`bubbleId:${session.sessionId}:%`) as Array<{
-                    key: string;
-                    value: string;
-                }>;
-
-            const bubbles: Bubble[] = rows.map((row) => JSON.parse(row.value));
-
-            // Sort by creation date
-            bubbles.sort(
-                (a, b) =>
-                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            );
-
-            // Reconstruct conversation
-            const messages = bubbles.map((bubble) => {
-                const message: any = {
-                    type: bubble.type,
-                    bubbleId: bubble.bubbleId,
-                    text: bubble.text || "",
-                    createdAt: bubble.createdAt,
-                    tokenCount: bubble.tokenCount,
-                };
-
-                // Parse tool calls
-                if (bubble.toolFormerData) {
-                    const toolData = bubble.toolFormerData;
-                    message.toolCall = {
-                        tool: toolData.name, // Use the name directly from toolFormerData
-                        toolId: toolData.tool,
-                        toolIndex: toolData.toolIndex,
-                        status: toolData.status,
-                        params: this.safeJsonParse(toolData.params),
-                        result: this.safeJsonParse(toolData.result),
-                        additionalData: toolData.additionalData,
-                    };
-                }
-
-                // Include additional context if present
-                if (bubble.codeBlocks?.length) {
-                    message.codeBlocks = bubble.codeBlocks;
-                }
-                if (bubble.attachedCodeChunks?.length) {
-                    message.attachedCodeChunks = bubble.attachedCodeChunks;
-                }
-                if (bubble.relevantFiles?.length) {
-                    message.relevantFiles = bubble.relevantFiles;
-                }
-
-                return message;
-            });
-
-            // Calculate statistics
-            const statistics = {
-                totalBubbles: bubbles.length,
-                userMessages: bubbles.filter((b) => b.type === 1).length,
-                assistantMessages: bubbles.filter((b) => b.type === 2).length,
-                metadataMessages: bubbles.filter((b) => b.type === 0).length,
-                totalTokens: bubbles.reduce(
-                    (sum, b) =>
-                        sum +
-                        (b.tokenCount?.inputTokens || 0) +
-                        (b.tokenCount?.outputTokens || 0),
-                    0
-                ),
-                bubblesWithToolCalls: bubbles.filter((b) => b.toolFormerData).length,
-            };
-
-            db.close();
-
+    async parse(session: ChatSession): Promise<ProviderParseResult> {
+        if (session.metadata?.sessionType === "composer") {
             return {
-                composerId: session.sessionId,
-                metadata: {
-                    name: session.customTitle,
-                    createdAt: session.creationDate,
-                    lastUpdatedAt: session.lastMessageDate,
-                    contextUsagePercent: session.metadata?.contextUsagePercent,
-                    filesChangedCount: session.metadata?.filesChangedCount,
-                    workspaceName: session.workspaceName,
-                    workspacePath: session.workspacePath,
-                },
-                messages,
-                statistics,
+                kind: "skip",
+                reason: "Cursor composer sessions are stored in SQLite, not a single raw file.",
             };
-        } catch (error) {
-            db.close();
-            throw error;
         }
+
+        return parseRawSessionFile(session);
     }
 
-    private safeJsonParse(jsonString: string | undefined): any {
-        if (!jsonString) return null;
-        try {
-            return JSON.parse(jsonString);
-        } catch (error) {
-            return jsonString; // Return as-is if not valid JSON
-        }
+    async getMetadata(
+        session: ChatSession,
+        _context: ProviderMetadataContext,
+    ): Promise<ProviderThreadMetadata> {
+        return getDefaultProviderThreadMetadata(this, session);
     }
+
 }

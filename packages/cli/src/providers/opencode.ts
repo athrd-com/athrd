@@ -2,7 +2,18 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChatSession } from "../types/index.js";
-import { ChatProvider } from "./base.js";
+import { readJsonFile } from "../utils/bun-parsing.js";
+import {
+  ChatProvider,
+  getDefaultProviderThreadMetadata,
+  ProviderActionResult,
+  ProviderInstallContext,
+  ProviderListContext,
+  ProviderMetadataContext,
+  ProviderParseResult,
+  ProviderThreadMetadata,
+  unsupportedHooks,
+} from "./base.js";
 
 interface OpenCodeSession {
   id: string;
@@ -25,33 +36,6 @@ interface OpenCodeProject {
   worktree: string;
 }
 
-interface OpenCodeMessage {
-  id: string;
-  sessionID: string;
-  role: "user" | "assistant" | "system";
-  time: {
-    created: number;
-  };
-  summary?: {
-    title: string;
-  };
-}
-
-interface OpenCodePart {
-  id: string;
-  messageID: string;
-  type: string;
-  text?: string;
-  state?: {
-    input: {
-      command: string;
-      description: string;
-    };
-    output: string;
-    exit: number;
-  };
-}
-
 export class OpenCodeProvider implements ChatProvider {
   readonly id = "opencode";
   readonly name = "OpenCode";
@@ -60,7 +44,15 @@ export class OpenCodeProvider implements ChatProvider {
     return path.join(os.homedir(), ".local/share/opencode/storage", subDir);
   }
 
-  async findSessions(): Promise<ChatSession[]> {
+  async install(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+    return unsupportedHooks(this.name);
+  }
+
+  async uninstall(_context: ProviderInstallContext): Promise<ProviderActionResult> {
+    return unsupportedHooks(this.name);
+  }
+
+  async list(_context?: ProviderListContext): Promise<ChatSession[]> {
     const sessionRoot = this.getStoragePath("session");
     const projectRoot = this.getStoragePath("project");
 
@@ -87,8 +79,8 @@ export class OpenCodeProvider implements ChatProvider {
         try {
           const projectJsonPath = path.join(projectRoot, `${projectDir}.json`);
           if (fs.existsSync(projectJsonPath)) {
-            const projectData: OpenCodeProject = JSON.parse(
-              fs.readFileSync(projectJsonPath, "utf-8")
+            const projectData = await readJsonFile<OpenCodeProject>(
+              projectJsonPath,
             );
             workspacePath = projectData.worktree;
             workspaceName = path.basename(workspacePath);
@@ -104,8 +96,7 @@ export class OpenCodeProvider implements ChatProvider {
 
         try {
           const filePath = path.join(projectSessionPath, file);
-          const content = fs.readFileSync(filePath, "utf-8");
-          const sessionData: OpenCodeSession = JSON.parse(content);
+          const sessionData = await readJsonFile<OpenCodeSession>(filePath);
 
           const sessionMsgDir = path.join(
             this.getStoragePath("message"),
@@ -126,7 +117,7 @@ export class OpenCodeProvider implements ChatProvider {
             sessionId: sessionData.id,
             creationDate: sessionData.time.created,
             lastMessageDate: sessionData.time.updated,
-            customTitle: sessionData.title,
+            title: sessionData.title,
             requestCount,
             filePath, // Point to the session metadata file
             source: this.id,
@@ -142,94 +133,17 @@ export class OpenCodeProvider implements ChatProvider {
     return sessions;
   }
 
-  async parseSession(session: ChatSession): Promise<any> {
-    // session.filePath points to the session metadata file
-    const sessionContent = fs.readFileSync(session.filePath, "utf-8");
-    const sessionData: OpenCodeSession = JSON.parse(sessionContent);
-
-    const messageRoot = this.getStoragePath("message");
-    const partRoot = this.getStoragePath("part");
-    const sessionMsgDir = path.join(messageRoot, sessionData.id);
-
-    if (!fs.existsSync(sessionMsgDir)) {
-      return {
-        sessionId: sessionData.id,
-        requests: [],
-      };
-    }
-
-    const messages: any[] = [];
-    const msgFiles = fs.readdirSync(sessionMsgDir);
-
-    // Read all messages
-    const loadedMessages: OpenCodeMessage[] = [];
-    for (const msgFile of msgFiles) {
-      if (!msgFile.endsWith(".json")) continue;
-      try {
-        const msgContent = fs.readFileSync(
-          path.join(sessionMsgDir, msgFile),
-          "utf-8"
-        );
-        loadedMessages.push(JSON.parse(msgContent));
-      } catch (e) {
-        continue;
-      }
-    }
-
-    // Sort by creation time
-    loadedMessages.sort((a, b) => a.time.created - b.time.created);
-
-    // Load parts for each message
-    for (const msg of loadedMessages) {
-      const partDir = path.join(partRoot, msg.id);
-      let fullText = "";
-      const toolCalls: any[] = [];
-
-      if (fs.existsSync(partDir)) {
-        const partFiles = fs
-          .readdirSync(partDir)
-          .filter((f) => f.endsWith(".json"));
-        const parts: OpenCodePart[] = [];
-
-        for (const partFile of partFiles) {
-          try {
-            const partContent = fs.readFileSync(
-              path.join(partDir, partFile),
-              "utf-8"
-            );
-            parts.push(JSON.parse(partContent));
-          } catch (e) {
-            continue;
-          }
-        }
-
-        // Assuming parts don't need explicit sorting if we just concatenate text,
-        // but usually they might be ordered by ID or implicit file order.
-        // Let's sort by ID to be safe as they seem to have sequential IDs/hashes.
-        parts.sort((a, b) => a.id.localeCompare(b.id));
-
-        for (const part of parts) {
-          if (part.type === "text" && part.text) {
-            fullText += part.text;
-          } else if (part.type === "tool") {
-            toolCalls.push(part);
-          }
-        }
-      }
-
-      if (fullText || toolCalls.length > 0) {
-        messages.push({
-          type: msg.role,
-          timestamp: msg.time.created,
-          message: fullText,
-          ...(toolCalls.length > 0 && { toolCalls }),
-        });
-      }
-    }
-
+  async parse(_session: ChatSession): Promise<ProviderParseResult> {
     return {
-      sessionId: sessionData.id,
-      requests: messages,
+      kind: "skip",
+      reason: "OpenCode sessions are stored across multiple files.",
     };
+  }
+
+  async getMetadata(
+    session: ChatSession,
+    _context: ProviderMetadataContext,
+  ): Promise<ProviderThreadMetadata> {
+    return getDefaultProviderThreadMetadata(this, session);
   }
 }

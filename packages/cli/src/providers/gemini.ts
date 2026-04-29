@@ -3,11 +3,107 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChatSession } from "../types/index.js";
-import { ChatProvider } from "./base.js";
+import { readJsonFile } from "../utils/bun-parsing.js";
+import {
+  ChatProvider,
+  getDefaultProviderThreadMetadata,
+  parseRawSessionFile,
+  ProviderActionResult,
+  ProviderInstallContext,
+  ProviderListContext,
+  ProviderMetadataContext,
+  ProviderParseResult,
+  ProviderThreadMetadata,
+} from "./base.js";
 
 export class GeminiProvider implements ChatProvider {
   readonly id = "gemini";
   readonly name = "Gemini";
+
+  async install(context: ProviderInstallContext): Promise<ProviderActionResult> {
+    const geminiConfigPath = path.join(
+      context.homeDir,
+      ".gemini",
+      "settings.json",
+    );
+    if (!fs.existsSync(geminiConfigPath)) {
+      return {
+        status: "skipped",
+        message: `Gemini config not found at ${geminiConfigPath}`,
+      };
+    }
+
+    const config = context.readJsonObject(geminiConfigPath);
+
+    if (!config.hooksConfig) {
+      config.hooksConfig = { enabled: true, hooks: {} };
+    }
+
+    if (!config.hooksConfig.hooks) {
+      config.hooksConfig.hooks = {};
+    }
+
+    if (!config.hooksConfig.hooks.AfterModel) {
+      config.hooksConfig.hooks.AfterModel = [];
+    }
+
+    const hasHook = config.hooksConfig.hooks.AfterModel.some((hook: any) =>
+      hook.type === "command" &&
+      typeof hook.command === "string" &&
+      hook.command.includes("hook.sh") &&
+      hook.command.includes(" gemini"),
+    );
+
+    if (hasHook) {
+      return { status: "already_installed", message: "Gemini hook is already installed" };
+    }
+
+    config.hooksConfig.hooks.AfterModel.push({
+      type: "command",
+      command: context.getProviderHookCommand(this.id),
+    });
+    context.writeJsonObject(geminiConfigPath, config);
+
+    return { status: "installed", message: "Gemini hook installed" };
+  }
+
+  async uninstall(context: ProviderInstallContext): Promise<ProviderActionResult> {
+    const geminiConfigPath = path.join(
+      context.homeDir,
+      ".gemini",
+      "settings.json",
+    );
+    if (!fs.existsSync(geminiConfigPath)) {
+      return {
+        status: "skipped",
+        message: `Gemini config not found at ${geminiConfigPath}`,
+      };
+    }
+
+    const config = context.readJsonObject(geminiConfigPath);
+    const afterModelHooks = config.hooksConfig?.hooks?.AfterModel;
+    if (!Array.isArray(afterModelHooks)) {
+      return { status: "skipped", message: "Gemini hook is not installed" };
+    }
+
+    const originalLength = afterModelHooks.length;
+    config.hooksConfig.hooks.AfterModel = afterModelHooks.filter(
+      (hook: any) =>
+        !(
+          hook.type === "command" &&
+          typeof hook.command === "string" &&
+          hook.command.includes("hook.sh") &&
+          hook.command.includes(" gemini")
+        ),
+    );
+
+    if (config.hooksConfig.hooks.AfterModel.length === originalLength) {
+      return { status: "skipped", message: "Gemini hook is not installed" };
+    }
+
+    context.writeJsonObject(geminiConfigPath, config);
+    return { status: "uninstalled", message: "Gemini hook removed" };
+  }
 
   /**
    * Try to resolve workspace path from Gemini's SHA-256 hash directory name
@@ -57,7 +153,7 @@ export class GeminiProvider implements ChatProvider {
     return crypto.createHash("sha256").update(dirPath).digest("hex");
   }
 
-  async findSessions(): Promise<ChatSession[]> {
+  async list(_context?: ProviderListContext): Promise<ChatSession[]> {
     const geminiTmpPath = path.join(os.homedir(), ".gemini", "tmp");
 
     if (!fs.existsSync(geminiTmpPath)) {
@@ -100,8 +196,7 @@ export class GeminiProvider implements ChatProvider {
 
               const filePath = path.join(chatsPath, chatFile);
               try {
-                const fileContent = fs.readFileSync(filePath, "utf-8");
-                const sessionData = JSON.parse(fileContent);
+                const sessionData = await readJsonFile<any>(filePath);
 
                 if (
                   !sessionData.messages ||
@@ -148,7 +243,7 @@ export class GeminiProvider implements ChatProvider {
                     ? new Date(sessionData.startTime).getTime()
                     : lastMessageDate,
                   lastMessageDate,
-                  customTitle: firstUserMessage,
+                  title: firstUserMessage,
                   requestCount: messages.length,
                   filePath: filePath,
                   source: this.id,
@@ -172,8 +267,14 @@ export class GeminiProvider implements ChatProvider {
     return sessions;
   }
 
-  async parseSession(session: ChatSession): Promise<any> {
-    const fileContent = fs.readFileSync(session.filePath, "utf-8");
-    return JSON.parse(fileContent);
+  async parse(session: ChatSession): Promise<ProviderParseResult> {
+    return parseRawSessionFile(session);
+  }
+
+  async getMetadata(
+    session: ChatSession,
+    _context: ProviderMetadataContext,
+  ): Promise<ProviderThreadMetadata> {
+    return getDefaultProviderThreadMetadata(this, session);
   }
 }

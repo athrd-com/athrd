@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 
 export interface GitHubUserInfo {
+	id: string;
 	username: string;
 	avatarImage: string;
 }
@@ -26,6 +27,7 @@ export async function getGitHubUserInfo(
 
 	const response = await octokit.users.getAuthenticated();
 	const userInfo: GitHubUserInfo = {
+		id: String(response.data.id),
 		username: response.data.login,
 		avatarImage: response.data.avatar_url,
 	};

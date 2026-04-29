@@ -2,7 +2,7 @@ export interface ChatSession {
     sessionId: string;
     creationDate: number;
     lastMessageDate: number;
-    customTitle?: string;
+    title?: string;
     requestCount: number;
     filePath: string;
     source: string;

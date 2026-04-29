@@ -52,7 +52,6 @@ function parseThreadListMetadata(content?: string): {
         getNestedString(rawContent, ["__athrd", "title"]),
         getNestedString(rawContent, ["metadata", "name"]),
         getString(rawContent, "title"),
-        getString(rawContent, "customTitle"),
         getString(rawContent, "summary"),
       ),
       createdAt: firstDefinedValue(

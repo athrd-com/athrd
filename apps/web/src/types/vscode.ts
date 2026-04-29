@@ -434,5 +434,5 @@ export interface VSCodeThread {
   creationDate: number;
   isImported: boolean;
   lastMessageDate: number;
-  customTitle?: string;
+  title?: string;
 }

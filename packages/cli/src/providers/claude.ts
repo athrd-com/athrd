@@ -2,7 +2,18 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChatSession } from "../types/index.js";
-import { ChatProvider } from "./base.js";
+import { readJsonlFile } from "../utils/bun-parsing.js";
+import {
+  ChatProvider,
+  getDefaultProviderThreadMetadata,
+  parseRawSessionFile,
+  ProviderActionResult,
+  ProviderInstallContext,
+  ProviderListContext,
+  ProviderMetadataContext,
+  ProviderParseResult,
+  ProviderThreadMetadata,
+} from "./base.js";
 
 function getHomeDir(): string {
   return process.env.HOME || os.homedir();
@@ -12,7 +23,98 @@ export class ClaudeCodeProvider implements ChatProvider {
   readonly id = "claude";
   readonly name = "Claude";
 
-  async findSessions(): Promise<ChatSession[]> {
+  async install(context: ProviderInstallContext): Promise<ProviderActionResult> {
+    const claudeConfigPath = path.join(
+      context.homeDir,
+      ".claude",
+      "settings.json",
+    );
+    if (!fs.existsSync(claudeConfigPath)) {
+      return {
+        status: "skipped",
+        message: `Claude config not found at ${claudeConfigPath}`,
+      };
+    }
+
+    const config = context.readJsonObject(claudeConfigPath);
+
+    if (!config.hooks) {
+      config.hooks = {};
+    }
+
+    if (!config.hooks.Stop) {
+      config.hooks.Stop = [];
+    }
+
+    const hasHook = config.hooks.Stop.some((hookGroup: any) =>
+      hookGroup.matcher === "*" &&
+      hookGroup.hooks?.some((hook: any) =>
+        typeof hook.command === "string" &&
+        hook.command.includes("hook.sh") &&
+        hook.command.includes(" claude"),
+      ),
+    );
+
+    if (hasHook) {
+      return { status: "already_installed", message: "Claude hook is already installed" };
+    }
+
+    config.hooks.Stop.push({
+      matcher: "*",
+      hooks: [
+        {
+          type: "command",
+          command: context.getProviderHookCommand(this.id),
+        },
+      ],
+    });
+    context.writeJsonObject(claudeConfigPath, config);
+
+    return { status: "installed", message: "Claude hook installed" };
+  }
+
+  async uninstall(context: ProviderInstallContext): Promise<ProviderActionResult> {
+    const claudeConfigPath = path.join(
+      context.homeDir,
+      ".claude",
+      "settings.json",
+    );
+    if (!fs.existsSync(claudeConfigPath)) {
+      return {
+        status: "skipped",
+        message: `Claude config not found at ${claudeConfigPath}`,
+      };
+    }
+
+    const config = context.readJsonObject(claudeConfigPath);
+
+    if (!config.hooks || !Array.isArray(config.hooks.Stop)) {
+      return { status: "skipped", message: "Claude hook is not installed" };
+    }
+
+    const originalLength = config.hooks.Stop.length;
+    config.hooks.Stop = config.hooks.Stop.filter((hookGroup: any) => {
+      if (hookGroup.matcher !== "*") {
+        return true;
+      }
+
+      const matchingHooks = hookGroup.hooks?.filter((hook: any) =>
+        typeof hook.command === "string" &&
+        hook.command.includes("hook.sh") &&
+        hook.command.includes(" claude"),
+      );
+      return !matchingHooks || matchingHooks.length === 0;
+    });
+
+    if (config.hooks.Stop.length === originalLength) {
+      return { status: "skipped", message: "Claude hook is not installed" };
+    }
+
+    context.writeJsonObject(claudeConfigPath, config);
+    return { status: "uninstalled", message: "Claude hook removed" };
+  }
+
+  async list(_context?: ProviderListContext): Promise<ChatSession[]> {
     const claudeProjectsPath = path.join(getHomeDir(), ".claude", "projects");
 
     if (!fs.existsSync(claudeProjectsPath)) {
@@ -46,8 +148,9 @@ export class ClaudeCodeProvider implements ChatProvider {
             const filePath = path.join(projectPath, file);
 
             try {
-              const fileContent = fs.readFileSync(filePath, "utf-8");
-              const lines = fileContent.split("\n");
+              const entries = await readJsonlFile<any>(filePath, {
+                skipInvalid: true,
+              });
 
               const sessionId = file.replace(".jsonl", "");
 
@@ -58,43 +161,34 @@ export class ClaudeCodeProvider implements ChatProvider {
               let messageCount = 0;
               let firstUserMessage: string | undefined;
 
-              for (const line of lines) {
-                if (line.trim()) {
-                  try {
-                    const entry = JSON.parse(line);
+              for (const entry of entries) {
+                // Get summary if available
+                if (entry.type === "summary" && !summary) {
+                  summary = entry.summary;
+                }
 
-                    // Get summary if available
-                    if (entry.type === "summary" && !summary) {
-                      summary = entry.summary;
-                    }
+                // Claude Code stores the generated thread title in ai-title events.
+                if (entry.type === "ai-title") {
+                  const title = this.extractAiTitle([entry], sessionId);
+                  if (title) {
+                    aiTitle = title;
+                  }
+                }
 
-                    // Claude Code stores the generated thread title in ai-title events.
-                    if (entry.type === "ai-title") {
-                      const title = this.extractAiTitle([entry], sessionId);
-                      if (title) {
-                        aiTitle = title;
-                      }
-                    }
+                // Capture first user message as fallback for title
+                if (entry.type === "user" && !firstUserMessage) {
+                  const message = entry.message;
+                  if (message && message.content) {
+                    firstUserMessage = message.content.substring(0, 60);
+                  }
+                }
 
-                    // Capture first user message as fallback for title
-                    if (entry.type === "user" && !firstUserMessage) {
-                      const message = entry.message;
-                      if (message && message.content) {
-                        firstUserMessage = message.content.substring(0, 60);
-                      }
-                    }
-
-                    // Count messages and track latest timestamp
-                    if (entry.type === "user" || entry.type === "assistant") {
-                      messageCount++;
-                      if (entry.timestamp) {
-                        const timestamp = new Date(entry.timestamp).getTime();
-                        lastMessageDate = Math.max(lastMessageDate, timestamp);
-                      }
-                    }
-                  } catch (e) {
-                    // Skip invalid JSON lines
-                    continue;
+                // Count messages and track latest timestamp
+                if (entry.type === "user" || entry.type === "assistant") {
+                  messageCount++;
+                  if (entry.timestamp) {
+                    const timestamp = new Date(entry.timestamp).getTime();
+                    lastMessageDate = Math.max(lastMessageDate, timestamp);
                   }
                 }
               }
@@ -131,7 +225,7 @@ export class ClaudeCodeProvider implements ChatProvider {
                 sessionId,
                 creationDate: lastMessageDate,
                 lastMessageDate,
-                customTitle: title,
+                title,
                 requestCount: messageCount,
                 filePath,
                 source: this.id,
@@ -151,24 +245,18 @@ export class ClaudeCodeProvider implements ChatProvider {
           if (file.match(/^agent-[0-9a-f]{8}\.jsonl$/i)) {
             const filePath = path.join(projectPath, file);
             try {
-              const fileContent = fs.readFileSync(filePath, "utf-8");
-              const lines = fileContent.split("\n");
+              const entries = await readJsonlFile<any>(filePath, {
+                skipInvalid: true,
+              });
 
               // Find which session this agent belongs to
-              for (const line of lines) {
-                if (line.trim()) {
-                  try {
-                    const entry = JSON.parse(line);
-                    if (entry.sessionId) {
-                      if (!agentFiles.has(entry.sessionId)) {
-                        agentFiles.set(entry.sessionId, []);
-                      }
-                      agentFiles.get(entry.sessionId)!.push(filePath);
-                      break; // Only need first entry to get sessionId
-                    }
-                  } catch (e) {
-                    continue;
+              for (const entry of entries) {
+                if (entry.sessionId) {
+                  if (!agentFiles.has(entry.sessionId)) {
+                    agentFiles.set(entry.sessionId, []);
                   }
+                  agentFiles.get(entry.sessionId)!.push(filePath);
+                  break; // Only need first entry to get sessionId
                 }
               }
             } catch (error) {
@@ -195,64 +283,15 @@ export class ClaudeCodeProvider implements ChatProvider {
     return sessions;
   }
 
-  async parseSession(session: ChatSession): Promise<any> {
-    const fileContent = fs.readFileSync(session.filePath, "utf-8");
-    const jsonlEntries = this.parseJSONL(fileContent);
-    let sessionData = this.parseClaudeCodeSession(jsonlEntries);
-
-    // Merge agent files into the session data
-    if (session.metadata?.agentFiles) {
-      sessionData = await this.mergeAgentFilesIntoSession(
-        sessionData,
-        session.metadata.agentFiles
-      );
-    }
-    return sessionData;
+  async parse(session: ChatSession): Promise<ProviderParseResult> {
+    return parseRawSessionFile(session);
   }
 
-  private parseJSONL(fileContent: string): any[] {
-    const lines = fileContent.split("\n");
-    const result: any[] = [];
-
-    for (const line of lines) {
-      if (line.trim()) {
-        try {
-          const entry = JSON.parse(line);
-          result.push(entry);
-        } catch (e) {
-          // Skip invalid JSON lines
-          continue;
-        }
-      }
-    }
-
-    return result;
-  }
-
-  private parseClaudeCodeSession(jsonlEntries: any[]): any {
-    const requests: any[] = [];
-    let sessionId = "unknown";
-
-    // Extract user and assistant messages
-    for (const entry of jsonlEntries) {
-      if (entry.type === "user" || entry.type === "assistant") {
-        if (!sessionId || sessionId === "unknown") {
-          sessionId = entry.sessionId || "unknown";
-        }
-        requests.push({
-          id: entry.uuid || entry.id,
-          type: entry.type,
-          message: entry.message,
-          timestamp: entry.timestamp,
-        });
-      }
-    }
-
-    return {
-      sessionId,
-      customTitle: this.extractAiTitle(jsonlEntries, sessionId),
-      requests,
-    };
+  async getMetadata(
+    session: ChatSession,
+    _context: ProviderMetadataContext,
+  ): Promise<ProviderThreadMetadata> {
+    return getDefaultProviderThreadMetadata(this, session);
   }
 
   private extractAiTitle(
@@ -282,37 +321,5 @@ export class ClaudeCodeProvider implements ChatProvider {
     }
 
     return aiTitle;
-  }
-
-  private async mergeAgentFilesIntoSession(
-    sessionData: any,
-    agentFilePaths: string[] | undefined
-  ): Promise<any> {
-    if (!agentFilePaths || agentFilePaths.length === 0) {
-      return sessionData;
-    }
-
-    const agents: { [agentId: string]: any[] } = {};
-
-    // Parse each agent file and organize by agent ID
-    for (const agentFilePath of agentFilePaths) {
-      try {
-        const fileContent = fs.readFileSync(agentFilePath, "utf-8");
-        const entries = this.parseJSONL(fileContent);
-        const fileName = path.basename(agentFilePath);
-        const agentId = fileName.replace("agent-", "").replace(".jsonl", "");
-
-        agents[agentId] = entries;
-      } catch (error) {
-        // Skip files that can't be read
-        continue;
-      }
-    }
-
-    // Return merged data
-    return {
-      ...sessionData,
-      __agents: agents,
-    };
   }
 }

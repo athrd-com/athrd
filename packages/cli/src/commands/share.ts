@@ -79,7 +79,7 @@ export function shareCommand(program: Command) {
     .option("-n, --number <count>", "Number of chats to display", "20")
     .option(
       "-i, --ide <ide>",
-      "Filter by IDE (vscode, gemini, claude, codex, cursor)",
+      "Filter by IDE (vscode, gemini, claude, codex, cursor, opencode, pi)",
     )
     .option("--vscode", "Filter by VS Code")
     .option("--gemini", "Filter by Gemini")
@@ -87,6 +87,7 @@ export function shareCommand(program: Command) {
     .option("--cursor", "Filter by Cursor")
     .option("--codex", "Filter by Codex")
     .option("--opencode", "Filter by OpenCode")
+    .option("--pi", "Filter by Pi")
     .option("--json <json>", "JSON payload from hook event")
     .option(
       "--mark",
@@ -102,6 +103,7 @@ export function shareCommand(program: Command) {
         if (options.cursor) filterIde = "cursor";
         if (options.codex) filterIde = "codex";
         if (options.opencode) filterIde = "opencode";
+        if (options.pi) filterIde = "pi";
 
         console.log(chalk.blue("📋 Finding AI chat threads...\n"));
 

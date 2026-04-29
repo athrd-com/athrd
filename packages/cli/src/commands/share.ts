@@ -283,6 +283,9 @@ export function shareCommand(program: Command) {
                 githubUsername: userInfo.username,
                 githubRepo: githubRepo,
                 ide: provider.id, // Use provider ID as 'ide'
+                ...(session.customTitle && {
+                  title: session.customTitle,
+                }),
                 ...(commitHash && {
                   commitHash,
                 }),

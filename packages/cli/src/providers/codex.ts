@@ -108,7 +108,7 @@ export class CodexProvider implements ChatProvider {
   }
 
   async list(_context?: ProviderListContext): Promise<ChatSession[]> {
-    const sessionsDir = path.join(os.homedir(), ".codex", "sessions");
+    const sessionsDir = path.join(this.getCodexHomeDir(), "sessions");
     if (!fs.existsSync(sessionsDir)) {
       return [];
     }
@@ -241,10 +241,94 @@ export class CodexProvider implements ChatProvider {
   }
 
   private readThreadTitleFromSQLite(threadId: string): string | undefined {
-    const stateDbPath =
-      process.env.ATHRD_CODEX_STATE_SQLITE ||
-      path.join(os.homedir(), ".codex", "state.sqlite");
+    for (const stateDbPath of this.getCodexStateDbPaths()) {
+      const title = this.readThreadTitleFromSQLitePath(stateDbPath, threadId);
+      if (title) {
+        return title;
+      }
+    }
 
+    return undefined;
+  }
+
+  private getCodexStateDbPaths(): string[] {
+    const override = process.env.ATHRD_CODEX_STATE_SQLITE;
+    if (override) {
+      return [override];
+    }
+
+    const codexDir = this.getCodexHomeDir();
+    const legacyStateDbPath = path.join(codexDir, "state.sqlite");
+    if (!fs.existsSync(codexDir)) {
+      return [legacyStateDbPath];
+    }
+
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(codexDir, { withFileTypes: true });
+    } catch {
+      return [legacyStateDbPath];
+    }
+
+    const stateDbPaths = entries
+      .filter(
+        (entry) =>
+          entry.isFile() && /^state(?:_.+)?\.sqlite$/.test(entry.name),
+      )
+      .map((entry) => path.join(codexDir, entry.name));
+
+    if (!stateDbPaths.includes(legacyStateDbPath)) {
+      stateDbPaths.push(legacyStateDbPath);
+    }
+
+    return stateDbPaths.sort((left, right) =>
+      this.compareCodexStateDbPaths(left, right),
+    );
+  }
+
+  private getCodexHomeDir(): string {
+    return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+  }
+
+  private compareCodexStateDbPaths(left: string, right: string): number {
+    const leftVersion = this.extractCodexStateDbVersion(left);
+    const rightVersion = this.extractCodexStateDbVersion(right);
+
+    if (leftVersion !== undefined && rightVersion !== undefined) {
+      return rightVersion - leftVersion;
+    }
+
+    if (leftVersion !== undefined) {
+      return -1;
+    }
+
+    if (rightVersion !== undefined) {
+      return 1;
+    }
+
+    const leftIsVersioned = path.basename(left) !== "state.sqlite";
+    const rightIsVersioned = path.basename(right) !== "state.sqlite";
+
+    if (leftIsVersioned !== rightIsVersioned) {
+      return leftIsVersioned ? -1 : 1;
+    }
+
+    return path.basename(right).localeCompare(path.basename(left));
+  }
+
+  private extractCodexStateDbVersion(stateDbPath: string): number | undefined {
+    const match = /^state_(\d+)\.sqlite$/.exec(path.basename(stateDbPath));
+    if (!match) {
+      return undefined;
+    }
+
+    return Number(match[1]);
+  }
+
+  private readThreadTitleFromSQLitePath(
+    stateDbPath: string,
+    threadId: string,
+  ): string | undefined {
     if (!fs.existsSync(stateDbPath)) {
       return undefined;
     }

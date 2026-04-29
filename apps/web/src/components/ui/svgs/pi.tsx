@@ -1,26 +1,15 @@
 import type { SVGProps } from "react";
 
 const Pi = (props: SVGProps<SVGSVGElement>) => (
-  <svg {...props} fill="none" viewBox="0 0 100 100">
+  <svg {...props} viewBox="0 0 800 800">
     <path
-      d="M18 28h64"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth="12"
+      fill="currentColor"
+      fillRule="evenodd"
+      d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z"
     />
     <path
-      d="M36 28v44c0 7.2-4.8 12-12 12"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="12"
-    />
-    <path
-      d="M64 28v44c0 7.2 4.8 12 12 12"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="12"
+      fill="currentColor"
+      d="M517.36 400H634.72V634.72H517.36Z"
     />
   </svg>
 );

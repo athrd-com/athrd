@@ -4,7 +4,6 @@ import type { ClaudeThread as ClaudeThreadType } from "@/types/claude";
 import type { CodexThread as CodexThreadType } from "@/types/codex";
 import type { GeminiThread as GeminiThreadType } from "@/types/gemini";
 import { IDE } from "@/types/ide";
-import type { PiThread as PiThreadType } from "@/types/pi";
 import type { VSCodeThread as IVSCodeThread } from "@/types/vscode";
 import type { GistData, GistFile } from "~/lib/github";
 import {
@@ -324,31 +323,6 @@ function extractModelsUsed(
           models.add(
             [msg.payload.model, msg.payload.effort].filter(Boolean).join("-"),
           );
-        }
-      });
-    }
-
-    if (ide === IDE.PI) {
-      const piContent = content as unknown as PiThreadType;
-      const entries = piContent.entries ?? piContent.messages ?? [];
-      entries.forEach((entry) => {
-        if (entry.type === "model_change") {
-          const modelId = (entry as { modelId?: unknown }).modelId;
-          if (typeof modelId === "string" && modelId.trim()) {
-            models.add(modelId);
-          }
-        }
-
-        if (entry.type === "message") {
-          const message = (entry as { message?: unknown }).message;
-          if (!isRecord(message) || message.role !== "assistant") {
-            return;
-          }
-
-          const model = message.model;
-          if (typeof model === "string" && model.trim()) {
-            models.add(model);
-          }
         }
       });
     }

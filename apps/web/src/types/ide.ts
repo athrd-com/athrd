@@ -4,5 +4,4 @@ export enum IDE {
   CODEX = "codex",
   GEMINI = "gemini",
   CURSOR = "cursor",
-  PI = "pi",
 }

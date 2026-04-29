@@ -2,6 +2,7 @@
 
 import { ClaudeAiIcon } from "@/components/ui/svgs/claudeAiIcon";
 import { Openai } from "@/components/ui/svgs/openai";
+import { Pi } from "@/components/ui/svgs/pi";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Gemini } from "../ui/svgs/gemini";
@@ -38,6 +39,7 @@ export function HeroSection() {
           fill="currentColor"
         />
       ),
+      supportIcon: <ClaudeAiIcon className="h-5 w-5" />,
     },
     {
       name: "Codex",
@@ -47,6 +49,9 @@ export function HeroSection() {
           className="w-8 h-8 md:w-10 md:h-10 text-white"
           fill="currentColor"
         />
+      ),
+      supportIcon: (
+        <Openai className="h-5 w-5 text-white" fill="currentColor" />
       ),
     },
     {
@@ -58,6 +63,13 @@ export function HeroSection() {
           fill="currentColor"
         />
       ),
+      supportIcon: <Gemini className="h-5 w-5" />,
+    },
+    {
+      name: "Pi",
+      color: "from-violet-500 to-cyan-400",
+      icon: <Pi className="w-8 h-8 md:w-10 md:h-10 text-white" />,
+      supportIcon: <Pi className="h-5 w-5 text-white" />,
     },
   ];
 
@@ -158,16 +170,7 @@ export function HeroSection() {
                 className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-200"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 ring-1 ring-white/10">
-                  {brand.name === "Gemini" ? (
-                    <Gemini className="h-5 w-5" />
-                  ) : brand.name === "Codex" ? (
-                    <Openai
-                      className="h-5 w-5 text-white"
-                      fill="currentColor"
-                    />
-                  ) : (
-                    <ClaudeAiIcon className="h-5 w-5" />
-                  )}
+                  {brand.supportIcon}
                 </span>
                 <span>{brand.name}</span>
               </div>

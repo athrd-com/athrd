@@ -4,12 +4,16 @@ import * as path from "path";
 import { ChatSession } from "../types/index.js";
 import { ChatProvider } from "./base.js";
 
+function getHomeDir(): string {
+  return process.env.HOME || os.homedir();
+}
+
 export class ClaudeCodeProvider implements ChatProvider {
   readonly id = "claude";
   readonly name = "Claude";
 
   async findSessions(): Promise<ChatSession[]> {
-    const claudeProjectsPath = path.join(os.homedir(), ".claude", "projects");
+    const claudeProjectsPath = path.join(getHomeDir(), ".claude", "projects");
 
     if (!fs.existsSync(claudeProjectsPath)) {
       return [];
@@ -45,7 +49,10 @@ export class ClaudeCodeProvider implements ChatProvider {
               const fileContent = fs.readFileSync(filePath, "utf-8");
               const lines = fileContent.split("\n");
 
+              const sessionId = file.replace(".jsonl", "");
+
               // Parse JSONL to find session metadata
+              let aiTitle: string | undefined;
               let summary: string | undefined;
               let lastMessageDate: number = 0;
               let messageCount = 0;
@@ -59,6 +66,14 @@ export class ClaudeCodeProvider implements ChatProvider {
                     // Get summary if available
                     if (entry.type === "summary" && !summary) {
                       summary = entry.summary;
+                    }
+
+                    // Claude Code stores the generated thread title in ai-title events.
+                    if (entry.type === "ai-title") {
+                      const title = this.extractAiTitle([entry], sessionId);
+                      if (title) {
+                        aiTitle = title;
+                      }
                     }
 
                     // Capture first user message as fallback for title
@@ -109,11 +124,11 @@ export class ClaudeCodeProvider implements ChatProvider {
                   .pop();
               }
 
-              // Use summary if available, otherwise use first user message, otherwise default
-              const title = summary || firstUserMessage || "Claude Chat";
+              // Use Claude's generated title if available, then fall back to older metadata.
+              const title = aiTitle || summary || firstUserMessage || "Claude Chat";
 
               sessions.push({
-                sessionId: file.replace(".jsonl", ""),
+                sessionId,
                 creationDate: lastMessageDate,
                 lastMessageDate,
                 customTitle: title,
@@ -123,7 +138,7 @@ export class ClaudeCodeProvider implements ChatProvider {
                 workspaceName,
                 workspacePath,
                 metadata: {
-                  agentFiles: agentFiles.get(file.replace(".jsonl", "")) || [],
+                  agentFiles: agentFiles.get(sessionId) || [],
                 },
               });
             } catch (error) {
@@ -235,8 +250,38 @@ export class ClaudeCodeProvider implements ChatProvider {
 
     return {
       sessionId,
+      customTitle: this.extractAiTitle(jsonlEntries, sessionId),
       requests,
     };
+  }
+
+  private extractAiTitle(
+    jsonlEntries: any[],
+    sessionId?: string,
+  ): string | undefined {
+    let aiTitle: string | undefined;
+
+    for (const entry of jsonlEntries) {
+      if (entry?.type !== "ai-title" || typeof entry.aiTitle !== "string") {
+        continue;
+      }
+
+      if (
+        sessionId &&
+        sessionId !== "unknown" &&
+        typeof entry.sessionId === "string" &&
+        entry.sessionId !== sessionId
+      ) {
+        continue;
+      }
+
+      const title = entry.aiTitle.trim();
+      if (title) {
+        aiTitle = title;
+      }
+    }
+
+    return aiTitle;
   }
 
   private async mergeAgentFilesIntoSession(

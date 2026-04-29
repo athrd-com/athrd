@@ -3,19 +3,34 @@ import { Command } from "commander";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import toml from "@iarna/toml";
 import {
     installGlobalCommitMsgHook,
     uninstallGlobalCommitMsgHook,
 } from "../utils/git-hooks.js";
 
-const homedir = os.homedir();
-const athrdDir = path.join(homedir, ".athrd");
-const hookScriptPath = path.join(athrdDir, "hook.sh");
+function getAthrdDir() {
+    return path.join(getHomeDir(), ".athrd");
+}
 
-const claudeConfigPath = path.join(homedir, ".claude", "settings.json");
-const codexConfigPath = path.join(homedir, ".codex", "config.toml");
-const geminiConfigPath = path.join(homedir, ".gemini", "settings.json");
+function getHookScriptPath() {
+    return path.join(getAthrdDir(), "hook.sh");
+}
+
+function getClaudeConfigPath() {
+    return path.join(getHomeDir(), ".claude", "settings.json");
+}
+
+function getCodexHooksPath() {
+    return path.join(getHomeDir(), ".codex", "hooks.json");
+}
+
+function getGeminiConfigPath() {
+    return path.join(getHomeDir(), ".gemini", "settings.json");
+}
+
+function getHomeDir() {
+    return process.env.HOME || os.homedir();
+}
 
 const hookScriptContent = `#!/bin/bash
 PROVIDER=$1
@@ -23,7 +38,8 @@ PROVIDER=$1
 INPUT=$(cat)
 EVENT_JSON="$INPUT"
 
-# Codex sends hook data as the second argument, not stdin.
+# Most providers send hook JSON on stdin. Legacy Codex notify hooks sent
+# hook data as the second argument, so keep that fallback for older installs.
 if [ "$PROVIDER" = "codex" ] && [ -n "$2" ]; then
     EVENT_JSON="$2"
 fi
@@ -33,13 +49,15 @@ if [ -n "$EVENT_JSON" ]; then
 fi
 `;
 
-async function ensureAthrdDir() {
+function ensureAthrdDir() {
+    const athrdDir = getAthrdDir();
     if (!fs.existsSync(athrdDir)) {
         fs.mkdirSync(athrdDir, { recursive: true });
     }
 }
 
 function writeHookScript() {
+    const hookScriptPath = getHookScriptPath();
     ensureAthrdDir();
     fs.writeFileSync(hookScriptPath, hookScriptContent, { mode: 0o755 });
     console.log(
@@ -48,6 +66,7 @@ function writeHookScript() {
 }
 
 function removeHookScript() {
+    const hookScriptPath = getHookScriptPath();
     if (fs.existsSync(hookScriptPath)) {
         fs.unlinkSync(hookScriptPath);
         console.log(chalk.green(`✓ Hook script removed from ${hookScriptPath}`));
@@ -56,6 +75,8 @@ function removeHookScript() {
 
 function installClaudeHook() {
     try {
+        const claudeConfigPath = getClaudeConfigPath();
+        const hookScriptPath = getHookScriptPath();
         if (!fs.existsSync(claudeConfigPath)) {
             console.log(
                 chalk.yellow(`Claude config not found at ${claudeConfigPath}, skipping.`),
@@ -102,6 +123,7 @@ function installClaudeHook() {
 
 function uninstallClaudeHook() {
     try {
+        const claudeConfigPath = getClaudeConfigPath();
         if (!fs.existsSync(claudeConfigPath)) return;
 
         const content = fs.readFileSync(claudeConfigPath, "utf-8");
@@ -127,9 +149,52 @@ function uninstallClaudeHook() {
     }
 }
 
-function installCodexHook() {
+function isRecord(value: unknown): value is Record<string, any> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readJsonObject(filePath: string): Record<string, any> {
+    if (!fs.existsSync(filePath)) {
+        return {};
+    }
+
+    const content = fs.readFileSync(filePath, "utf-8");
+    if (content.trim().length === 0) {
+        return {};
+    }
+
+    const config = JSON.parse(content);
+    if (!isRecord(config)) {
+        throw new Error(`${filePath} must contain a JSON object.`);
+    }
+
+    return config;
+}
+
+function writeJsonObject(filePath: string, value: Record<string, any>) {
+    fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function shellQuote(value: string): string {
+    return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function getCodexHookCommand() {
+    return `bash ${shellQuote(getHookScriptPath())} codex`;
+}
+
+function isAthrdCodexHook(hook: unknown): boolean {
+    if (!isRecord(hook) || hook.type !== "command" || typeof hook.command !== "string") {
+        return false;
+    }
+
+    return hook.command.includes("hook.sh") && /(^|[\s"'])codex($|[\s"'])/.test(hook.command);
+}
+
+export function installCodexHook() {
     try {
-        const codexDir = path.dirname(codexConfigPath);
+        const codexHooksPath = getCodexHooksPath();
+        const codexDir = path.dirname(codexHooksPath);
         if (!fs.existsSync(codexDir)) {
             console.log(
                 chalk.yellow(`Codex config dir not found at ${codexDir}, skipping.`),
@@ -137,16 +202,35 @@ function installCodexHook() {
             return;
         }
 
-        let config: any = {};
-        if (fs.existsSync(codexConfigPath)) {
-            const content = fs.readFileSync(codexConfigPath, "utf-8");
-            config = toml.parse(content);
+        const config = readJsonObject(codexHooksPath);
+
+        if (config.hooks === undefined) {
+            config.hooks = {};
+        } else if (!isRecord(config.hooks)) {
+            throw new Error(`${codexHooksPath} hooks must be an object.`);
         }
 
-        const newNotify = ["bash", hookScriptPath, "codex"];
-        if (!config.notify || JSON.stringify(config.notify) !== JSON.stringify(newNotify)) {
-            config.notify = newNotify;
-            fs.writeFileSync(codexConfigPath, toml.stringify(config));
+        if (config.hooks.Stop === undefined) {
+            config.hooks.Stop = [];
+        } else if (!Array.isArray(config.hooks.Stop)) {
+            throw new Error(`${codexHooksPath} hooks.Stop must be an array.`);
+        }
+
+        const hasHook = config.hooks.Stop.some((hookGroup: any) =>
+            Array.isArray(hookGroup?.hooks) && hookGroup.hooks.some(isAthrdCodexHook),
+        );
+
+        if (!hasHook) {
+            config.hooks.Stop.push({
+                hooks: [
+                    {
+                        type: "command",
+                        command: getCodexHookCommand(),
+                        timeout: 30,
+                    },
+                ],
+            });
+            writeJsonObject(codexHooksPath, config);
             console.log(chalk.green(`✓ Codex hook installed`));
         } else {
             console.log(chalk.blue(`ℹ Codex hook is already installed`));
@@ -156,16 +240,37 @@ function installCodexHook() {
     }
 }
 
-function uninstallCodexHook() {
+export function uninstallCodexHook() {
     try {
-        if (!fs.existsSync(codexConfigPath)) return;
+        const codexHooksPath = getCodexHooksPath();
+        if (!fs.existsSync(codexHooksPath)) return;
 
-        const content = fs.readFileSync(codexConfigPath, "utf-8");
-        const config: any = toml.parse(content);
+        const config = readJsonObject(codexHooksPath);
+        if (!isRecord(config.hooks) || !Array.isArray(config.hooks.Stop)) {
+            return;
+        }
 
-        if (config.notify && Array.isArray(config.notify) && config.notify.includes("codex")) {
-            delete config.notify;
-            fs.writeFileSync(codexConfigPath, toml.stringify(config));
+        let changed = false;
+        config.hooks.Stop = config.hooks.Stop.flatMap((hookGroup: any) => {
+            if (!isRecord(hookGroup) || !Array.isArray(hookGroup.hooks)) {
+                return [hookGroup];
+            }
+
+            const hooks = hookGroup.hooks.filter((hook: unknown) => !isAthrdCodexHook(hook));
+            if (hooks.length === hookGroup.hooks.length) {
+                return [hookGroup];
+            }
+
+            changed = true;
+            if (hooks.length === 0) {
+                return [];
+            }
+
+            return [{ ...hookGroup, hooks }];
+        });
+
+        if (changed) {
+            writeJsonObject(codexHooksPath, config);
             console.log(chalk.green(`✓ Codex hook removed`));
         }
     } catch (err) {
@@ -175,6 +280,8 @@ function uninstallCodexHook() {
 
 function installGeminiHook() {
     try {
+        const geminiConfigPath = getGeminiConfigPath();
+        const hookScriptPath = getHookScriptPath();
         if (!fs.existsSync(geminiConfigPath)) {
             console.log(
                 chalk.yellow(`Gemini config not found at ${geminiConfigPath}, skipping.`),
@@ -218,6 +325,7 @@ function installGeminiHook() {
 
 function uninstallGeminiHook() {
     try {
+        const geminiConfigPath = getGeminiConfigPath();
         if (!fs.existsSync(geminiConfigPath)) return;
 
         const content = fs.readFileSync(geminiConfigPath, "utf-8");

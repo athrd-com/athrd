@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -53,7 +54,7 @@ export class CodexProvider implements ChatProvider {
 
   private createSessionFromEntries(
     entries: any[],
-    filePath: string
+    filePath: string,
   ): ChatSession | null {
     let sessionId: string | undefined;
     let workspacePath: string | undefined;
@@ -119,12 +120,14 @@ export class CodexProvider implements ChatProvider {
     const lastMessageDate = latestTimestamp || creationDate;
 
     const metadata = codexMetadata ? { codex: codexMetadata } : undefined;
+    const resolvedSessionId = sessionId || path.basename(filePath, ".jsonl");
+    const stateTitle = this.readThreadTitleFromSQLite(resolvedSessionId);
 
     return {
-      sessionId: sessionId || path.basename(filePath, ".jsonl"),
+      sessionId: resolvedSessionId,
       creationDate,
       lastMessageDate,
-      customTitle: firstUserMessage || "Codex Chat",
+      customTitle: stateTitle || firstUserMessage || "Codex Chat",
       requestCount: messageCount,
       filePath,
       source: this.id,
@@ -132,6 +135,39 @@ export class CodexProvider implements ChatProvider {
       workspacePath,
       metadata,
     };
+  }
+
+  private readThreadTitleFromSQLite(threadId: string): string | undefined {
+    const stateDbPath =
+      process.env.ATHRD_CODEX_STATE_SQLITE ||
+      path.join(os.homedir(), ".codex", "state.sqlite");
+
+    if (!fs.existsSync(stateDbPath)) {
+      return undefined;
+    }
+
+    let db: Database | undefined;
+
+    try {
+      db = new Database(stateDbPath, { readonly: true, create: false });
+      const row = db
+        .query(
+          "SELECT title FROM threads WHERE id = ? AND title IS NOT NULL LIMIT 1",
+        )
+        .get(threadId) as { title?: unknown } | null;
+
+      if (typeof row?.title !== "string") {
+        return undefined;
+      }
+
+      const title = row.title.trim();
+      return title || undefined;
+    } catch {
+      // Codex state is best-effort metadata. Keep session discovery working.
+      return undefined;
+    } finally {
+      db?.close();
+    }
   }
 
   private extractTimestamp(entry: any): number | undefined {
@@ -149,9 +185,7 @@ export class CodexProvider implements ChatProvider {
     return Number.isNaN(value) ? undefined : value;
   }
 
-  private extractUserMessage(
-    entry: any
-  ): { preview?: string } | null {
+  private extractUserMessage(entry: any): { preview?: string } | null {
     if (!entry) {
       return null;
     }
@@ -212,7 +246,9 @@ export class CodexProvider implements ChatProvider {
             previews.push(preview);
           }
         } else if (item && typeof item === "object") {
-          const preview = this.extractTextFromContent(item.text ?? item.content);
+          const preview = this.extractTextFromContent(
+            item.text ?? item.content,
+          );
           if (preview) {
             previews.push(preview);
           }

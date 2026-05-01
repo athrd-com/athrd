@@ -1,24 +1,29 @@
-import { getUserThreads } from "@/server/actions/threads";
+import {
+  getThreadFilterOptions,
+  getUserThreadGroups,
+} from "@/server/actions/threads";
 import { headers } from "next/headers";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { LoginButton } from "~/components/auth/login-button";
 import { Button } from "~/components/ui/button";
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { getUserOrganizations } from "~/server/actions/gists";
+import type { ThreadListEntry } from "~/lib/thread-list";
 import { auth } from "~/server/better-auth/config";
-import { OrgComingSoon } from "./org-coming-soon";
-import { OrgSwitcher } from "./org-switcher";
+import { ThreadFilters } from "./thread-filters";
 import { ThreadRow } from "./thread-row";
 
 interface ThreadsPageProps {
   searchParams?: Promise<{
     orgId?: string;
+    repoId?: string;
     cursor?: string;
     stack?: string;
   }>;
@@ -40,109 +45,195 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
     );
   }
 
-  const { orgId, cursor, stack } =
+  const { orgId, repoId, cursor, stack } =
     (await searchParams) ?? {
       orgId: undefined,
+      repoId: undefined,
       cursor: undefined,
       stack: undefined,
     };
+  const requestedOrgId = sanitizeParam(orgId);
+  const selectedRepoId = sanitizeParam(repoId);
   const previousCursors = decodeCursorStack(stack);
-  const currentCursor = sanitizeCursor(cursor);
-  const [threadPage, organizations] = await Promise.all([
-    getUserThreads(orgId, currentCursor),
-    getUserOrganizations(),
-  ]);
-  const threads = threadPage.items;
-  const selectedOrganization = organizations.find(
-    (organization) => String(organization.id) === orgId,
-  );
-  const nextHref = threadPage.nextCursor
+  const currentCursor = sanitizeParam(cursor);
+  let filterOptions = await getThreadFilterOptions(requestedOrgId);
+  const selectedOrgId =
+    requestedOrgId &&
+    filterOptions.organizations.some(
+      (organization) => organization.id === requestedOrgId,
+    )
+      ? requestedOrgId
+      : undefined;
+
+  if (requestedOrgId && !selectedOrgId) {
+    filterOptions = await getThreadFilterOptions();
+  }
+
+  const effectiveRepoId =
+    selectedRepoId &&
+    filterOptions.repositories.some((repository) => repository.id === selectedRepoId)
+      ? selectedRepoId
+      : undefined;
+  const threadGroups = await getUserThreadGroups({
+    orgId: selectedOrgId,
+    repoId: effectiveRepoId,
+    cursor: currentCursor,
+  });
+  const totalThreads =
+    threadGroups.today.length +
+    threadGroups.yesterday.length +
+    threadGroups.older.items.length;
+  const nextHref = threadGroups.older.nextCursor
     ? buildThreadsHref({
-        orgId,
-        cursor: threadPage.nextCursor,
+        orgId: selectedOrgId,
+        repoId: effectiveRepoId,
+        cursor: threadGroups.older.nextCursor,
         stack: encodeCursorStack([...previousCursors, currentCursor || ""]),
       })
     : null;
   const previousHref =
     currentCursor !== undefined
-      ? buildPreviousHref({ orgId, previousCursors })
+      ? buildPreviousHref({
+          orgId: selectedOrgId,
+          repoId: effectiveRepoId,
+          previousCursors,
+        })
       : null;
 
   return (
     <div className="container mx-auto py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Your Threads</h1>
-        <OrgSwitcher
-          organizations={organizations.map((organization) => ({
-            id: String(organization.id),
-            login: organization.login,
-            avatarUrl: organization.avatar_url,
-          }))}
-          selectedOrgId={orgId}
-        />
+      <div className="mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Your Threads</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {totalThreads === 1
+              ? "1 indexed session"
+              : `${totalThreads} indexed sessions`}
+          </p>
+        </div>
       </div>
 
-      {orgId ? (
-        <OrgComingSoon organizationName={selectedOrganization?.login} />
-      ) : threads.length === 0 ? (
-        <div className="text-center text-muted-foreground">
-          <p>No threads yet.</p>
-          <p className="mt-2">
-            Create your first thread to start sharing AI session context.
-          </p>
-          <Button asChild className="mt-4">
-            <Link href="/">Create your first thread</Link>
-          </Button>
+      <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start">
+        <aside className="lg:sticky lg:top-6">
+          <ThreadFilters
+            organizations={filterOptions.organizations}
+            repositories={filterOptions.repositories}
+            selectedOrgId={selectedOrgId}
+            selectedRepoId={effectiveRepoId}
+          />
+        </aside>
+
+        <div className="min-w-0 space-y-8">
+          <ThreadSection
+            title="Today"
+            emptyLabel="No sessions today"
+            threads={threadGroups.today}
+          />
+          <ThreadSection
+            title="Yesterday"
+            emptyLabel="No sessions yesterday"
+            threads={threadGroups.yesterday}
+          />
+          <ThreadSection
+            title="Older"
+            emptyLabel="No older sessions"
+            footer={
+              <div className="flex items-center justify-between border-t px-4 py-3">
+                <span className="text-sm text-muted-foreground">
+                  {currentCursor
+                    ? "Showing another page of older sessions"
+                    : "Showing older sessions"}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    asChild={Boolean(previousHref)}
+                    disabled={!previousHref}
+                    variant="outline"
+                  >
+                    {previousHref ? (
+                      <Link href={previousHref}>Previous</Link>
+                    ) : (
+                      <span>Previous</span>
+                    )}
+                  </Button>
+                  <Button
+                    asChild={Boolean(nextHref)}
+                    disabled={!nextHref}
+                    variant="outline"
+                  >
+                    {nextHref ? (
+                      <Link href={nextHref}>Next</Link>
+                    ) : (
+                      <span>Next</span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            }
+            threads={threadGroups.older.items}
+          />
         </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead>Created At</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {threads.map((thread) => (
-                <ThreadRow key={thread.id} thread={thread} />
-              ))}
-            </TableBody>
-          </Table>
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <span className="text-sm text-muted-foreground">
-              {currentCursor ? "Showing another page of threads" : "Showing newest threads"}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                asChild={Boolean(previousHref)}
-                disabled={!previousHref}
-                variant="outline"
-              >
-                {previousHref ? (
-                  <Link href={previousHref}>Previous</Link>
-                ) : (
-                  <span>Previous</span>
-                )}
-              </Button>
-              <Button
-                asChild={Boolean(nextHref)}
-                disabled={!nextHref}
-                variant="outline"
-              >
-                {nextHref ? <Link href={nextHref}>Next</Link> : <span>Next</span>}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+function ThreadSection({
+  title,
+  emptyLabel,
+  footer,
+  threads,
+}: {
+  title: string;
+  emptyLabel: string;
+  footer?: ReactNode;
+  threads: ThreadListEntry[];
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <span className="text-sm text-muted-foreground">
+          {threads.length === 1 ? "1 session" : `${threads.length} sessions`}
+        </span>
+      </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Session</TableHead>
+              <TableHead className="hidden md:table-cell">Repository</TableHead>
+              <TableHead className="hidden lg:table-cell">Organization</TableHead>
+              <TableHead>Updated</TableHead>
+              <TableHead className="w-10 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {threads.length > 0 ? (
+              threads.map((thread) => (
+                <ThreadRow key={thread.id} thread={thread} />
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  colSpan={5}
+                >
+                  {emptyLabel}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        {footer}
+      </div>
+    </section>
   );
 }
 
 function buildThreadsHref(input: {
   orgId?: string;
+  repoId?: string;
   cursor?: string;
   stack?: string;
 }) {
@@ -150,6 +241,10 @@ function buildThreadsHref(input: {
 
   if (input.orgId) {
     params.set("orgId", input.orgId);
+  }
+
+  if (input.repoId) {
+    params.set("repoId", input.repoId);
   }
 
   if (input.cursor) {
@@ -166,6 +261,7 @@ function buildThreadsHref(input: {
 
 function buildPreviousHref(input: {
   orgId?: string;
+  repoId?: string;
   previousCursors: string[];
 }) {
   const stack = [...input.previousCursors];
@@ -173,12 +269,13 @@ function buildPreviousHref(input: {
 
   return buildThreadsHref({
     orgId: input.orgId,
+    repoId: input.repoId,
     cursor: cursor || undefined,
     stack: stack.length > 0 ? encodeCursorStack(stack) : undefined,
   });
 }
 
-function sanitizeCursor(value?: string) {
+function sanitizeParam(value?: string) {
   return value?.trim() ? value : undefined;
 }
 

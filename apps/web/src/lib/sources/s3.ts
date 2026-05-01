@@ -337,9 +337,13 @@ function compareThreadEntriesByDate(
   );
 }
 
-function getComparableDate(value: string | number | undefined): number {
+function getComparableDate(value: string | number | Date | undefined): number {
   if (typeof value === "number") {
     return value;
+  }
+
+  if (value instanceof Date) {
+    return value.getTime();
   }
 
   if (typeof value === "string") {

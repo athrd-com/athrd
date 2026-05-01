@@ -5,13 +5,50 @@ export interface ThreadListEntry {
   source: "gist" | "s3";
   sourceId: string;
   title?: string;
-  createdAt?: string | number;
-  updatedAt?: string | number;
+  createdAt?: string | number | Date;
+  updatedAt?: string | number | Date;
+  uploadedAt?: string | number | Date;
+  ide?: string;
+  messageCount?: number;
+  organizationId?: string;
+  organizationLogin?: string;
+  organizationAvatarUrl?: string;
+  repositoryId?: string;
+  repositoryFullName?: string;
+  repositoryOwner?: string;
+  repositoryName?: string;
+  commitSha?: string;
+  artifactFormat?: string;
 }
 
 export interface ThreadListPage {
   items: ThreadListEntry[];
   nextCursor?: string;
+}
+
+export interface ThreadListGroups {
+  today: ThreadListEntry[];
+  yesterday: ThreadListEntry[];
+  older: ThreadListPage;
+}
+
+export interface ThreadOrganizationFilterOption {
+  id: string;
+  login: string;
+  avatarUrl?: string;
+}
+
+export interface ThreadRepositoryFilterOption {
+  id: string;
+  fullName: string;
+  owner: string;
+  name: string;
+  organizationId?: string;
+}
+
+export interface ThreadFilterOptions {
+  organizations: ThreadOrganizationFilterOption[];
+  repositories: ThreadRepositoryFilterOption[];
 }
 
 interface S3ThreadListEntryInput {

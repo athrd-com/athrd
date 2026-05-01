@@ -86,11 +86,11 @@ describe("server/actions/threads", () => {
     headersMock.mockResolvedValue(new Headers());
   });
 
-  it("returns gist-backed threads for the signed-in user", async () => {
+  it("returns DB-backed thread groups for the signed-in user", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "user-1" },
     });
-    dbQueryMock.mockResolvedValue({
+    dbQueryMock.mockResolvedValueOnce({
       rows: [
         {
           id: "account-1",
@@ -101,28 +101,54 @@ describe("server/actions/threads", () => {
         },
       ],
     });
-    gistListThreadsMock.mockResolvedValue({
-      items: [{ id: "gist-1", source: "gist" }],
-      nextCursor: "2",
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        makeThreadRow({
+          publicId: "gist-today",
+          title: "Today thread",
+          updatedAt: new Date(),
+        }),
+      ],
+    });
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        makeThreadRow({
+          publicId: "gist-yesterday",
+          title: "Yesterday thread",
+          updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        }),
+      ],
+    });
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        makeThreadRow({
+          publicId: "gist-older",
+          title: "Older thread",
+          updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        }),
+      ],
     });
 
-    const { getUserThreads } = await import("./threads");
+    const { getUserThreadGroups } = await import("./threads");
 
-    await expect(getUserThreads()).resolves.toEqual({
-      items: [{ id: "gist-1", source: "gist" }],
-      nextCursor: "2",
+    await expect(getUserThreadGroups()).resolves.toMatchObject({
+      today: [{ id: "gist-today", title: "Today thread", source: "gist" }],
+      yesterday: [
+        { id: "gist-yesterday", title: "Yesterday thread", source: "gist" },
+      ],
+      older: {
+        items: [{ id: "gist-older", title: "Older thread", source: "gist" }],
+      },
     });
-    expect(gistListThreadsMock).toHaveBeenCalledWith("github-token", {
-      cursor: undefined,
-      limit: 20,
-    });
+    expect(gistListThreadsMock).not.toHaveBeenCalled();
+    expect(s3ListThreadsMock).not.toHaveBeenCalled();
   });
 
-  it("returns S3-backed threads for the requested org", async () => {
+  it("applies org and repo filters to DB-backed thread groups", async () => {
     getSessionMock.mockResolvedValue({
       user: { id: "user-1" },
     });
-    dbQueryMock.mockResolvedValue({
+    dbQueryMock.mockResolvedValueOnce({
       rows: [
         {
           id: "account-1",
@@ -133,19 +159,96 @@ describe("server/actions/threads", () => {
         },
       ],
     });
-    s3ListThreadsMock.mockResolvedValue({
-      items: [{ id: "S-456-123-thread-a", source: "s3" }],
+    dbQueryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const { getUserThreadGroups } = await import("./threads");
+
+    await expect(
+      getUserThreadGroups({
+        orgId: "456",
+        repoId: "789",
+        cursor: "not-a-valid-cursor",
+      }),
+    ).resolves.toEqual({
+      today: [],
+      yesterday: [],
+      older: { items: [] },
+    });
+    expect(dbQueryMock).toHaveBeenCalledTimes(4);
+    expect(dbQueryMock.mock.calls[1]?.[0]).toContain(
+      't."organizationGithubOrgId" = $2',
+    );
+    expect(dbQueryMock.mock.calls[1]?.[0]).toContain(
+      't."repositoryGithubRepoId" = $3',
+    );
+    expect(dbQueryMock.mock.calls[1]?.[1]).toEqual(
+      expect.arrayContaining(["123", "456", "789"]),
+    );
+  });
+
+  it("returns organization and repository filter options from indexed threads", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { id: "user-1" },
+    });
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "account-1",
+          userId: "user-1",
+          providerId: "github",
+          accountId: "123",
+          accessToken: "github-token",
+        },
+      ],
+    });
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "456",
+          login: "athrd-com",
+          avatarUrl: "https://example.com/avatar.png",
+        },
+      ],
+    });
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "789",
+          fullName: "athrd-com/athrd",
+          owner: "athrd-com",
+          name: "athrd",
+          organizationId: "456",
+        },
+      ],
     });
 
-    const { getUserThreads } = await import("./threads");
+    const { getThreadFilterOptions } = await import("./threads");
 
-    await expect(getUserThreads("456", "cursor-1")).resolves.toEqual({
-      items: [{ id: "S-456-123-thread-a", source: "s3" }],
+    await expect(getThreadFilterOptions("456")).resolves.toEqual({
+      organizations: [
+        {
+          id: "456",
+          login: "athrd-com",
+          avatarUrl: "https://example.com/avatar.png",
+        },
+      ],
+      repositories: [
+        {
+          id: "789",
+          fullName: "athrd-com/athrd",
+          owner: "athrd-com",
+          name: "athrd",
+          organizationId: "456",
+        },
+      ],
     });
-    expect(s3ListThreadsMock).toHaveBeenCalledWith("456", "123", {
-      cursor: "cursor-1",
-      limit: 20,
-    });
+    expect(dbQueryMock.mock.calls[2]?.[0]).toContain(
+      'AND t."organizationGithubOrgId" = $2',
+    );
+    expect(dbQueryMock.mock.calls[2]?.[1]).toEqual(["123", "456"]);
   });
 
   it("deletes gist-backed threads owned by the signed-in user", async () => {
@@ -172,6 +275,10 @@ describe("server/actions/threads", () => {
       redirectTo: "/threads",
     });
     expect(gistDeleteThreadMock).toHaveBeenCalledWith("github-token", "gist-1");
+    expect(dbQueryMock).toHaveBeenCalledWith(
+      'DELETE FROM "threads" WHERE "publicId" = $1 AND "ownerGithubUserId" = $2',
+      ["gist-1", "123"],
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/threads");
     expect(revalidatePathMock).toHaveBeenCalledWith("/threads/gist-1");
   });
@@ -226,6 +333,10 @@ describe("server/actions/threads", () => {
       "gist-1",
       "Renamed gist",
     );
+    expect(dbQueryMock).toHaveBeenCalledWith(
+      'UPDATE "threads" SET title = $1, "lastSeenAt" = NOW() WHERE "publicId" = $2 AND "ownerGithubUserId" = $3',
+      ["Renamed gist", "gist-1", "123"],
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/threads");
     expect(revalidatePathMock).toHaveBeenCalledWith("/threads/gist-1");
   });
@@ -253,7 +364,37 @@ describe("server/actions/threads", () => {
       "456/123/thread-a.json",
       "Renamed s3 thread",
     );
+    expect(dbQueryMock).toHaveBeenCalledWith(
+      'UPDATE "threads" SET title = $1, "lastSeenAt" = NOW() WHERE "publicId" = $2 AND "ownerGithubUserId" = $3',
+      ["Renamed s3 thread", "S-456-123-thread-a", "123"],
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/threads");
     expect(revalidatePathMock).toHaveBeenCalledWith("/threads/S-456-123-thread-a");
   });
 });
+
+function makeThreadRow(overrides: Partial<Record<string, unknown>> = {}) {
+  const updatedAt = overrides.updatedAt ?? new Date("2026-04-30T12:00:00.000Z");
+
+  return {
+    rowId: overrides.rowId ?? "row-1",
+    publicId: overrides.publicId ?? "gist-1",
+    storageProvider: overrides.storageProvider ?? "gist",
+    storageSourceId: overrides.storageSourceId ?? "gist-1",
+    title: overrides.title ?? "Thread",
+    startedAt: overrides.startedAt ?? updatedAt,
+    updatedAt,
+    uploadedAt: overrides.uploadedAt ?? updatedAt,
+    ide: overrides.ide ?? "codex",
+    messageCount: overrides.messageCount ?? 3,
+    organizationId: overrides.organizationId ?? "456",
+    organizationLogin: overrides.organizationLogin ?? "athrd-com",
+    organizationAvatarUrl: overrides.organizationAvatarUrl ?? null,
+    repositoryId: overrides.repositoryId ?? "789",
+    repositoryFullName: overrides.repositoryFullName ?? "athrd-com/athrd",
+    repositoryOwner: overrides.repositoryOwner ?? "athrd-com",
+    repositoryName: overrides.repositoryName ?? "athrd",
+    commitSha: overrides.commitSha ?? null,
+    artifactFormat: overrides.artifactFormat ?? "json",
+  };
+}

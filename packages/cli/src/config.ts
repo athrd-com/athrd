@@ -5,6 +5,7 @@ export const config = {
   // Set the authorization callback URL to: http://localhost
   github: {
     clientId: process.env.GITHUB_CLIENT_ID || "Ov23lijiBaPGJoEGr86L",
+    scopes: ["gist", "read:user", "user:email", "read:org", "repo"],
   },
 
   // API endpoints (customize for your service)
@@ -21,5 +22,5 @@ export const config = {
 
   // CLI metadata
   name: "@athrd/cli",
-  version: "1.1.9",
+  version: "1.1.10",
 };

@@ -4,6 +4,7 @@ export interface GitHubUserInfo {
 	id: string;
 	username: string;
 	avatarImage: string;
+	scopes?: string[];
 }
 
 export interface GitHubOrgInfo {
@@ -31,6 +32,7 @@ export async function getGitHubUserInfo(
 		id: String(response.data.id),
 		username: response.data.login,
 		avatarImage: response.data.avatar_url,
+		scopes: parseGitHubScopes(response.headers["x-oauth-scopes"]),
 	};
 
 	cachedUserInfo = userInfo;
@@ -87,6 +89,7 @@ export function resetGitHubOrgInfoCache(): void {
 export interface GitHubRepoInfo {
 	repoId: number;
 	owner: string;
+	ownerType?: string;
 	name: string;
 	fullName: string;
 	htmlUrl?: string;
@@ -121,6 +124,7 @@ export async function getGitHubRepoInfo(
 	const repoInfo: GitHubRepoInfo = {
 		repoId: response.data.id,
 		owner: response.data.owner.login,
+		ownerType: response.data.owner.type,
 		name: response.data.name,
 		fullName: response.data.full_name,
 		htmlUrl: response.data.html_url,
@@ -130,4 +134,17 @@ export async function getGitHubRepoInfo(
 
 	cachedRepoInfos.set(cacheKey, repoInfo);
 	return repoInfo;
+}
+
+function parseGitHubScopes(value: unknown): string[] | undefined {
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const scopes = value
+		.split(",")
+		.map((scope) => scope.trim())
+		.filter(Boolean);
+
+	return scopes.length > 0 ? scopes : undefined;
 }

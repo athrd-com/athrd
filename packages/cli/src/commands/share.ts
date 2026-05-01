@@ -17,11 +17,8 @@ import {
   getGitHeadCommitHash,
   getGitHubRepo,
 } from "../utils/git.js";
-import {
-  getGitHubOrgInfo,
-  getGitHubRepoInfo,
-  getGitHubUserInfo,
-} from "../utils/github.js";
+import { resolveGitHubRepositoryContext } from "../utils/github-context.js";
+import { getGitHubUserInfo } from "../utils/github.js";
 import {
   completeIngest,
   createSignedUpload,
@@ -358,42 +355,27 @@ export function shareCommand(program: Command) {
             const commitHash = getGitHeadCommitHash(repoCwd);
             const branch = getGitCurrentBranch(repoCwd);
 
-            // Extract organization name from repo (format: "org/repo")
-            const orgName = githubRepo?.split("/")[0];
-            const repoName = githubRepo?.split("/")[1];
-            const orgInfo = orgName
-              ? await getGitHubOrgInfo(octokit, orgName)
-              : null;
+            const repositoryContext = await resolveGitHubRepositoryContext({
+              octokit,
+              githubRepo,
+              userInfo,
+            });
+            const githubContext: IngestGithubContext = repositoryContext.github;
 
-            const repoInfo =
-              orgName && repoName
-                ? await getGitHubRepoInfo(octokit, orgName, repoName)
-                : null;
-            const githubContext: IngestGithubContext = {
-              ...(orgInfo && {
-                organization: {
-                  githubOrgId: String(orgInfo.orgId),
-                  login: orgInfo.orgName,
-                  ...(orgInfo.name ? { name: orgInfo.name } : {}),
-                  avatarUrl: orgInfo.orgIcon,
-                },
-              }),
-              ...(repoInfo && {
-                repository: {
-                  githubRepoId: String(repoInfo.repoId),
-                  owner: repoInfo.owner,
-                  name: repoInfo.name,
-                  fullName: repoInfo.fullName,
-                  ...(repoInfo.htmlUrl ? { htmlUrl: repoInfo.htmlUrl } : {}),
-                  ...(repoInfo.defaultBranch
-                    ? { defaultBranch: repoInfo.defaultBranch }
-                    : {}),
-                  ...(typeof repoInfo.private === "boolean"
-                    ? { private: repoInfo.private }
-                    : {}),
-                },
-              }),
-            };
+            if (
+              repositoryContext.repositoryLookupFailed &&
+              repositoryContext.repositoryFullName
+            ) {
+              const hasRepoScope = userInfo.scopes?.includes("repo") ?? false;
+              const scopeHint = hasRepoScope
+                ? "Check that the authenticated GitHub account can access this repository."
+                : 'Private repositories require GitHub repo access; run "athrd login" again to refresh permissions.';
+              console.warn(
+                chalk.yellow(
+                  `⚠ Could not read GitHub repository metadata for ${repositoryContext.repositoryFullName}. ${scopeHint}`,
+                ),
+              );
+            }
 
             const threadMetadata = await provider.getMetadata(session, {
               cliVersion: config.version,
@@ -406,15 +388,11 @@ export function shareCommand(program: Command) {
                 githubUsername: userInfo.username,
                 avatarUrl: userInfo.avatarImage,
               },
-              ...(orgInfo && {
-                organization: {
-                  githubOrgId: String(orgInfo.orgId),
-                },
+              ...(repositoryContext.organization && {
+                organization: repositoryContext.organization,
               }),
-              ...(repoInfo && {
-                repository: {
-                  githubRepoId: String(repoInfo.repoId),
-                },
+              ...(repositoryContext.repository && {
+                repository: repositoryContext.repository,
               }),
               ...(commitHash && {
                 commit: {

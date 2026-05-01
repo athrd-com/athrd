@@ -1,6 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { assertCanReadThreadMock, ThreadAccessErrorMock } = vi.hoisted(() => {
+  class ThreadAccessError extends Error {
+    code: string;
+    status: number;
+
+    constructor(code: string, message: string, status = 403) {
+      super(message);
+      this.code = code;
+      this.status = status;
+      this.name = "ThreadAccessError";
+    }
+  }
+
+  return {
+    assertCanReadThreadMock: vi.fn(),
+    ThreadAccessErrorMock: ThreadAccessError,
+  };
+});
+
 import { ThreadLoadError } from "@/lib/thread-loader";
-import { GET, revalidate } from "./route";
+import { GET, dynamic } from "./route";
 
 vi.mock("@/lib/thread-loader", () => ({
   loadThreadContext: vi.fn(),
@@ -18,13 +38,19 @@ vi.mock("@/lib/llm-export", () => ({
   renderLlmTxt: vi.fn(() => "condensed"),
 }));
 
+vi.mock("~/server/thread-access", () => ({
+  assertCanReadThread: assertCanReadThreadMock,
+  ThreadAccessError: ThreadAccessErrorMock,
+}));
+
 describe("thread export route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    assertCanReadThreadMock.mockResolvedValue(undefined);
   });
 
-  it("exposes 5-minute revalidate", () => {
-    expect(revalidate).toBe(300);
+  it("forces dynamic rendering", () => {
+    expect(dynamic).toBe("force-dynamic");
   });
 
   it("returns llm.txt payload", async () => {
@@ -63,6 +89,18 @@ describe("thread export route", () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  it("returns 403 for access-denied thread errors", async () => {
+    assertCanReadThreadMock.mockRejectedValueOnce(
+      new ThreadAccessErrorMock("FORBIDDEN", "nope", 403),
+    );
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "private" }),
+    });
+
+    expect(response.status).toBe(403);
   });
 
   it("returns 500 for unexpected errors", async () => {

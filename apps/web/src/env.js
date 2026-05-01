@@ -24,6 +24,14 @@ export const env = createEnv({
 			.enum(["true", "false"])
 			.transform((value) => value === "true")
 			.optional(),
+		GITHUB_APP_ID: z.string().optional(),
+		GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+		GITHUB_APP_WEBHOOK_SECRET: z.string().optional(),
+		GITHUB_APP_SLUG: z.string().optional(),
+		CRON_SECRET: z.string().optional(),
+		STRIPE_SECRET_KEY: z.string().optional(),
+		STRIPE_WEBHOOK_SECRET: z.string().optional(),
+		STRIPE_ORG_PRICE_ID: z.string().optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -58,6 +66,14 @@ export const env = createEnv({
 		ATHRD_THREADS_S3_ENDPOINT: process.env.ATHRD_THREADS_S3_ENDPOINT,
 		ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE:
 			process.env.ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE,
+		GITHUB_APP_ID: process.env.GITHUB_APP_ID,
+		GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY,
+		GITHUB_APP_WEBHOOK_SECRET: process.env.GITHUB_APP_WEBHOOK_SECRET,
+		GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG,
+		CRON_SECRET: process.env.CRON_SECRET,
+		STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+		STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+		STRIPE_ORG_PRICE_ID: process.env.STRIPE_ORG_PRICE_ID,
 		NODE_ENV: process.env.NODE_ENV,
 	},
 	/**

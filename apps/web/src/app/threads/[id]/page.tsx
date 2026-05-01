@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getGithubAccount } from "~/server/github-account";
+import { assertCanReadThread, ThreadAccessError } from "~/server/thread-access";
 
 export async function generateMetadata({
   params,
@@ -13,6 +14,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   try {
+    await assertCanReadThread(id);
     const context = await loadThreadContext(id);
     const url = `https://athrd.com/threads/${id}`;
 
@@ -40,7 +42,7 @@ export async function generateMetadata({
       },
     };
   } catch (error) {
-    if (error instanceof ThreadLoadError) {
+    if (error instanceof ThreadLoadError || error instanceof ThreadAccessError) {
       return {
         title: "Thread Not Found - ATHRD",
       };
@@ -52,6 +54,7 @@ export async function generateMetadata({
 
 async function ThreadContent({ id }: { id: string }) {
   try {
+    await assertCanReadThread(id);
     const context = await loadThreadContext(id);
     const account = await getGithubAccount();
     const isOwner =
@@ -62,7 +65,7 @@ async function ThreadContent({ id }: { id: string }) {
 
     return <ThreadView context={context} isOwner={isOwner} />;
   } catch (error) {
-    if (error instanceof ThreadLoadError) {
+    if (error instanceof ThreadLoadError || error instanceof ThreadAccessError) {
       notFound();
     }
 

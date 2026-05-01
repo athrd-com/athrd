@@ -1,5 +1,6 @@
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 import { ImageResponse } from "next/og";
+import { assertCanReadThread, ThreadAccessError } from "~/server/thread-access";
 
 export const alt = "Thread View";
 export const size = {
@@ -18,9 +19,10 @@ export default async function Image({
     let context = null;
 
     try {
+        await assertCanReadThread(id);
         context = await loadThreadContext(id);
     } catch (error) {
-        if (!(error instanceof ThreadLoadError)) {
+        if (!(error instanceof ThreadLoadError) && !(error instanceof ThreadAccessError)) {
             throw error;
         }
     }

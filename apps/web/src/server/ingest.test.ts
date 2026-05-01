@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { dbQueryMock, getOrganizationStorageConfigMock } = vi.hoisted(() => ({
+const {
+  dbQueryMock,
+  getOrganizationStorageConfigMock,
+  getOrganizationBillingStateMock,
+} = vi.hoisted(() => ({
   dbQueryMock: vi.fn(),
   getOrganizationStorageConfigMock: vi.fn(),
+  getOrganizationBillingStateMock: vi.fn(),
 }));
 
 vi.mock("~/server/db", () => ({
@@ -13,6 +18,10 @@ vi.mock("~/server/db", () => ({
 
 vi.mock("~/server/organization-storage", () => ({
   getOrganizationStorageConfig: getOrganizationStorageConfigMock,
+}));
+
+vi.mock("~/server/organization-billing", () => ({
+  getOrganizationBillingState: getOrganizationBillingStateMock,
 }));
 
 const metadata = {
@@ -52,6 +61,8 @@ describe("ingest", () => {
   beforeEach(() => {
     dbQueryMock.mockReset();
     getOrganizationStorageConfigMock.mockReset();
+    getOrganizationBillingStateMock.mockReset();
+    getOrganizationBillingStateMock.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -213,6 +224,40 @@ describe("ingest", () => {
     expect(getOrganizationStorageConfigMock).toHaveBeenCalledWith("456");
   });
 
+  it("forces S3 storage for paid organizations with a GitHub App installation", async () => {
+    getOrganizationBillingStateMock.mockResolvedValueOnce({
+      orgReadyForAcl: true,
+      setupIncomplete: false,
+    });
+    getOrganizationStorageConfigMock.mockResolvedValueOnce({
+      provider: "gist",
+      s3: {},
+    });
+
+    const { createIngestPlan } = await import("./ingest");
+
+    await expect(createIngestPlan(metadata, actor)).resolves.toEqual({
+      storageProvider: "s3",
+      uploadMode: "signed-url",
+    });
+  });
+
+  it("rejects paid organizations before GitHub App setup is complete", async () => {
+    getOrganizationBillingStateMock.mockResolvedValueOnce({
+      orgReadyForAcl: false,
+      setupIncomplete: true,
+    });
+
+    const { createIngestPlan } = await import("./ingest");
+
+    await expect(createIngestPlan(metadata, actor)).rejects.toMatchObject({
+      status: 409,
+      message:
+        "Organization billing is active but GitHub App installation is incomplete.",
+    });
+    expect(getOrganizationStorageConfigMock).not.toHaveBeenCalled();
+  });
+
   it("creates a storage plan from a known organization repository owner", async () => {
     const slugMetadata = createSlugRepositoryMetadata();
     dbQueryMock.mockResolvedValueOnce({
@@ -364,6 +409,34 @@ describe("ingest", () => {
       }),
     ).rejects.toMatchObject({
       status: 403,
+    });
+    expect(dbQueryMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects Gist completion for paid organization threads", async () => {
+    getOrganizationBillingStateMock.mockResolvedValueOnce({
+      orgReadyForAcl: true,
+      setupIncomplete: false,
+    });
+    const { completeThreadIngest } = await import("./ingest");
+
+    await expect(
+      completeThreadIngest({
+        metadata,
+        artifact: {
+          fileName: "athrd-session-1.jsonl",
+          format: "jsonl",
+        },
+        storage: {
+          provider: "gist",
+          publicId: "gist-1",
+          sourceId: "gist-1",
+        },
+        actor,
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Paid organization threads must use managed S3 storage.",
     });
     expect(dbQueryMock).not.toHaveBeenCalled();
   });

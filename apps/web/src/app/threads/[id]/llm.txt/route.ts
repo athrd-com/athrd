@@ -1,7 +1,8 @@
 import { renderLlmTxt } from "@/lib/llm-export";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
+import { assertCanReadThread, ThreadAccessError } from "~/server/thread-access";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: Request,
@@ -12,6 +13,7 @@ export async function GET(
   const { id } = await params;
 
   try {
+    await assertCanReadThread(id);
     const context = await loadThreadContext(id);
     const body = renderLlmTxt({
       thread: context.parsedThread,
@@ -38,6 +40,14 @@ export async function GET(
         code: error.code,
       });
       return textResponse("Not found", 404);
+    }
+
+    if (error instanceof ThreadAccessError) {
+      console.warn("thread-export-access-denied", {
+        ...logPayload,
+        code: error.code,
+      });
+      return textResponse("Forbidden", error.status);
     }
 
     console.error("thread-export-unexpected-error", logPayload);

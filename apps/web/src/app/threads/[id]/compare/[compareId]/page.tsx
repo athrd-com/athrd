@@ -1,9 +1,9 @@
 import ThreadView from "@/components/thread/thread-view";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 import type { Metadata } from "next";
+import { assertCanReadThread, ThreadAccessError } from "~/server/thread-access";
 
-// Enable static generation and caching
-export const revalidate = 604800; // Cache for 1 week
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -71,9 +71,10 @@ export default async function ComparePage({
 
 async function loadThreadContextOrNull(id: string) {
   try {
+    await assertCanReadThread(id);
     return await loadThreadContext(id);
   } catch (error) {
-    if (error instanceof ThreadLoadError) {
+    if (error instanceof ThreadLoadError || error instanceof ThreadAccessError) {
       return null;
     }
 

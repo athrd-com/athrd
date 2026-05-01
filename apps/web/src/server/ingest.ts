@@ -6,6 +6,7 @@ import {
   getOrganizationStorageConfig,
   type S3StorageConfig,
 } from "~/server/organization-storage";
+import { getOrganizationBillingState } from "~/server/organization-billing";
 
 const S3_SIGNED_UPLOAD_TTL_SECONDS = 300;
 const S3_SIGNATURE_ALGORITHM = "AWS4-HMAC-SHA256";
@@ -464,11 +465,14 @@ export async function createIngestPlan(
     github,
     actor,
   });
+  const billing = await getOrganizationBillingState(organization.githubOrgId);
+  assertOrganizationBillingReadyForIngest(billing);
   const storage = await getOrganizationStorageConfig(organization.githubOrgId);
+  const storageProvider = billing?.orgReadyForAcl ? "s3" : storage.provider;
 
   return {
-    storageProvider: storage.provider,
-    uploadMode: storage.provider === "s3" ? "signed-url" : "client",
+    storageProvider,
+    uploadMode: storageProvider === "s3" ? "signed-url" : "client",
   };
 }
 
@@ -495,6 +499,15 @@ export async function completeThreadIngest(input: {
     input.metadata,
     input.github,
   );
+  const billing = await getOrganizationBillingState(organization.githubOrgId);
+  assertOrganizationBillingReadyForIngest(billing);
+
+  if (billing?.orgReadyForAcl && input.storage.provider !== "s3") {
+    throw new IngestHttpError(
+      409,
+      "Paid organization threads must use managed S3 storage.",
+    );
+  }
 
   await upsertOrganization(organization.githubOrgId, organization.organization);
   await upsertRepository(repository, organization.githubOrgId);
@@ -527,9 +540,12 @@ export async function createSignedThreadUpload(input: {
     actor: input.actor,
   });
   const githubOrgId = organization.githubOrgId;
+  const billing = await getOrganizationBillingState(githubOrgId);
+  assertOrganizationBillingReadyForIngest(billing);
   const storage = await getOrganizationStorageConfig(githubOrgId);
+  const storageProvider = billing?.orgReadyForAcl ? "s3" : storage.provider;
 
-  if (storage.provider !== "s3") {
+  if (storageProvider !== "s3") {
     throw new IngestHttpError(
       409,
       "Organization is configured for client-side Gist uploads.",
@@ -586,6 +602,17 @@ function validateMetadataTimestamps(metadata: AthrdMetadata): void {
     Number.isNaN(Date.parse(metadata.thread.startedAt))
   ) {
     throw new IngestHttpError(400, "thread.startedAt must be a valid date.");
+  }
+}
+
+function assertOrganizationBillingReadyForIngest(
+  billing: Awaited<ReturnType<typeof getOrganizationBillingState>>,
+): void {
+  if (billing?.setupIncomplete) {
+    throw new IngestHttpError(
+      409,
+      "Organization billing is active but GitHub App installation is incomplete.",
+    );
   }
 }
 

@@ -5,7 +5,7 @@ const steps = [
     label: "Step 01",
     title: "Connect athrd once",
     body: "Connect athrd to your AI CLI tooling so sessions sync automatically in the background.",
-    command: "athrd auth && athrd hooks install",
+    command: "athrd login && athrd hooks install",
   },
   {
     label: "Step 02",

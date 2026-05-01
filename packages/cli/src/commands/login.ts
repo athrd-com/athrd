@@ -7,13 +7,13 @@ import { config } from "../config.js";
 import { installAllHooks } from "./hooks.js";
 import { saveCredentials } from "../utils/credentials.js";
 
-export function authCommand(program: Command) {
+export function loginCommand(program: Command) {
   program
-    .command("auth")
-    .description("Authenticate with GitHub")
+    .command("login")
+    .description("Log in with GitHub")
     .action(async () => {
       try {
-        console.log(chalk.blue("🔐 Authenticating with GitHub..."));
+        console.log(chalk.blue("🔐 Logging in with GitHub..."));
 
         if (!config.github.clientId) {
           console.error(
@@ -75,7 +75,7 @@ export function authCommand(program: Command) {
           console.log(chalk.yellow("Skipped hooks installation."));
         }
 
-        console.log(chalk.green("\n✓ Authentication successful!"));
+        console.log(chalk.green("\n✓ Login successful!"));
         console.log(chalk.dim(`Token: ${token.substring(0, 10)}...\n`));
       } catch (error) {
         if (error instanceof Error) {

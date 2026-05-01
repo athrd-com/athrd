@@ -58,7 +58,7 @@ yarn global add @athrd/cli
 Authenticate, then install hooks for automatic session syncing:
 
 ```bash
-athrd auth
+athrd login
 athrd hooks install
 ```
 

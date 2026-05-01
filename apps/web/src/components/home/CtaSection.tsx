@@ -9,7 +9,7 @@ import {
   HomeSection,
 } from "./sharedStyles";
 
-const commands = ["npm install -g @athrd/cli", "athrd auth"];
+const commands = ["npm install -g @athrd/cli", "athrd login"];
 
 export function CtaSection() {
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);

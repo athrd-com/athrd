@@ -17,7 +17,7 @@ export function meCommand(program: Command) {
 
         if (!credentials) {
           console.error(
-            chalk.red("❌ Not authenticated. Please run 'athrd auth' first.")
+            chalk.red("❌ Not authenticated. Please run 'athrd login' first.")
           );
           process.exit(1);
         }

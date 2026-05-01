@@ -8,7 +8,7 @@ export async function requireAuth(): Promise<string> {
     console.error(
       chalk.red("❌ You must be authenticated to use this command.")
     );
-    console.log(chalk.yellow("Please run: athrd auth"));
+    console.log(chalk.yellow("Please run: athrd login"));
     process.exit(1);
   }
 

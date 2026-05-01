@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import updateNotifier from "update-notifier";
 import { fileURLToPath } from "url";
-import { authCommand } from "./commands/auth.js";
+import { loginCommand } from "./commands/login.js";
 import { logoutCommand } from "./commands/logout.js";
 import { meCommand } from "./commands/me.js";
 import { shareCommand } from "./commands/share.js";
@@ -26,7 +26,7 @@ program.name("@athrd/cli").description("ATHRD CLI tool").version(pkg.version);
 
 // Register commands
 shareCommand(program);
-authCommand(program);
+loginCommand(program);
 logoutCommand(program);
 meCommand(program);
 hooksCommand(program);

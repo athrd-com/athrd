@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { dbQueryMock, getOrganizationStorageConfigMock } = vi.hoisted(() => ({
   dbQueryMock: vi.fn(),
@@ -46,10 +46,20 @@ const actor = {
   githubUsername: "octocat",
 };
 
+const originalBun = (globalThis as typeof globalThis & { Bun?: unknown }).Bun;
+
 describe("ingest", () => {
   beforeEach(() => {
     dbQueryMock.mockReset();
     getOrganizationStorageConfigMock.mockReset();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, "Bun", {
+      configurable: true,
+      writable: true,
+      value: originalBun,
+    });
   });
 
   it("creates a storage plan from organization settings", async () => {
@@ -109,6 +119,56 @@ describe("ingest", () => {
     );
     expect(getOrganizationStorageConfigMock).toHaveBeenCalledWith("456");
     expect(dbQueryMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to manual AWS v4 signing when Bun returns a non-v4 S3 URL", async () => {
+    Object.defineProperty(globalThis, "Bun", {
+      configurable: true,
+      writable: true,
+      value: {
+        S3Client: class S3Client {
+          file() {
+            return {
+              presign: () =>
+                "https://s3.example.com/athrd-threads/456/123/athrd-codex-session-1.jsonl?AWSAccessKeyId=access-key&Expires=300&Signature=v2",
+            };
+          }
+        },
+      },
+    });
+    getOrganizationStorageConfigMock.mockResolvedValueOnce({
+      provider: "s3",
+      s3: {
+        endpointUrl: "https://s3.example.com",
+        bucket: "athrd-threads",
+        region: "us-west-2",
+        accessKeyId: "access-key",
+        secretAccessKey: "secret-key",
+        virtualHostedStyle: false,
+      },
+    });
+
+    const { createSignedThreadUpload } = await import("./ingest");
+    const result = await createSignedThreadUpload({
+      metadata,
+      artifact: {
+        fileName: "athrd-session-1.jsonl",
+        format: "jsonl",
+      },
+      actor,
+    });
+    const uploadUrl = new URL(result.uploadUrl);
+
+    expect(uploadUrl.searchParams.get("X-Amz-Algorithm")).toBe(
+      "AWS4-HMAC-SHA256",
+    );
+    expect(uploadUrl.searchParams.get("X-Amz-Credential")).toContain(
+      "/us-west-2/s3/aws4_request",
+    );
+    expect(uploadUrl.searchParams.get("X-Amz-Signature")).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
+    expect(uploadUrl.searchParams.get("AWSAccessKeyId")).toBeNull();
   });
 
   it("rejects metadata for a different GitHub actor", async () => {

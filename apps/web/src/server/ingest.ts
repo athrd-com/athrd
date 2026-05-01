@@ -8,6 +8,7 @@ import {
 } from "~/server/organization-storage";
 
 const S3_SIGNED_UPLOAD_TTL_SECONDS = 300;
+const S3_SIGNATURE_ALGORITHM = "AWS4-HMAC-SHA256";
 
 export class IngestHttpError extends Error {
   constructor(
@@ -522,12 +523,11 @@ function createS3PresignedPutUrl(input: {
   const now = new Date();
   const amzDate = toAmzDate(now);
   const dateStamp = amzDate.slice(0, 8);
-  const algorithm = "AWS4-HMAC-SHA256";
   const service = "s3";
   const credentialScope = `${dateStamp}/${input.config.region}/${service}/aws4_request`;
   const url = createS3ObjectUrl(input.config, input.objectKey);
 
-  url.searchParams.set("X-Amz-Algorithm", algorithm);
+  url.searchParams.set("X-Amz-Algorithm", S3_SIGNATURE_ALGORITHM);
   url.searchParams.set(
     "X-Amz-Credential",
     `${input.config.accessKeyId}/${credentialScope}`,
@@ -545,7 +545,7 @@ function createS3PresignedPutUrl(input: {
     "UNSIGNED-PAYLOAD",
   ].join("\n");
   const stringToSign = [
-    algorithm,
+    S3_SIGNATURE_ALGORITHM,
     amzDate,
     credentialScope,
     sha256Hex(canonicalRequest),
@@ -602,11 +602,27 @@ function createBunS3PresignedPutUrl(input: {
     virtualHostedStyle: input.config.virtualHostedStyle,
   });
   const file = client.file(input.objectKey);
-
-  return file.presign({
+  const presignedUrl = file.presign({
     expiresIn: input.ttlSeconds,
     method: "PUT",
   });
+
+  return isAwsV4S3PresignedUrl(presignedUrl) ? presignedUrl : null;
+}
+
+function isAwsV4S3PresignedUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const credential = url.searchParams.get("X-Amz-Credential") || "";
+
+    return (
+      url.searchParams.get("X-Amz-Algorithm") === S3_SIGNATURE_ALGORITHM &&
+      credential.endsWith("/s3/aws4_request") &&
+      /^[a-f0-9]{64}$/.test(url.searchParams.get("X-Amz-Signature") || "")
+    );
+  } catch {
+    return false;
+  }
 }
 
 function createS3ObjectUrl(config: S3StorageConfig, objectKey: string): URL {

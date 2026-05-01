@@ -195,4 +195,33 @@ describe("backfillRecentHeadAgentSessionTrailer", () => {
     });
     expect(message).not.toContain(`Agent-Session: ${url}`);
   });
+
+  test("skips when HEAD exists on a remote branch without upstream config", () => {
+    const remote = makeTempDir("athrd-backfill-remote-no-upstream-");
+    execSync("git init --bare", { cwd: remote, stdio: "ignore" });
+
+    const repo = makeTempDir("athrd-backfill-pushed-no-upstream-");
+    initRepoWithIdentity(repo);
+    execSync(`git remote add origin "${remote}"`, {
+      cwd: repo,
+      stdio: "ignore",
+    });
+    commitFile(repo, "feat: pushed no upstream");
+    execSync("git push origin HEAD:refs/heads/review", {
+      cwd: repo,
+      stdio: "ignore",
+    });
+    execSync("git fetch origin review", { cwd: repo, stdio: "ignore" });
+
+    const url = "https://athrd.com/threads/pushed-no-upstream";
+    const result = backfillRecentHeadAgentSessionTrailer({ cwd: repo, url });
+
+    expect(result.status).toBe("skipped:already_pushed");
+    const message = execSync("git log -1 --pretty=%B", {
+      cwd: repo,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    expect(message).not.toContain(`Agent-Session: ${url}`);
+  });
 });

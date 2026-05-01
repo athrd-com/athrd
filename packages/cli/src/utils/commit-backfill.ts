@@ -47,20 +47,22 @@ function hasHead(cwd: string): boolean {
   }
 }
 
-function isHeadAlreadyInUpstream(cwd: string): boolean {
+function isHeadAlreadyInRemoteRef(cwd: string): boolean {
   try {
-    // Returns non-zero when no upstream is configured.
-    runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd);
-  } catch {
-    return false;
-  }
-
-  try {
-    execFileSync("git", ["merge-base", "--is-ancestor", "HEAD", "@{u}"], {
+    const remoteRefs = runGit(
+      [
+        "for-each-ref",
+        "--contains",
+        "HEAD",
+        "--format=%(refname)",
+        "refs/remotes",
+      ],
       cwd,
-      stdio: ["pipe", "pipe", "ignore"],
-    });
-    return true;
+    );
+    return remoteRefs
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .some(Boolean);
   } catch {
     return false;
   }
@@ -132,7 +134,7 @@ export function backfillRecentHeadAgentSessionTrailer(
     return { status: "skipped:no_head" };
   }
 
-  if (isHeadAlreadyInUpstream(repoRoot)) {
+  if (isHeadAlreadyInRemoteRef(repoRoot)) {
     return { status: "skipped:already_pushed" };
   }
 
@@ -151,7 +153,7 @@ export function backfillRecentHeadAgentSessionTrailer(
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  if (nowSeconds - commitTimestamp > DEFAULT_WINDOW_SECONDS) {
+  if (nowSeconds - commitTimestamp >= DEFAULT_WINDOW_SECONDS) {
     return { status: "skipped:head_too_old" };
   }
 

@@ -123,15 +123,7 @@ async function getIngestPlanOrDefault(input: {
 }) {
   try {
     return await createIngestPlan(input);
-  } catch (error) {
-    console.warn(
-      chalk.yellow(
-        `⚠ Unable to reach athrd ingest API; defaulting to Gist upload: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      ),
-    );
-
+  } catch {
     return {
       storageProvider: "gist" as const,
       uploadMode: "client" as const,
@@ -163,15 +155,7 @@ async function completeGistIngestOrFallback(input: {
     });
 
     return result.url;
-  } catch (error) {
-    console.warn(
-      chalk.yellow(
-        `⚠ Uploaded Gist but failed to index thread in athrd: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      ),
-    );
-
+  } catch {
     return getFallbackThreadUrl(input.gistId);
   }
 }

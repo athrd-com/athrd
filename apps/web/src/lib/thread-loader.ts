@@ -83,7 +83,7 @@ export function parseThreadContextFromSourceRecord(
   let rawContent: Record<string, unknown>;
 
   try {
-    rawContent = JSON.parse(record.content || "{}") as Record<string, unknown>;
+    rawContent = parseRawThreadContent(record);
   } catch (error) {
     throw new ThreadLoadError(
       "INVALID_JSON",
@@ -99,9 +99,10 @@ export function parseThreadContextFromSourceRecord(
       ? (athrdMeta.githubRepo as string)
       : undefined;
   const commitHash =
-    typeof athrdMeta?.commitHash === "string" && athrdMeta.commitHash.trim()
+    getNestedString(rawContent, ["__athrd", "commit", "sha"]) ||
+    (typeof athrdMeta?.commitHash === "string" && athrdMeta.commitHash.trim()
       ? athrdMeta.commitHash
-      : undefined;
+      : undefined);
   const modelsUsed = extractModelsUsed(rawContent, ide);
 
   try {
@@ -129,7 +130,9 @@ export function parseThreadContextFromSourceRecord(
 
 function resolveIde(rawContent: Record<string, unknown>): IDE {
   const athrdMeta = rawContent.__athrd as Record<string, unknown> | undefined;
-  const metaIde = athrdMeta?.ide;
+  const metaIde =
+    getNestedString(rawContent, ["__athrd", "thread", "source"]) ||
+    (typeof athrdMeta?.ide === "string" ? athrdMeta.ide : undefined);
 
   if (typeof metaIde === "string" && isIDE(metaIde)) {
     return metaIde;
@@ -160,6 +163,7 @@ function mergeRecordMetadata(
     title:
       record.title ||
       firstNonEmptyString(
+        getNestedString(rawContent, ["__athrd", "thread", "title"]),
         getNestedString(rawContent, ["__athrd", "title"]),
         getNestedString(rawContent, ["metadata", "name"]),
         getString(rawContent, "title"),
@@ -169,6 +173,7 @@ function mergeRecordMetadata(
     createdAt:
       record.createdAt ??
       firstDefinedValue(
+        getNestedValue(rawContent, ["__athrd", "thread", "startedAt"]),
         getString(rawContent, "timestamp"),
         getString(rawContent, "createdAt"),
         getString(rawContent, "created_at"),
@@ -178,6 +183,7 @@ function mergeRecordMetadata(
     updatedAt:
       record.updatedAt ??
       firstDefinedValue(
+        getNestedValue(rawContent, ["__athrd", "thread", "updatedAt"]),
         getString(rawContent, "updatedAt"),
         getString(rawContent, "updated_at"),
         getString(rawContent, "lastUpdated"),
@@ -191,8 +197,14 @@ function extractOwnerFromRawContent(
   rawContent: Record<string, unknown>,
 ): ThreadSourceOwner | undefined {
   const githubUsername =
+    getNestedString(rawContent, ["__athrd", "actor", "githubUsername"]) ||
     getNestedString(rawContent, ["__athrd", "githubUsername"]) ||
     getString(rawContent, "githubUsername");
+  const actorAvatarUrl = getNestedString(rawContent, [
+    "__athrd",
+    "actor",
+    "avatarUrl",
+  ]);
   const ownerRecord = getRecord(rawContent, "owner");
   const ownerLogin = getString(ownerRecord, "login");
   const ownerAvatarUrl = getString(ownerRecord, "avatarUrl");
@@ -210,9 +222,187 @@ function extractOwnerFromRawContent(
 
   return {
     login,
-    avatarUrl: ownerAvatarUrl || undefined,
+    avatarUrl: actorAvatarUrl || ownerAvatarUrl || undefined,
     profileUrl: ownerProfileUrl || `https://github.com/${login}`,
   };
+}
+
+function parseRawThreadContent(
+  record: ThreadSourceRecord,
+): Record<string, unknown> {
+  const content = record.content || "{}";
+
+  if (record.filename.toLowerCase().endsWith(".jsonl")) {
+    return parseJsonlThreadContent(content, record);
+  }
+
+  const parsed = JSON.parse(content) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error(`${record.filename} must contain a JSON object`);
+  }
+
+  return parsed;
+}
+
+function parseJsonlThreadContent(
+  content: string,
+  record: ThreadSourceRecord,
+): Record<string, unknown> {
+  const rows = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as unknown);
+  const entries = rows.filter(isRecord);
+  const metadataRow = findLastRecord(entries, (entry) =>
+    entry.type === "athrd_metadata" && isRecord(entry.__athrd)
+  );
+  const athrdMeta = isRecord(metadataRow?.__athrd)
+    ? metadataRow.__athrd
+    : undefined;
+  const bodyEntries = entries.filter((entry) => entry.type !== "athrd_metadata");
+  const source = getNestedString({ __athrd: athrdMeta }, [
+    "__athrd",
+    "thread",
+    "source",
+  ]);
+
+  if (source === IDE.CODEX || looksLikeCodexJsonl(bodyEntries)) {
+    return normalizeCodexJsonl(bodyEntries, record, athrdMeta);
+  }
+
+  if (source === IDE.CLAUDE_CODE || looksLikeClaudeJsonl(bodyEntries)) {
+    return normalizeClaudeJsonl(bodyEntries, record, athrdMeta);
+  }
+
+  if (source === IDE.PI || looksLikePiJsonl(bodyEntries)) {
+    return normalizePiJsonl(bodyEntries, record, athrdMeta);
+  }
+
+  throw new Error(`Unsupported JSONL thread format in ${record.filename}`);
+}
+
+function normalizeCodexJsonl(
+  entries: Record<string, unknown>[],
+  record: ThreadSourceRecord,
+  athrdMeta?: Record<string, unknown>,
+): Record<string, unknown> {
+  const sessionMeta = entries.find((entry) => entry.type === "session_meta");
+  const sessionId = firstNonEmptyString(
+    getNestedString({ __athrd: athrdMeta }, [
+      "__athrd",
+      "thread",
+      "providerSessionId",
+    ]),
+    getNestedString({ __athrd: athrdMeta }, ["__athrd", "thread", "id"]),
+    sessionMeta ? getNestedString(sessionMeta, ["payload", "id"]) : undefined,
+    getString(sessionMeta, "id"),
+    record.sourceId,
+  );
+
+  return {
+    ...(sessionMeta || {}),
+    sessionId,
+    messages: entries,
+    ...(athrdMeta ? { __athrd: athrdMeta } : {}),
+  };
+}
+
+function normalizeClaudeJsonl(
+  entries: Record<string, unknown>[],
+  record: ThreadSourceRecord,
+  athrdMeta?: Record<string, unknown>,
+): Record<string, unknown> {
+  const requests = entries
+    .filter((entry) => entry.type === "user" || entry.type === "assistant")
+    .map((entry) => ({
+      id: getString(entry, "uuid") || getString(entry, "id"),
+      type: entry.type,
+      message: entry.message,
+      timestamp: entry.timestamp,
+    }));
+
+  return {
+    sessionId:
+      firstNonEmptyString(
+        getNestedString({ __athrd: athrdMeta }, [
+          "__athrd",
+          "thread",
+          "providerSessionId",
+        ]),
+        getString(
+          entries.find((entry) => typeof entry.sessionId === "string"),
+          "sessionId",
+        ),
+        record.sourceId,
+      ) || record.sourceId,
+    requests,
+    ...(athrdMeta ? { __athrd: athrdMeta } : {}),
+  };
+}
+
+function normalizePiJsonl(
+  entries: Record<string, unknown>[],
+  record: ThreadSourceRecord,
+  athrdMeta?: Record<string, unknown>,
+): Record<string, unknown> {
+  const sessionEntry = entries.find((entry) => entry.type === "session");
+  const bodyEntries = entries.filter((entry) => entry.type !== "session");
+
+  return {
+    ...(sessionEntry || {}),
+    type: "session",
+    sessionId:
+      firstNonEmptyString(
+        getNestedString({ __athrd: athrdMeta }, [
+          "__athrd",
+          "thread",
+          "providerSessionId",
+        ]),
+        getString(sessionEntry, "id"),
+        record.sourceId,
+      ) || record.sourceId,
+    entries: bodyEntries,
+    ...(athrdMeta ? { __athrd: athrdMeta } : {}),
+  };
+}
+
+function looksLikeCodexJsonl(entries: Record<string, unknown>[]): boolean {
+  return entries.some((entry) =>
+    ["session_meta", "event_msg", "response_item", "turn_context"].includes(
+      String(entry.type),
+    ),
+  );
+}
+
+function looksLikeClaudeJsonl(entries: Record<string, unknown>[]): boolean {
+  return entries.some(
+    (entry) =>
+      (entry.type === "user" || entry.type === "assistant") &&
+      isRecord(entry.message) &&
+      typeof entry.message.role === "string",
+  );
+}
+
+function looksLikePiJsonl(entries: Record<string, unknown>[]): boolean {
+  return (
+    entries.some((entry) => entry.type === "session") &&
+    entries.some((entry) => entry.type === "message" && isRecord(entry.message))
+  );
+}
+
+function findLastRecord(
+  entries: Record<string, unknown>[],
+  predicate: (entry: Record<string, unknown>) => boolean,
+): Record<string, unknown> | undefined {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry && predicate(entry)) {
+      return entry;
+    }
+  }
+
+  return undefined;
 }
 
 function getFirstUserMessageContent(thread: AThrd): string | undefined {

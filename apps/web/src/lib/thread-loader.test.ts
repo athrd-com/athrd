@@ -162,6 +162,148 @@ describe("thread-loader", () => {
     expect(context.modelsUsed).toContain("gpt-4.1");
   });
 
+  it("loads raw Codex JSONL thread artifacts", () => {
+    const context = parseThreadContextFromSourceRecord({
+      id: "gist-codex-jsonl",
+      source: "gist",
+      sourceId: "gist-codex-jsonl",
+      filename: "athrd-session-1.jsonl",
+      content: [
+        JSON.stringify({
+          type: "athrd_metadata",
+          __athrd: {
+            schemaVersion: 1,
+            thread: {
+              id: "session_1",
+              providerSessionId: "session_1",
+              source: "codex",
+              title: "Raw Codex JSONL",
+              startedAt: "2026-03-03T00:00:00.000Z",
+              updatedAt: "2026-03-03T00:00:02.000Z",
+            },
+            actor: {
+              githubUsername: "athrd-bot",
+              avatarUrl: "https://example.com/avatar.png",
+            },
+            commit: {
+              sha: "deadbeef",
+            },
+          },
+        }),
+        JSON.stringify({
+          type: "session_meta",
+          payload: {
+            id: "session_1",
+            cwd: "/repo",
+            originator: "codex",
+            cli_version: "1.0.0",
+          },
+          timestamp: "2026-03-03T00:00:00.000Z",
+        }),
+        JSON.stringify({
+          timestamp: "2026-03-03T00:00:00.500Z",
+          type: "event_msg",
+          payload: {
+            type: "task_started",
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-03-03T00:00:01.000Z",
+          type: "turn_context",
+          payload: {
+            cwd: "/repo",
+            approval_policy: "auto",
+            sandbox_policy: {
+              type: "strict",
+              network_access: false,
+              exclude_tmpdir_env_var: false,
+              exclude_slash_tmp: false,
+            },
+            model: "gpt-5",
+            effort: "high",
+            summary: null,
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-03-03T00:00:02.000Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Hello from JSONL" }],
+          },
+        }),
+      ].join("\n"),
+    });
+
+    expect(context.ide).toBe("codex");
+    expect(context.title).toBe("Raw Codex JSONL");
+    expect(context.commitHash).toBe("deadbeef");
+    expect(context.modelsUsed).toContain("gpt-5-high");
+    expect(context.record.owner).toMatchObject({
+      login: "athrd-bot",
+      avatarUrl: "https://example.com/avatar.png",
+    });
+    expect(context.parsedThread.messages).toHaveLength(1);
+  });
+
+  it("loads raw Claude JSONL thread artifacts", () => {
+    const context = parseThreadContextFromSourceRecord({
+      id: "gist-claude-jsonl",
+      source: "gist",
+      sourceId: "gist-claude-jsonl",
+      filename: "athrd-session-2.jsonl",
+      content: [
+        JSON.stringify({
+          type: "athrd_metadata",
+          __athrd: {
+            schemaVersion: 1,
+            thread: {
+              id: "session_2",
+              providerSessionId: "session_2",
+              source: "claude",
+              title: "Raw Claude JSONL",
+              updatedAt: "2026-03-03T00:00:02.000Z",
+            },
+            actor: {
+              githubUsername: "athrd-bot",
+            },
+          },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "req-1",
+          message: {
+            role: "user",
+            content: "Hello from Claude JSONL",
+          },
+          timestamp: "2026-03-03T00:00:01.000Z",
+          sessionId: "session_2",
+        }),
+        JSON.stringify({
+          type: "assistant",
+          uuid: "req-2",
+          message: {
+            role: "assistant",
+            model: "claude-3-5-sonnet-20241022",
+            content: [{ type: "text", text: "Hi" }],
+            usage: {
+              input_tokens: 1,
+              output_tokens: 1,
+            },
+          },
+          timestamp: "2026-03-03T00:00:02.000Z",
+          sessionId: "session_2",
+        }),
+      ].join("\n"),
+    });
+
+    expect(context.ide).toBe("claude");
+    expect(context.title).toBe("Raw Claude JSONL");
+    expect(context.modelsUsed).toContain("claude-3-5-sonnet-20241022");
+    expect(context.parsedThread.messages.length).toBeGreaterThan(0);
+  });
+
   it("throws INVALID_JSON for malformed content", () => {
     const file: GistFile = {
       ...gistFile,

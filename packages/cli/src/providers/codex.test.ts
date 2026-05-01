@@ -6,6 +6,57 @@ import * as path from "path";
 import { CodexProvider } from "./codex.js";
 
 describe("CodexProvider", () => {
+  test("preserves Codex sessions as raw JSONL artifacts", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "athrd-codex-"));
+    const filePath = path.join(tmpDir, "session.jsonl");
+
+    try {
+      fs.writeFileSync(
+        filePath,
+        [
+          JSON.stringify({
+            type: "session_meta",
+            payload: {
+              id: "session_1",
+              cwd: "/tmp/workspace",
+            },
+            timestamp: "2026-03-02T20:45:10.000Z",
+          }),
+          JSON.stringify({
+            timestamp: "2026-03-02T20:45:11.971Z",
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: "hello" }],
+            },
+          }),
+        ].join("\n"),
+        "utf-8",
+      );
+
+      const provider = new CodexProvider();
+      const artifact = await provider.parse({
+        sessionId: "session_1",
+        creationDate: Date.parse("2026-03-02T20:45:10.000Z"),
+        lastMessageDate: Date.parse("2026-03-02T20:45:11.971Z"),
+        title: "Codex JSONL",
+        requestCount: 1,
+        filePath,
+        source: "codex",
+      });
+
+      expect(artifact).toEqual({
+        kind: "raw",
+        format: "jsonl",
+        fileName: "athrd-session_1.jsonl",
+        content: fs.readFileSync(filePath, "utf-8"),
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test("combines multiple input_text blocks for a single user message", () => {
     const provider = new CodexProvider() as any;
     const entries = [

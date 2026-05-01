@@ -26,12 +26,6 @@ export interface GistData {
   updated_at: string;
 }
 
-export interface GithubOrganization {
-  id: number;
-  login: string;
-  avatar_url: string;
-}
-
 export interface FetchUserGistsOptions {
   page?: number;
   perPage?: number;
@@ -123,29 +117,6 @@ export async function fetchUserGists(
   } catch (error) {
     console.error("Error fetching user gists:", error);
     return { items: [] };
-  }
-}
-
-export async function fetchUserOrganizations(
-  accessToken: string,
-): Promise<GithubOrganization[]> {
-  try {
-    const response = await fetch("https://api.github.com/user/orgs", {
-      headers: {
-        Accept: "application/vnd.github.v3+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      next: { revalidate: 300 },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    return (await response.json()) as GithubOrganization[];
-  } catch (error) {
-    console.error("Error fetching user organizations:", error);
-    return [];
   }
 }
 

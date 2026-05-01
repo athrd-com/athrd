@@ -2,8 +2,15 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 
-interface Credentials {
+export interface StoredGitHubUserInfo {
+  id: string;
+  username: string;
+  avatarImage: string;
+}
+
+export interface Credentials {
   token: string;
+  userInfo?: StoredGitHubUserInfo;
 }
 
 const CREDENTIALS_DIR = path.join(os.homedir(), ".athrd");

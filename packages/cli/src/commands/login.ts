@@ -1,4 +1,5 @@
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device";
+import { Octokit } from "@octokit/rest";
 import chalk from "chalk";
 import { Command } from "commander";
 import inquirer from "inquirer";
@@ -6,6 +7,7 @@ import open from "open";
 import { config } from "../config.js";
 import { installAllHooks } from "./hooks.js";
 import { saveCredentials } from "../utils/credentials.js";
+import { getGitHubUserInfo } from "../utils/github.js";
 
 export function loginCommand(program: Command) {
   program
@@ -56,9 +58,11 @@ export function loginCommand(program: Command) {
 
         // Authenticate and get token
         const { token } = await auth({ type: "oauth" });
+        const octokit = new Octokit({ auth: token });
+        const userInfo = await getGitHubUserInfo(octokit);
 
         // Save the token
-        await saveCredentials({ token });
+        await saveCredentials({ token, userInfo });
 
         const { shouldInstallHooks } = await inquirer.prompt([
           {

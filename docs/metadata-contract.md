@@ -43,7 +43,10 @@ For JSON session files, write metadata at the top-level `__athrd` key.
       "githubOrgId": "456"
     },
     "repository": {
-      "githubRepoId": "789"
+      "githubRepoId": "789",
+      "owner": "athrd-com",
+      "name": "athrd",
+      "fullName": "athrd-com/athrd"
     },
     "commit": {
       "sha": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
@@ -113,7 +116,14 @@ repository.
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `githubRepoId` | string | yes | Store GitHub IDs as strings everywhere. |
+| `githubRepoId` | string | no | GitHub repository ID when available. Store GitHub IDs as strings everywhere. |
+| `owner` | string | no | Repository owner login from the local Git remote. |
+| `name` | string | no | Repository name from the local Git remote. |
+| `fullName` | string | no | `owner/name` from the local Git remote. Prefer this when GitHub API metadata is not fetched. |
+
+When the CLI avoids GitHub repository metadata lookups, write `owner`, `name`,
+and `fullName` without `githubRepoId`. Servers should index those uploads with a
+stable slug-derived repository key.
 
 ### `commit`
 
@@ -155,8 +165,8 @@ should never require reading raw Gist/S3 objects to render the threads list.
 | `organizations.github_org_id` | `organization.githubOrgId` |
 | `organizations.login` | GitHub API lookup or legacy metadata fallback |
 | `organizations.storage_provider` | Organization setting |
-| `repositories.github_repo_id` | `repository.githubRepoId` |
-| `repositories.full_name` | GitHub API lookup or legacy metadata fallback |
+| `repositories.github_repo_id` | `repository.githubRepoId`, or an internal `slug:owner/name` key when no GitHub repo ID is available |
+| `repositories.full_name` | `repository.fullName`, GitHub API lookup, or legacy metadata fallback |
 | `threads.thread_id` | `thread.id` |
 | `threads.provider_session_id` | `thread.providerSessionId` |
 | `threads.owner_github_user_id` | `actor.githubUserId` |
@@ -204,5 +214,7 @@ Before persisting a thread row:
   `actor.githubUsername` are present.
 - `organization.githubOrgId` and `repository.githubRepoId`, when present, are
   strings.
+- `repository` includes at least `githubRepoId`, `fullName`, or both `owner` and
+  `name` when present.
 - All timestamps parse as valid dates.
 - All GitHub IDs are strings.

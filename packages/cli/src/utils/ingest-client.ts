@@ -14,7 +14,7 @@ export interface IngestGithubContext {
     avatarUrl?: string;
   };
   repository?: {
-    githubRepoId: string;
+    githubRepoId?: string;
     owner: string;
     name: string;
     fullName: string;

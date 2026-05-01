@@ -9,7 +9,8 @@ import {
   injectAthrdMetadata,
   type AthrdMetadata,
 } from "../utils/athrd-metadata.js";
-import { requireAuth } from "../utils/auth.js";
+import { requireCredentials } from "../utils/auth.js";
+import { saveCredentials } from "../utils/credentials.js";
 import { formatDate } from "../utils/date.js";
 import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
 import {
@@ -308,7 +309,8 @@ export function shareCommand(program: Command) {
         console.log(chalk.blue("\n📤 Uploading..."));
 
         try {
-          const token = await requireAuth();
+          const credentials = await requireCredentials();
+          const token = credentials.token;
           const octokit = new Octokit({
             auth: token,
             log: {
@@ -319,8 +321,12 @@ export function shareCommand(program: Command) {
             },
           });
 
-          // Fetch GitHub user info once
-          const userInfo = await getGitHubUserInfo(octokit);
+          // Existing credentials may not have a cached actor yet.
+          const userInfo =
+            credentials.userInfo ?? (await getGitHubUserInfo(octokit));
+          if (!credentials.userInfo) {
+            await saveCredentials({ ...credentials, userInfo });
+          }
           let uploadedCount = 0;
           let skippedCount = 0;
 
@@ -361,21 +367,6 @@ export function shareCommand(program: Command) {
               userInfo,
             });
             const githubContext: IngestGithubContext = repositoryContext.github;
-
-            if (
-              repositoryContext.repositoryLookupFailed &&
-              repositoryContext.repositoryFullName
-            ) {
-              const hasRepoScope = userInfo.scopes?.includes("repo") ?? false;
-              const scopeHint = hasRepoScope
-                ? "Check that the authenticated GitHub account can access this repository."
-                : 'Private repositories require GitHub repo access; run "athrd login" again to refresh permissions.';
-              console.warn(
-                chalk.yellow(
-                  `⚠ Could not read GitHub repository metadata for ${repositoryContext.repositoryFullName}. ${scopeHint}`,
-                ),
-              );
-            }
 
             const threadMetadata = await provider.getMetadata(session, {
               cliVersion: config.version,

@@ -5,7 +5,7 @@ export const config = {
   // Set the authorization callback URL to: http://localhost
   github: {
     clientId: process.env.GITHUB_CLIENT_ID || "Ov23lijiBaPGJoEGr86L",
-    scopes: ["gist", "read:user", "user:email", "read:org", "repo"],
+    scopes: ["gist"],
   },
 
   // API endpoints (customize for your service)

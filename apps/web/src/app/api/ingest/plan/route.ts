@@ -10,7 +10,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const actor = await authenticateGithubRequest(request);
     const body = ingestPlanRequestSchema.parse(await request.json());
-    const plan = await createIngestPlan(body.metadata, actor);
+    const plan = await createIngestPlan(body.metadata, actor, body.github);
 
     return Response.json(plan);
   } catch (error) {

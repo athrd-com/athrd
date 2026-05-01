@@ -51,6 +51,32 @@ describe("injectAthrdMetadata", () => {
     expect(parsed.__athrd.repository).toEqual({ githubRepoId: "789" });
   });
 
+  test("supports repository metadata without a numeric GitHub repo ID", () => {
+    const output = injectAthrdMetadata(
+      {
+        kind: "raw",
+        format: "json",
+        fileName: "athrd-session-1.json",
+        content: '{"messages":[]}',
+      },
+      {
+        ...metadata,
+        repository: {
+          owner: "athrd-com",
+          name: "athrd",
+          fullName: "athrd-com/athrd",
+        },
+      },
+    );
+
+    const parsed = JSON.parse(output);
+    expect(parsed.__athrd.repository).toEqual({
+      owner: "athrd-com",
+      name: "athrd",
+      fullName: "athrd-com/athrd",
+    });
+  });
+
   test("prepends one JSONL metadata row and removes existing metadata rows", () => {
     const output = injectAthrdMetadata(
       {

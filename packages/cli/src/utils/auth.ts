@@ -1,7 +1,7 @@
 import chalk from "chalk";
-import { loadCredentials } from "./credentials.js";
+import { loadCredentials, type Credentials } from "./credentials.js";
 
-export async function requireAuth(): Promise<string> {
+export async function requireCredentials(): Promise<Credentials> {
   const credentials = await loadCredentials();
 
   if (!credentials || !credentials.token) {
@@ -12,6 +12,11 @@ export async function requireAuth(): Promise<string> {
     process.exit(1);
   }
 
+  return credentials;
+}
+
+export async function requireAuth(): Promise<string> {
+  const credentials = await requireCredentials();
   return credentials.token;
 }
 

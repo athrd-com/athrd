@@ -55,11 +55,109 @@ describe("ingest", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
     Object.defineProperty(globalThis, "Bun", {
       configurable: true,
       writable: true,
       value: originalBun,
     });
+  });
+
+  it("caches successful GitHub token validation briefly", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 123,
+        login: "octocat",
+        avatar_url: "https://example.com/octocat.png",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { authenticateGithubRequest } = await import("./ingest");
+    const first = await authenticateGithubRequest(
+      githubAuthRequest("cached-token"),
+    );
+    const second = await authenticateGithubRequest(
+      githubAuthRequest("cached-token"),
+    );
+
+    expect(first).toEqual({
+      githubUserId: "123",
+      githubUsername: "octocat",
+      avatarUrl: "https://example.com/octocat.png",
+    });
+    expect(second).toEqual(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.github.com/user");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: {
+        Authorization: "Bearer cached-token",
+      },
+      cache: "no-store",
+    });
+  });
+
+  it("revalidates GitHub tokens after the auth cache expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-22T15:00:00.000Z"));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 123, login: "octocat" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 456, login: "monalisa" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { authenticateGithubRequest } = await import("./ingest");
+
+    await expect(
+      authenticateGithubRequest(githubAuthRequest("expiring-token")),
+    ).resolves.toMatchObject({
+      githubUserId: "123",
+      githubUsername: "octocat",
+    });
+
+    vi.advanceTimersByTime(60_001);
+
+    await expect(
+      authenticateGithubRequest(githubAuthRequest("expiring-token")),
+    ).resolves.toMatchObject({
+      githubUserId: "456",
+      githubUsername: "monalisa",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache failed GitHub token validation", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 123, login: "octocat" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { authenticateGithubRequest } = await import("./ingest");
+
+    await expect(
+      authenticateGithubRequest(githubAuthRequest("retry-token")),
+    ).rejects.toMatchObject({
+      status: 401,
+    });
+    await expect(
+      authenticateGithubRequest(githubAuthRequest("retry-token")),
+    ).resolves.toMatchObject({
+      githubUserId: "123",
+      githubUsername: "octocat",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("creates a storage plan from organization settings", async () => {
@@ -74,6 +172,41 @@ describe("ingest", () => {
       storageProvider: "s3",
       uploadMode: "signed-url",
     });
+    expect(getOrganizationStorageConfigMock).toHaveBeenCalledWith("456");
+  });
+
+  it("creates a storage plan from a known organization repository owner", async () => {
+    const slugMetadata = createSlugRepositoryMetadata();
+    dbQueryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          githubOrgId: "456",
+          login: "athrd-com",
+          name: "athrd",
+          avatarUrl: "https://example.com/org.png",
+        },
+      ],
+    });
+    getOrganizationStorageConfigMock.mockResolvedValueOnce({
+      provider: "s3",
+      s3: {},
+    });
+
+    const { createIngestPlan } = await import("./ingest");
+
+    await expect(
+      createIngestPlan(slugMetadata, actor, {
+        repository: {
+          owner: "athrd-com",
+          name: "athrd",
+          fullName: "athrd-com/athrd",
+        },
+      }),
+    ).resolves.toEqual({
+      storageProvider: "s3",
+      uploadMode: "signed-url",
+    });
+    expect(dbQueryMock).toHaveBeenCalledWith(expect.any(String), ["athrd-com"]);
     expect(getOrganizationStorageConfigMock).toHaveBeenCalledWith("456");
   });
 
@@ -256,4 +389,74 @@ describe("ingest", () => {
       ]),
     );
   });
+
+  it("indexes slug-only repository metadata without GitHub repo lookups", async () => {
+    const slugMetadata = createSlugRepositoryMetadata();
+    dbQueryMock.mockResolvedValueOnce({ rows: [] });
+    const { completeThreadIngest } = await import("./ingest");
+
+    await expect(
+      completeThreadIngest({
+        metadata: slugMetadata,
+        github: {
+          repository: {
+            owner: "athrd-com",
+            name: "athrd",
+            fullName: "athrd-com/athrd",
+          },
+        },
+        artifact: {
+          fileName: "athrd-session-1.jsonl",
+          format: "jsonl",
+        },
+        storage: {
+          provider: "gist",
+          publicId: "gist-1",
+          sourceId: "gist-1",
+        },
+        actor,
+      }),
+    ).resolves.toMatchObject({
+      publicId: "gist-1",
+      storageProvider: "gist",
+    });
+
+    expect(dbQueryMock).toHaveBeenCalledTimes(3);
+    expect(dbQueryMock.mock.calls[1]?.[1]).toEqual(
+      expect.arrayContaining([
+        "slug:athrd-com/athrd",
+        "athrd-com",
+        "athrd",
+        "athrd-com/athrd",
+      ]),
+    );
+    expect(dbQueryMock.mock.calls[2]?.[1]).toEqual(
+      expect.arrayContaining(["slug:athrd-com/athrd"]),
+    );
+  });
 });
+
+function githubAuthRequest(token: string): Request {
+  return new Request("http://localhost/api/ingest/plan", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+function createSlugRepositoryMetadata() {
+  const {
+    organization: _organization,
+    repository: _repository,
+    ...base
+  } = metadata;
+
+  return {
+    ...base,
+    repository: {
+      owner: "athrd-com",
+      name: "athrd",
+      fullName: "athrd-com/athrd",
+    },
+  };
+}

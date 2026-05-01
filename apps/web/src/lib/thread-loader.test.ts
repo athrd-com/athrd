@@ -94,6 +94,43 @@ describe("thread-loader", () => {
     expect(context.parsedThread.messages).toHaveLength(1);
   });
 
+  it("extracts repository full name from normalized metadata", () => {
+    const file: GistFile = {
+      ...gistFile,
+      content: JSON.stringify({
+        __athrd: {
+          thread: {
+            source: "claude",
+          },
+          repository: {
+            owner: "athrd-com",
+            name: "athrd",
+            fullName: "athrd-com/athrd",
+          },
+          commit: {
+            sha: "deadbeef",
+          },
+        },
+        requests: [
+          {
+            id: "req-1",
+            type: "user",
+            message: {
+              role: "user",
+              content: "Hello",
+              model: "claude-3-5-sonnet-20241022",
+            },
+            timestamp: "2026-03-03T00:00:00.000Z",
+          },
+        ],
+      }),
+    };
+
+    const context = parseThreadContextFromGistFile(gistData, file);
+    expect(context.repoName).toBe("athrd-com/athrd");
+    expect(context.commitHash).toBe("deadbeef");
+  });
+
   it("extracts Codex models with effort from turn_context payloads", () => {
     const file: GistFile = {
       ...gistFile,

@@ -1,11 +1,9 @@
 import type { Octokit } from "@octokit/rest";
 import type { AthrdMetadata } from "./athrd-metadata.js";
-import {
-  getGitHubOrgInfo,
-  getGitHubRepoInfo,
-  type GitHubOrgInfo,
-  type GitHubRepoInfo,
-  type GitHubUserInfo,
+import type {
+  GitHubOrgInfo,
+  GitHubRepoInfo,
+  GitHubUserInfo,
 } from "./github.js";
 import type { IngestGithubContext } from "./ingest-client.js";
 
@@ -47,8 +45,25 @@ export async function resolveGitHubRepositoryContext(input: {
     };
   }
 
-  const getRepoInfo = input.lookups?.getRepoInfo ?? getGitHubRepoInfo;
-  const getOrgInfo = input.lookups?.getOrgInfo ?? getGitHubOrgInfo;
+  const localRepository = {
+    owner: parsedRepo.owner,
+    name: parsedRepo.repo,
+    fullName: `${parsedRepo.owner}/${parsedRepo.repo}`,
+  };
+  const getRepoInfo = input.lookups?.getRepoInfo;
+  const getOrgInfo = input.lookups?.getOrgInfo;
+
+  if (!getRepoInfo) {
+    return {
+      github: {
+        repository: localRepository,
+      },
+      repository: localRepository,
+      repositoryLookupFailed: false,
+      repositoryFullName: localRepository.fullName,
+    };
+  }
+
   const repoInfo = await getRepoInfo(
     input.octokit,
     parsedRepo.owner,
@@ -56,13 +71,22 @@ export async function resolveGitHubRepositoryContext(input: {
   );
   const ownerIsAuthenticatedUser =
     parsedRepo.owner.toLowerCase() === input.userInfo.username.toLowerCase();
-  const shouldFetchOrgInfo = repoInfo
-    ? repoInfo.ownerType === "Organization"
-    : !ownerIsAuthenticatedUser;
+  const shouldFetchOrgInfo =
+    !!getOrgInfo &&
+    repoInfo?.ownerType === "Organization" &&
+    !ownerIsAuthenticatedUser;
   const orgInfo = shouldFetchOrgInfo
     ? await getOrgInfo(input.octokit, parsedRepo.owner)
     : null;
 
+  const resolvedRepository = repoInfo
+    ? {
+        githubRepoId: String(repoInfo.repoId),
+        owner: repoInfo.owner,
+        name: repoInfo.name,
+        fullName: repoInfo.fullName,
+      }
+    : localRepository;
   const github: IngestGithubContext = {
     ...(orgInfo && {
       organization: {
@@ -72,21 +96,16 @@ export async function resolveGitHubRepositoryContext(input: {
         avatarUrl: orgInfo.orgIcon,
       },
     }),
-    ...(repoInfo && {
-      repository: {
-        githubRepoId: String(repoInfo.repoId),
-        owner: repoInfo.owner,
-        name: repoInfo.name,
-        fullName: repoInfo.fullName,
-        ...(repoInfo.htmlUrl ? { htmlUrl: repoInfo.htmlUrl } : {}),
-        ...(repoInfo.defaultBranch
-          ? { defaultBranch: repoInfo.defaultBranch }
-          : {}),
-        ...(typeof repoInfo.private === "boolean"
-          ? { private: repoInfo.private }
-          : {}),
-      },
-    }),
+    repository: {
+      ...resolvedRepository,
+      ...(repoInfo?.htmlUrl ? { htmlUrl: repoInfo.htmlUrl } : {}),
+      ...(repoInfo?.defaultBranch
+        ? { defaultBranch: repoInfo.defaultBranch }
+        : {}),
+      ...(typeof repoInfo?.private === "boolean"
+        ? { private: repoInfo.private }
+        : {}),
+    },
   };
 
   return {
@@ -96,13 +115,9 @@ export async function resolveGitHubRepositoryContext(input: {
         githubOrgId: String(orgInfo.orgId),
       },
     }),
-    ...(repoInfo && {
-      repository: {
-        githubRepoId: String(repoInfo.repoId),
-      },
-    }),
+    repository: resolvedRepository,
     repositoryLookupFailed: !repoInfo,
-    repositoryFullName: `${parsedRepo.owner}/${parsedRepo.repo}`,
+    repositoryFullName: localRepository.fullName,
   };
 }
 

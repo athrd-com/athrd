@@ -9,6 +9,15 @@ import {
 
 const S3_SIGNED_UPLOAD_TTL_SECONDS = 300;
 const S3_SIGNATURE_ALGORITHM = "AWS4-HMAC-SHA256";
+const GITHUB_TOKEN_AUTH_CACHE_TTL_MS = 60_000;
+const GITHUB_TOKEN_AUTH_CACHE_MAX_ENTRIES = 500;
+
+interface CachedGithubActor {
+  actor: AuthenticatedGithubActor;
+  expiresAt: number;
+}
+
+const githubTokenAuthCache = new Map<string, CachedGithubActor>();
 
 export class IngestHttpError extends Error {
   constructor(
@@ -46,7 +55,10 @@ export const athrdMetadataSchema = z
       .optional(),
     repository: z
       .object({
-        githubRepoId: nonEmptyString,
+        githubRepoId: nonEmptyString.optional(),
+        owner: nonEmptyString.optional(),
+        name: nonEmptyString.optional(),
+        fullName: nonEmptyString.optional(),
       })
       .optional(),
     commit: z
@@ -62,7 +74,7 @@ const githubContextSchema = z
   .object({
     organization: z
       .object({
-        githubOrgId: nonEmptyString,
+        githubOrgId: nonEmptyString.optional(),
         login: nonEmptyString,
         name: z.string().optional(),
         avatarUrl: z.string().optional(),
@@ -70,7 +82,7 @@ const githubContextSchema = z
       .optional(),
     repository: z
       .object({
-        githubRepoId: nonEmptyString,
+        githubRepoId: nonEmptyString.optional(),
         owner: nonEmptyString,
         name: nonEmptyString,
         fullName: nonEmptyString,
@@ -119,6 +131,29 @@ export interface AuthenticatedGithubActor {
   avatarUrl?: string;
 }
 
+interface OrganizationLookupRow {
+  githubOrgId: string;
+  login: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+interface ResolvedOrganizationContext {
+  githubOrgId?: string;
+  organization?: NonNullable<GithubIngestContext>["organization"];
+}
+
+interface RepositoryPersistenceContext {
+  key: string;
+  githubRepoId?: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  htmlUrl?: string;
+  defaultBranch?: string;
+  private?: boolean;
+}
+
 export interface IngestPlan {
   storageProvider: "gist" | "s3";
   uploadMode: "client" | "signed-url";
@@ -153,6 +188,13 @@ export async function authenticateGithubRequest(
     throw new IngestHttpError(401, "Missing GitHub bearer token.");
   }
 
+  const tokenHash = sha256Hex(token);
+  const cachedActor = getCachedGithubActor(tokenHash);
+
+  if (cachedActor) {
+    return cachedActor;
+  }
+
   const response = await fetch("https://api.github.com/user", {
     headers: {
       Accept: "application/vnd.github.v3+json",
@@ -175,22 +217,78 @@ export async function authenticateGithubRequest(
     throw new IngestHttpError(401, "GitHub user response is incomplete.");
   }
 
-  return {
+  const actor = {
     githubUserId: String(user.id),
     githubUsername: user.login,
     avatarUrl: user.avatar_url,
   };
+
+  setCachedGithubActor(tokenHash, actor);
+  return { ...actor };
+}
+
+function getCachedGithubActor(
+  tokenHash: string,
+): AuthenticatedGithubActor | null {
+  const cached = githubTokenAuthCache.get(tokenHash);
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    githubTokenAuthCache.delete(tokenHash);
+    return null;
+  }
+
+  return { ...cached.actor };
+}
+
+function setCachedGithubActor(
+  tokenHash: string,
+  actor: AuthenticatedGithubActor,
+): void {
+  if (githubTokenAuthCache.size >= GITHUB_TOKEN_AUTH_CACHE_MAX_ENTRIES) {
+    pruneGithubTokenAuthCache();
+  }
+
+  githubTokenAuthCache.set(tokenHash, {
+    actor: { ...actor },
+    expiresAt: Date.now() + GITHUB_TOKEN_AUTH_CACHE_TTL_MS,
+  });
+}
+
+function pruneGithubTokenAuthCache(): void {
+  const now = Date.now();
+
+  for (const [tokenHash, cached] of githubTokenAuthCache) {
+    if (cached.expiresAt <= now) {
+      githubTokenAuthCache.delete(tokenHash);
+    }
+  }
+
+  while (githubTokenAuthCache.size >= GITHUB_TOKEN_AUTH_CACHE_MAX_ENTRIES) {
+    const oldestTokenHash = githubTokenAuthCache.keys().next().value;
+    if (!oldestTokenHash) {
+      return;
+    }
+
+    githubTokenAuthCache.delete(oldestTokenHash);
+  }
 }
 
 export async function createIngestPlan(
   metadata: AthrdMetadata,
   actor: AuthenticatedGithubActor,
+  github?: GithubIngestContext,
 ): Promise<IngestPlan> {
   assertMetadataActor(metadata, actor);
 
-  const storage = await getOrganizationStorageConfig(
-    metadata.organization?.githubOrgId,
-  );
+  const organization = await resolveOrganizationContext({
+    metadata,
+    github,
+    actor,
+  });
+  const storage = await getOrganizationStorageConfig(organization.githubOrgId);
 
   return {
     storageProvider: storage.provider,
@@ -212,16 +310,23 @@ export async function completeThreadIngest(input: {
   assertMetadataActor(input.metadata, input.actor);
   validateMetadataTimestamps(input.metadata);
 
-  await upsertOrganization(
-    input.metadata.organization?.githubOrgId,
-    input.github?.organization,
-  );
-  await upsertRepository(
-    input.metadata.repository?.githubRepoId,
-    input.metadata.organization?.githubOrgId,
+  const organization = await resolveOrganizationContext({
+    metadata: input.metadata,
+    github: input.github,
+    actor: input.actor,
+  });
+  const repository = resolveRepositoryForPersistence(
+    input.metadata,
     input.github,
   );
-  await upsertThread(input);
+
+  await upsertOrganization(organization.githubOrgId, organization.organization);
+  await upsertRepository(repository, organization.githubOrgId);
+  await upsertThread({
+    ...input,
+    organizationGithubOrgId: organization.githubOrgId,
+    repositoryKey: repository?.key,
+  });
 
   return {
     publicId: input.storage.publicId,
@@ -240,7 +345,12 @@ export async function createSignedThreadUpload(input: {
   assertMetadataActor(input.metadata, input.actor);
   validateMetadataTimestamps(input.metadata);
 
-  const githubOrgId = input.metadata.organization?.githubOrgId;
+  const organization = await resolveOrganizationContext({
+    metadata: input.metadata,
+    github: input.github,
+    actor: input.actor,
+  });
+  const githubOrgId = organization.githubOrgId;
   const storage = await getOrganizationStorageConfig(githubOrgId);
 
   if (storage.provider !== "s3") {
@@ -255,7 +365,11 @@ export async function createSignedThreadUpload(input: {
   }
 
   assertS3StorageConfig(storage.s3);
-  const sourceId = buildManagedS3ObjectKey(input.metadata, input.artifact);
+  const sourceId = buildManagedS3ObjectKey({
+    metadata: input.metadata,
+    artifact: input.artifact,
+    githubOrgId,
+  });
   const signedUrl = createS3PresignedPutUrl({
     config: storage.s3,
     objectKey: sourceId,
@@ -308,6 +422,7 @@ async function upsertOrganization(
   }
 
   const login = organization?.login?.trim() || `github-org-${githubOrgId}`;
+  const hasOrganizationDetails = Boolean(organization?.login?.trim());
 
   await db.query(
     `INSERT INTO "organizations" (
@@ -321,33 +436,34 @@ async function upsertOrganization(
     )
     VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
     ON CONFLICT ("githubOrgId") DO UPDATE SET
-      login = EXCLUDED.login,
-      name = COALESCE(EXCLUDED.name, "organizations".name),
-      "avatarUrl" = COALESCE(EXCLUDED."avatarUrl", "organizations"."avatarUrl"),
+      login = CASE WHEN $5 THEN EXCLUDED.login ELSE "organizations".login END,
+      name = CASE
+        WHEN $5 THEN COALESCE(EXCLUDED.name, "organizations".name)
+        ELSE "organizations".name
+      END,
+      "avatarUrl" = CASE
+        WHEN $5 THEN COALESCE(EXCLUDED."avatarUrl", "organizations"."avatarUrl")
+        ELSE "organizations"."avatarUrl"
+      END,
       "updatedAt" = NOW(),
       "lastSeenAt" = NOW()`,
-    [githubOrgId, login, organization?.name || null, organization?.avatarUrl || null],
+    [
+      githubOrgId,
+      login,
+      organization?.name || null,
+      organization?.avatarUrl || null,
+      hasOrganizationDetails,
+    ],
   );
 }
 
 async function upsertRepository(
-  githubRepoId: string | undefined,
+  repository: RepositoryPersistenceContext | null,
   githubOrgId: string | undefined,
-  github: GithubIngestContext | undefined,
 ): Promise<void> {
-  if (!githubRepoId) {
+  if (!repository) {
     return;
   }
-
-  const repository = github?.repository;
-  const fullName = repository?.fullName?.trim();
-  const [fallbackOwner, fallbackName] = fullName?.split("/") ?? [];
-  const owner =
-    repository?.owner?.trim() ||
-    fallbackOwner ||
-    github?.organization?.login ||
-    "unknown";
-  const name = repository?.name?.trim() || fallbackName || githubRepoId;
 
   await db.query(
     `INSERT INTO "repositories" (
@@ -375,11 +491,11 @@ async function upsertRepository(
       "updatedAt" = NOW(),
       "lastSeenAt" = NOW()`,
     [
-      githubRepoId,
+      repository.key,
       githubOrgId || null,
-      owner,
-      name,
-      fullName || `${owner}/${name}`,
+      repository.owner,
+      repository.name,
+      repository.fullName,
       repository?.htmlUrl || null,
       repository?.defaultBranch || null,
       repository?.private ?? null,
@@ -396,6 +512,8 @@ async function upsertThread(input: {
     sourceId: string;
   };
   actor: AuthenticatedGithubActor;
+  organizationGithubOrgId?: string;
+  repositoryKey?: string;
 }): Promise<void> {
   const thread = input.metadata.thread;
   const rowId = [
@@ -458,8 +576,8 @@ async function upsertThread(input: {
       thread.messageCount ?? null,
       input.actor.githubUserId,
       input.actor.githubUsername,
-      input.metadata.organization?.githubOrgId || null,
-      input.metadata.repository?.githubRepoId || null,
+      input.organizationGithubOrgId || null,
+      input.repositoryKey || null,
       input.storage.publicId,
       input.storage.provider,
       input.storage.sourceId,
@@ -472,22 +590,189 @@ async function upsertThread(input: {
   );
 }
 
-function buildManagedS3ObjectKey(
+async function resolveOrganizationContext(input: {
+  metadata: AthrdMetadata;
+  github?: GithubIngestContext;
+  actor: AuthenticatedGithubActor;
+}): Promise<ResolvedOrganizationContext> {
+  const githubOrgId =
+    input.metadata.organization?.githubOrgId?.trim() ||
+    input.github?.organization?.githubOrgId?.trim();
+
+  if (githubOrgId) {
+    const organization = input.github?.organization;
+    if (organization?.login) {
+      return {
+        githubOrgId,
+        organization: {
+          githubOrgId,
+          login: organization.login,
+          ...(organization.name ? { name: organization.name } : {}),
+          ...(organization.avatarUrl
+            ? { avatarUrl: organization.avatarUrl }
+            : {}),
+        },
+      };
+    }
+
+    return { githubOrgId };
+  }
+
+  const ownerLogin = getRepositoryOwner(input.metadata, input.github);
+  if (
+    !ownerLogin ||
+    ownerLogin.toLowerCase() === input.actor.githubUsername.toLowerCase()
+  ) {
+    return {};
+  }
+
+  const organization = await findKnownOrganizationByLogin(ownerLogin);
+  if (!organization) {
+    return {};
+  }
+
+  return {
+    githubOrgId: organization.githubOrgId,
+    organization: {
+      githubOrgId: organization.githubOrgId,
+      login: organization.login,
+      ...(organization.name ? { name: organization.name } : {}),
+      ...(organization.avatarUrl ? { avatarUrl: organization.avatarUrl } : {}),
+    },
+  };
+}
+
+async function findKnownOrganizationByLogin(
+  login: string,
+): Promise<OrganizationLookupRow | null> {
+  const normalizedLogin = login.trim();
+  if (!normalizedLogin) {
+    return null;
+  }
+
+  const result = await db.query<OrganizationLookupRow>(
+    `SELECT
+      "githubOrgId",
+      login,
+      name,
+      "avatarUrl"
+    FROM "organizations"
+    WHERE LOWER(login) = LOWER($1)
+    LIMIT 1`,
+    [normalizedLogin],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+function resolveRepositoryForPersistence(
   metadata: AthrdMetadata,
-  artifact: ArtifactDescriptor,
-): string {
-  const githubOrgId = metadata.organization?.githubOrgId;
+  github: GithubIngestContext | undefined,
+): RepositoryPersistenceContext | null {
+  const metadataRepository = metadata.repository;
+  const githubRepository = github?.repository;
+  const fullName = firstNonEmptyString(
+    githubRepository?.fullName,
+    metadataRepository?.fullName,
+  );
+  const [ownerFromFullName, nameFromFullName] =
+    parseRepositoryFullName(fullName);
+  const owner = firstNonEmptyString(
+    githubRepository?.owner,
+    metadataRepository?.owner,
+    ownerFromFullName,
+  );
+  const name = firstNonEmptyString(
+    githubRepository?.name,
+    metadataRepository?.name,
+    nameFromFullName,
+  );
+  const githubRepoId = firstNonEmptyString(
+    githubRepository?.githubRepoId,
+    metadataRepository?.githubRepoId,
+  );
+
+  if (!githubRepoId && !owner && !name && !fullName) {
+    return null;
+  }
+
+  const resolvedOwner = owner || ownerFromFullName || "unknown";
+  const resolvedName = name || nameFromFullName || githubRepoId || "unknown";
+  const resolvedFullName = fullName || `${resolvedOwner}/${resolvedName}`;
+
+  return {
+    key: githubRepoId || `slug:${resolvedFullName.toLowerCase()}`,
+    ...(githubRepoId ? { githubRepoId } : {}),
+    owner: resolvedOwner,
+    name: resolvedName,
+    fullName: resolvedFullName,
+    ...(githubRepository?.htmlUrl ? { htmlUrl: githubRepository.htmlUrl } : {}),
+    ...(githubRepository?.defaultBranch
+      ? { defaultBranch: githubRepository.defaultBranch }
+      : {}),
+    ...(typeof githubRepository?.private === "boolean"
+      ? { private: githubRepository.private }
+      : {}),
+  };
+}
+
+function getRepositoryOwner(
+  metadata: AthrdMetadata,
+  github: GithubIngestContext | undefined,
+): string | undefined {
+  const fullName = firstNonEmptyString(
+    github?.repository?.fullName,
+    metadata.repository?.fullName,
+  );
+  const [ownerFromFullName] = parseRepositoryFullName(fullName);
+  return firstNonEmptyString(
+    github?.repository?.owner,
+    metadata.repository?.owner,
+    ownerFromFullName,
+  );
+}
+
+function firstNonEmptyString(
+  ...values: Array<string | null | undefined>
+): string | undefined {
+  for (const value of values) {
+    const trimmedValue = value?.trim();
+    if (trimmedValue) {
+      return trimmedValue;
+    }
+  }
+
+  return undefined;
+}
+
+function parseRepositoryFullName(
+  fullName: string | undefined,
+): [string | undefined, string | undefined] {
+  const [owner, name, ...rest] = fullName?.split("/") ?? [];
+  if (!owner || !name || rest.length > 0) {
+    return [undefined, undefined];
+  }
+
+  return [owner, name];
+}
+
+function buildManagedS3ObjectKey(input: {
+  metadata: AthrdMetadata;
+  artifact: ArtifactDescriptor;
+  githubOrgId?: string;
+}): string {
+  const githubOrgId = input.githubOrgId?.trim();
   if (!githubOrgId) {
     throw new IngestHttpError(400, "S3 uploads require an organization.");
   }
 
   const fileName = [
     "athrd",
-    sanitizeObjectKeySegment(metadata.thread.source),
-    sanitizeObjectKeySegment(metadata.thread.id),
+    sanitizeObjectKeySegment(input.metadata.thread.source),
+    sanitizeObjectKeySegment(input.metadata.thread.id),
   ].join("-");
 
-  return `${githubOrgId}/${metadata.actor.githubUserId}/${fileName}.${artifact.format}`;
+  return `${githubOrgId}/${input.metadata.actor.githubUserId}/${fileName}.${input.artifact.format}`;
 }
 
 function assertS3StorageConfig(

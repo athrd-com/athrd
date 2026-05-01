@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { fetchUserGists, fetchUserOrganizations } from "~/lib/github";
+import { fetchUserGists } from "~/lib/github";
 import { auth } from "~/server/better-auth/config";
 import { db } from "~/server/db";
 
@@ -49,14 +49,4 @@ export async function getUserGists() {
 
   const { items } = await fetchUserGists(account.accessToken);
   return items;
-}
-
-export async function getUserOrganizations() {
-  const account = await getGithubAccount();
-
-  if (!account) {
-    return [];
-  }
-
-  return fetchUserOrganizations(account.accessToken);
 }

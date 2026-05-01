@@ -22,7 +22,10 @@ export interface AthrdMetadata {
     githubOrgId: string;
   };
   repository?: {
-    githubRepoId: string;
+    githubRepoId?: string;
+    owner?: string;
+    name?: string;
+    fullName?: string;
   };
   commit?: {
     sha?: string;

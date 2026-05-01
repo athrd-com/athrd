@@ -95,9 +95,10 @@ export function parseThreadContextFromSourceRecord(
   const ide = resolveIde(rawContent);
   const athrdMeta = rawContent.__athrd as Record<string, unknown> | undefined;
   const repoName =
-    typeof athrdMeta?.githubRepo === "string"
+    getNestedString(rawContent, ["__athrd", "repository", "fullName"]) ||
+    (typeof athrdMeta?.githubRepo === "string"
       ? (athrdMeta.githubRepo as string)
-      : undefined;
+      : undefined);
   const commitHash =
     getNestedString(rawContent, ["__athrd", "commit", "sha"]) ||
     (typeof athrdMeta?.commitHash === "string" && athrdMeta.commitHash.trim()

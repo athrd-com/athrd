@@ -11,6 +11,30 @@ const userInfo: GitHubUserInfo = {
 };
 
 describe("resolveGitHubRepositoryContext", () => {
+  test("uses the local repository slug without GitHub API lookups", async () => {
+    const context = await resolveGitHubRepositoryContext({
+      octokit,
+      githubRepo: "athrd-com/athrd",
+      userInfo,
+    });
+
+    expect(context.organization).toBeUndefined();
+    expect(context.repository).toEqual({
+      owner: "athrd-com",
+      name: "athrd",
+      fullName: "athrd-com/athrd",
+    });
+    expect(context.github).toEqual({
+      repository: {
+        owner: "athrd-com",
+        name: "athrd",
+        fullName: "athrd-com/athrd",
+      },
+    });
+    expect(context.repositoryLookupFailed).toBe(false);
+    expect(context.repositoryFullName).toBe("athrd-com/athrd");
+  });
+
   test("resolves a private personal repository without organization metadata", async () => {
     const orgLookups: string[] = [];
 
@@ -38,7 +62,12 @@ describe("resolveGitHubRepositoryContext", () => {
 
     expect(orgLookups).toEqual([]);
     expect(context.organization).toBeUndefined();
-    expect(context.repository).toEqual({ githubRepoId: "123" });
+    expect(context.repository).toEqual({
+      githubRepoId: "123",
+      owner: "gregorym",
+      name: "mlxmac",
+      fullName: "gregorym/mlxmac",
+    });
     expect(context.github.repository).toMatchObject({
       githubRepoId: "123",
       owner: "gregorym",
@@ -72,7 +101,12 @@ describe("resolveGitHubRepositoryContext", () => {
     });
 
     expect(context.organization).toEqual({ githubOrgId: "456" });
-    expect(context.repository).toEqual({ githubRepoId: "789" });
+    expect(context.repository).toEqual({
+      githubRepoId: "789",
+      owner: "athrd-com",
+      name: "athrd",
+      fullName: "athrd-com/athrd",
+    });
     expect(context.github.organization).toMatchObject({
       githubOrgId: "456",
       login: "athrd-com",
@@ -100,9 +134,19 @@ describe("resolveGitHubRepositoryContext", () => {
     });
 
     expect(orgLookups).toEqual([]);
-    expect(context.github).toEqual({});
+    expect(context.github).toEqual({
+      repository: {
+        owner: "gregorym",
+        name: "mlxmac",
+        fullName: "gregorym/mlxmac",
+      },
+    });
     expect(context.organization).toBeUndefined();
-    expect(context.repository).toBeUndefined();
+    expect(context.repository).toEqual({
+      owner: "gregorym",
+      name: "mlxmac",
+      fullName: "gregorym/mlxmac",
+    });
     expect(context.repositoryLookupFailed).toBe(true);
     expect(context.repositoryFullName).toBe("gregorym/mlxmac");
   });

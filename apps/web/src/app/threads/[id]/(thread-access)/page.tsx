@@ -1,60 +1,12 @@
 import ThreadView from "@/components/thread/thread-view";
 import { loadThreadContext, ThreadLoadError } from "@/lib/thread-loader";
 import { parseThreadLocator } from "@/lib/thread-source";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getGithubAccount } from "~/server/github-account";
-import { assertCanReadThread, ThreadAccessError } from "~/server/thread-access";
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
-  try {
-    await assertCanReadThread(id);
-    const context = await loadThreadContext(id);
-    const url = `https://athrd.com/threads/${id}`;
-
-    return {
-      title: `ATHRD - ${context.title}`,
-      description: context.title,
-      openGraph: {
-        title: `ATHRD - ${context.title}`,
-        description: context.title,
-        images: [
-          {
-            url: `https://athrd.com/threads/${id}/og`,
-            width: 1200,
-            height: 630,
-            alt: `ATHRD - ${context.title}`,
-          },
-        ],
-      },
-      robots: {
-        index: false,
-        follow: true,
-      },
-      alternates: {
-        canonical: url,
-      },
-    };
-  } catch (error) {
-    if (error instanceof ThreadLoadError || error instanceof ThreadAccessError) {
-      return {
-        title: "Thread Not Found - ATHRD",
-      };
-    }
-
-    throw error;
-  }
-}
 
 async function ThreadContent({ id }: { id: string }) {
   try {
-    await assertCanReadThread(id);
     const context = await loadThreadContext(id);
     const account = await getGithubAccount();
     const isOwner =
@@ -65,7 +17,7 @@ async function ThreadContent({ id }: { id: string }) {
 
     return <ThreadView context={context} isOwner={isOwner} />;
   } catch (error) {
-    if (error instanceof ThreadLoadError || error instanceof ThreadAccessError) {
+    if (error instanceof ThreadLoadError) {
       notFound();
     }
 

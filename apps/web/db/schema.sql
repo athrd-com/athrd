@@ -47,3 +47,50 @@ CREATE TABLE IF NOT EXISTS "verification" (
   "createdAt" TIMESTAMP DEFAULT NOW(),
   "updatedAt" TIMESTAMP DEFAULT NOW()
 );
+
+-- athrd application schema
+--
+-- Organization S3 columns are nullable overrides. When an organization is set
+-- to S3 storage, unset S3 fields fall back to the app-level
+-- ATHRD_THREADS_S3_* environment variables.
+CREATE TABLE IF NOT EXISTS "organizations" (
+  "githubOrgId" TEXT PRIMARY KEY,
+  login TEXT NOT NULL,
+  name TEXT,
+  "avatarUrl" TEXT,
+  "storageProvider" TEXT NOT NULL DEFAULT 'gist',
+  "s3EndpointUrl" TEXT,
+  "s3Bucket" TEXT,
+  "s3Region" TEXT,
+  "s3AccessKeyId" TEXT,
+  "s3SecretAccessKey" TEXT,
+  "s3VirtualHostedStyle" BOOLEAN,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW(),
+  "lastSeenAt" TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT "organizations_storageProvider_check"
+    CHECK ("storageProvider" IN ('gist', 's3'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "organizations_login_lower_idx"
+  ON "organizations" (LOWER(login));
+
+CREATE TABLE IF NOT EXISTS "repositories" (
+  "githubRepoId" TEXT PRIMARY KEY,
+  "githubOrgId" TEXT REFERENCES "organizations"("githubOrgId") ON DELETE SET NULL,
+  owner TEXT NOT NULL,
+  name TEXT NOT NULL,
+  "fullName" TEXT NOT NULL UNIQUE,
+  "htmlUrl" TEXT,
+  "defaultBranch" TEXT,
+  private BOOLEAN,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW(),
+  "lastSeenAt" TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS "repositories_githubOrgId_idx"
+  ON "repositories" ("githubOrgId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "repositories_owner_name_lower_idx"
+  ON "repositories" (LOWER(owner), LOWER(name));

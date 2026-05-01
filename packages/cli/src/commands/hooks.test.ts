@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { spawn } from "child_process";
 import {
     mkdirSync,
     mkdtempSync,
@@ -9,7 +10,7 @@ import {
 import { tmpdir } from "os";
 import { join } from "path";
 import { CodexProvider } from "../providers/codex.js";
-import { createProviderInstallContext } from "./hooks.js";
+import { createProviderInstallContext, hookScriptContent } from "./hooks.js";
 
 const tempDirs: string[] = [];
 const originalHome = process.env.HOME;
@@ -36,6 +37,20 @@ async function uninstallCodexHook() {
     await provider.uninstall(createProviderInstallContext());
 }
 
+function waitForExit(child: ReturnType<typeof spawn>, timeoutMs: number) {
+    return new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => {
+            child.kill("SIGKILL");
+            resolve(false);
+        }, timeoutMs);
+
+        child.once("exit", () => {
+            clearTimeout(timeout);
+            resolve(true);
+        });
+    });
+}
+
 beforeEach(() => {
     const home = makeTempDir("athrd-codex-hooks-home-");
     process.env.HOME = home;
@@ -55,6 +70,38 @@ afterEach(() => {
             rmSync(dir, { recursive: true, force: true });
         }
     }
+});
+
+describe("generated hook script", () => {
+    test("does not block on stdin when legacy Codex JSON argument is present", async () => {
+        const home = process.env.HOME!;
+        const hookPath = join(home, ".athrd", "hook.sh");
+        const fakeBinDir = join(home, "bin");
+
+        mkdirSync(join(home, ".athrd"), { recursive: true });
+        mkdirSync(fakeBinDir, { recursive: true });
+        writeFileSync(hookPath, hookScriptContent, { mode: 0o755 });
+        writeFileSync(join(fakeBinDir, "athrd"), "#!/bin/bash\nexit 0\n", {
+            mode: 0o755,
+        });
+
+        const child = spawn(
+            "bash",
+            [hookPath, "codex", '{"thread-id":"codex-session"}'],
+            {
+                env: {
+                    ...process.env,
+                    PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`,
+                },
+                stdio: ["pipe", "ignore", "ignore"],
+            },
+        );
+
+        const exited = await waitForExit(child, 500);
+        child.stdin?.destroy();
+
+        expect(exited).toBe(true);
+    });
 });
 
 describe("Codex hook install", () => {

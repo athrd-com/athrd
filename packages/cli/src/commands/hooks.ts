@@ -26,20 +26,22 @@ function getHomeDir() {
     return process.env.HOME || os.homedir();
 }
 
-const hookScriptContent = `#!/bin/bash
+export const hookScriptContent = `#!/bin/bash
 PROVIDER=$1
+EVENT_JSON=""
 
-INPUT=$(cat)
-EVENT_JSON="$INPUT"
-
-# Most providers send hook JSON on stdin. Legacy Codex notify hooks sent
-# hook data as the second argument, so keep that fallback for older installs.
+# Legacy Codex notify hooks sent hook data as the second argument, so prefer
+# that form when present. Otherwise read provider JSON from stdin only when
+# stdin is not a terminal; hook scripts must never wait for interactive input.
 if [ "$PROVIDER" = "codex" ] && [ -n "$2" ]; then
     EVENT_JSON="$2"
+elif [ ! -t 0 ]; then
+    EVENT_JSON=$(cat)
 fi
 
 if [ -n "$EVENT_JSON" ]; then
-    athrd share --mark --json "$EVENT_JSON" "--$PROVIDER" >/dev/null 2>&1 &
+    nohup athrd share --mark --json "$EVENT_JSON" "--$PROVIDER" </dev/null >/dev/null 2>&1 &
+    disown $! 2>/dev/null || true
 fi
 `;
 

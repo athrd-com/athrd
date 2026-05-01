@@ -3,6 +3,7 @@ import { createElement, isValidElement } from "react";
 import {
   maybeShortenFilePathLinkChildren,
   mergeRel,
+  stripIgnoredMarkdownTags,
 } from "./markdown-render-utils";
 
 describe("markdown-render-utils", () => {
@@ -52,5 +53,29 @@ describe("markdown-render-utils", () => {
   it("returns original children when short label is null", () => {
     const children = ["unchanged"];
     expect(maybeShortenFilePathLinkChildren(children, null)).toBe(children);
+  });
+
+  it("strips ignored markdown tag blocks", () => {
+    expect(
+      stripIgnoredMarkdownTags(
+        "Before\n<oai-mem-citation>\nprivate citation\n</oai-mem-citation>\nAfter",
+      ),
+    ).toBe("Before\nAfter");
+  });
+
+  it("strips inline and trailing ignored markdown tags", () => {
+    expect(
+      stripIgnoredMarkdownTags(
+        'Keep <oai-mem-citation source="memory">citation</oai-mem-citation> text',
+      ),
+    ).toBe("Keep  text");
+
+    expect(
+      stripIgnoredMarkdownTags("Keep this\n<oai-mem-citation>\ntrailing"),
+    ).toBe("Keep this");
+
+    expect(
+      stripIgnoredMarkdownTags("Keep <oai-mem-citation>trailing"),
+    ).toBe("Keep ");
   });
 });

@@ -29,6 +29,7 @@ import {
 import {
   maybeShortenFilePathLinkChildren,
   mergeRel,
+  stripIgnoredMarkdownTags,
 } from "@/components/thread/markdown-render-utils";
 import { shouldCollapseUserMessageGroup } from "@/components/thread/user-message-group-utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -273,7 +274,9 @@ function UserMessageGroup({
                   !showPreviousDetails && "hidden",
                 )}
               >
-                <Markdown options={markdownOptions}>{message.content}</Markdown>
+                <Markdown options={markdownOptions}>
+                  {stripIgnoredMarkdownTags(message.content)}
+                </Markdown>
               </div>
             ))}
           </div>
@@ -286,7 +289,9 @@ function UserMessageGroup({
             className="w-full max-w-[min(74ch,100%)] min-w-0 gap-2 border-white/10 bg-[#111] p-4 text-gray-300 shadow-none"
           >
             <div className="markdown-content">
-              <Markdown options={markdownOptions}>{message.content}</Markdown>
+              <Markdown options={markdownOptions}>
+                {stripIgnoredMarkdownTags(message.content)}
+              </Markdown>
             </div>
           </Card>
         ))}
@@ -428,7 +433,9 @@ function AssistantMessageGroup({
                   shouldHide && "hidden",
                 )}
               >
-                <Markdown options={markdownOptions}>{block.content}</Markdown>
+                <Markdown options={markdownOptions}>
+                  {stripIgnoredMarkdownTags(block.content)}
+                </Markdown>
               </div>
             );
           }
@@ -443,7 +450,7 @@ function AssistantMessageGroup({
                       name: "Thought",
                       output: {
                         type: "text",
-                        text: block.description,
+                        text: stripIgnoredMarkdownTags(block.description),
                       },
                     },
                   ]}

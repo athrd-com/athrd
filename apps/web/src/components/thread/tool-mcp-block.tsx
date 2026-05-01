@@ -1,5 +1,6 @@
 "use client";
 
+import { stripIgnoredMarkdownTags } from "@/components/thread/markdown-render-utils";
 import {
   HoverCard,
   HoverCardContent,
@@ -53,7 +54,7 @@ export default function ToolMCPBlock({
           key={index}
           className="text-xs font-mono text-gray-400 bg-black/20 p-2 rounded overflow-x-auto"
         >
-          <Markdown>{result.output.text}</Markdown>
+          <Markdown>{stripIgnoredMarkdownTags(result.output.text)}</Markdown>
         </pre>
       );
     }
@@ -150,7 +151,7 @@ export default function ToolMCPBlock({
                     Input
                   </div>
                   <pre className="text-xs font-mono text-gray-400 bg-black/20 p-2 rounded overflow-x-auto">
-                    <Markdown>{inputStr}</Markdown>
+                    <Markdown>{stripIgnoredMarkdownTags(inputStr)}</Markdown>
                   </pre>
                 </div>
               )}

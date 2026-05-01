@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  authenticateGithubRequestMock,
+  authenticateIngestRequestMock,
   createSignedThreadUploadMock,
   parseMock,
   IngestHttpErrorMock,
@@ -17,7 +17,7 @@ const {
   }
 
   return {
-    authenticateGithubRequestMock: vi.fn(),
+    authenticateIngestRequestMock: vi.fn(),
     createSignedThreadUploadMock: vi.fn(),
     parseMock: vi.fn(),
     IngestHttpErrorMock: IngestHttpError,
@@ -25,7 +25,7 @@ const {
 });
 
 vi.mock("~/server/ingest", () => ({
-  authenticateGithubRequest: authenticateGithubRequestMock,
+  authenticateIngestRequest: authenticateIngestRequestMock,
   createSignedThreadUpload: createSignedThreadUploadMock,
   signedUploadRequestSchema: {
     parse: parseMock,
@@ -66,11 +66,11 @@ const signedUploadRequest = {
 
 describe("/api/ingest/upload", () => {
   beforeEach(() => {
-    authenticateGithubRequestMock.mockReset();
+    authenticateIngestRequestMock.mockReset();
     createSignedThreadUploadMock.mockReset();
     parseMock.mockReset();
 
-    authenticateGithubRequestMock.mockResolvedValue(actor);
+    authenticateIngestRequestMock.mockResolvedValue(actor);
     parseMock.mockReturnValue(signedUploadRequest);
   });
 
@@ -104,7 +104,7 @@ describe("/api/ingest/upload", () => {
       },
     });
     expect(response.status).toBe(200);
-    expect(authenticateGithubRequestMock).toHaveBeenCalledWith(request);
+    expect(authenticateIngestRequestMock).toHaveBeenCalledWith(request);
     expect(parseMock).toHaveBeenCalledWith(signedUploadRequest);
     expect(createSignedThreadUploadMock).toHaveBeenCalledWith({
       ...signedUploadRequest,

@@ -10,7 +10,11 @@ import {
   type AthrdMetadata,
 } from "../utils/athrd-metadata.js";
 import { requireCredentials } from "../utils/auth.js";
-import { saveCredentials } from "../utils/credentials.js";
+import {
+  saveCredentials,
+  type Credentials,
+  type StoredGitHubUserInfo,
+} from "../utils/credentials.js";
 import { formatDate } from "../utils/date.js";
 import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
 import {
@@ -19,11 +23,11 @@ import {
   getGitHubRepo,
 } from "../utils/git.js";
 import { resolveGitHubRepositoryContext } from "../utils/github-context.js";
-import { getGitHubUserInfo } from "../utils/github.js";
 import {
   completeIngest,
   createSignedUpload,
   createIngestPlan,
+  exchangeCliToken,
   getFallbackThreadUrl,
   type IngestGithubContext,
   uploadToSignedUrl,
@@ -35,6 +39,8 @@ import {
   upsertThreadGistMapping,
   upsertThreadUploadMapping,
 } from "../utils/sessions.js";
+
+const CLI_TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 
 function extractSessionIdFromHookPayload(
   payload: string,
@@ -156,6 +162,49 @@ async function completeGistIngestOrFallback(input: {
   } catch {
     return getFallbackThreadUrl(input.gistId);
   }
+}
+
+async function resolveCliCredentials(credentials: Credentials): Promise<{
+  ingestToken: string;
+  userInfo: StoredGitHubUserInfo;
+}> {
+  if (
+    credentials.athrdToken &&
+    credentials.userInfo &&
+    isFreshCliToken(credentials.athrdTokenExpiresAt)
+  ) {
+    return {
+      ingestToken: credentials.athrdToken,
+      userInfo: credentials.userInfo,
+    };
+  }
+
+  const exchange = await exchangeCliToken(credentials.token);
+  const userInfo: StoredGitHubUserInfo = {
+    id: exchange.actor.githubUserId,
+    username: exchange.actor.githubUsername,
+    avatarImage: exchange.actor.avatarUrl || "",
+  };
+
+  await saveCredentials({
+    ...credentials,
+    athrdToken: exchange.token,
+    athrdTokenExpiresAt: exchange.expiresAt,
+    userInfo,
+  });
+
+  return {
+    ingestToken: exchange.token,
+    userInfo,
+  };
+}
+
+function isFreshCliToken(expiresAt: string | undefined): boolean {
+  const timestamp = Date.parse(expiresAt || "");
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp - Date.now() > CLI_TOKEN_REFRESH_WINDOW_MS
+  );
 }
 
 export function shareCommand(program: Command) {
@@ -310,9 +359,11 @@ export function shareCommand(program: Command) {
 
         try {
           const credentials = await requireCredentials();
-          const token = credentials.token;
+          const githubToken = credentials.token;
+          const { ingestToken, userInfo } =
+            await resolveCliCredentials(credentials);
           const octokit = new Octokit({
-            auth: token,
+            auth: githubToken,
             log: {
               debug: () => {},
               info: () => {},
@@ -321,12 +372,6 @@ export function shareCommand(program: Command) {
             },
           });
 
-          // Existing credentials may not have a cached actor yet.
-          const userInfo =
-            credentials.userInfo ?? (await getGitHubUserInfo(octokit));
-          if (!credentials.userInfo) {
-            await saveCredentials({ ...credentials, userInfo });
-          }
           let uploadedCount = 0;
           let skippedCount = 0;
 
@@ -402,14 +447,14 @@ export function shareCommand(program: Command) {
             let athrdUrl: string;
 
             const ingestPlan = await getIngestPlanOrDefault({
-              token,
+              token: ingestToken,
               metadata: athrdMetadata,
               github: githubContext,
             });
 
             if (ingestPlan.storageProvider === "s3") {
               const signedUpload = await createSignedUpload({
-                token,
+                token: ingestToken,
                 metadata: athrdMetadata,
                 github: githubContext,
                 artifact: {
@@ -423,7 +468,7 @@ export function shareCommand(program: Command) {
                 format: artifact.format,
               });
               const result = await completeIngest({
-                token,
+                token: ingestToken,
                 metadata: athrdMetadata,
                 github: githubContext,
                 artifact: {
@@ -493,7 +538,7 @@ export function shareCommand(program: Command) {
               });
 
               athrdUrl = await completeGistIngestOrFallback({
-                token,
+                token: ingestToken,
                 metadata: athrdMetadata,
                 github: githubContext,
                 artifact: {

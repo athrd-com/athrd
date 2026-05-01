@@ -1,5 +1,4 @@
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device";
-import { Octokit } from "@octokit/rest";
 import chalk from "chalk";
 import { Command } from "commander";
 import inquirer from "inquirer";
@@ -7,7 +6,7 @@ import open from "open";
 import { config } from "../config.js";
 import { installAllHooks } from "./hooks.js";
 import { saveCredentials } from "../utils/credentials.js";
-import { getGitHubUserInfo } from "../utils/github.js";
+import { exchangeCliToken } from "../utils/ingest-client.js";
 
 export function loginCommand(program: Command) {
   program
@@ -58,11 +57,19 @@ export function loginCommand(program: Command) {
 
         // Authenticate and get token
         const { token } = await auth({ type: "oauth" });
-        const octokit = new Octokit({ auth: token });
-        const userInfo = await getGitHubUserInfo(octokit);
+        const cliToken = await exchangeCliToken(token);
 
         // Save the token
-        await saveCredentials({ token, userInfo });
+        await saveCredentials({
+          token,
+          athrdToken: cliToken.token,
+          athrdTokenExpiresAt: cliToken.expiresAt,
+          userInfo: {
+            id: cliToken.actor.githubUserId,
+            username: cliToken.actor.githubUsername,
+            avatarImage: cliToken.actor.avatarUrl || "",
+          },
+        });
 
         const { shouldInstallHooks } = await inquirer.prompt([
           {

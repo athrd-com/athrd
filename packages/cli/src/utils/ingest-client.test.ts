@@ -3,6 +3,7 @@ import {
   canonicalizeAthrdBaseUrl,
   completeIngest,
   createIngestPlan,
+  exchangeCliToken,
 } from "./ingest-client.js";
 import type { AthrdMetadata } from "./athrd-metadata.js";
 
@@ -47,6 +48,40 @@ describe("canonicalizeAthrdBaseUrl", () => {
 });
 
 describe("ingest client requests", () => {
+  test("exchanges GitHub auth for an athrd CLI token", async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    globalThis.fetch = async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({
+        token: "athrd_cli_v1.payload.signature",
+        expiresAt: "2026-05-31T00:00:00.000Z",
+        actor: {
+          githubUserId: "123",
+          githubUsername: "octocat",
+          avatarUrl: "https://example.com/octocat.png",
+        },
+      });
+    };
+
+    await expect(exchangeCliToken("gho_test_token")).resolves.toEqual({
+      token: "athrd_cli_v1.payload.signature",
+      expiresAt: "2026-05-31T00:00:00.000Z",
+      actor: {
+        githubUserId: "123",
+        githubUsername: "octocat",
+        avatarUrl: "https://example.com/octocat.png",
+      },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(String(calls[0].input)).toEndWith("/api/cli/token");
+    expect(calls[0].init?.redirect).toBe("manual");
+
+    const headers = new Headers(calls[0].init?.headers);
+    expect(headers.get("authorization")).toBe("Bearer gho_test_token");
+    expect(headers.get("content-type")).toBe("application/json");
+  });
+
   test("sends bearer auth to plan and complete", async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     globalThis.fetch = async (input, init) => {

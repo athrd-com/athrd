@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createHash, createHmac } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { createS3PublicId } from "~/lib/sources/locator";
 import { db } from "~/server/db";
 import {
@@ -11,10 +11,26 @@ const S3_SIGNED_UPLOAD_TTL_SECONDS = 300;
 const S3_SIGNATURE_ALGORITHM = "AWS4-HMAC-SHA256";
 const GITHUB_TOKEN_AUTH_CACHE_TTL_MS = 60_000;
 const GITHUB_TOKEN_AUTH_CACHE_MAX_ENTRIES = 500;
+const CLI_ACCESS_TOKEN_PREFIX = "athrd_cli_v1";
+const CLI_ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
+const CLI_ACCESS_TOKEN_AUDIENCE = "athrd-cli-ingest";
+const CLI_ACCESS_TOKEN_ISSUER = "athrd";
+const DEVELOPMENT_CLI_TOKEN_SECRET = "athrd-development-cli-token-secret";
 
 interface CachedGithubActor {
   actor: AuthenticatedGithubActor;
   expiresAt: number;
+}
+
+interface CliAccessTokenPayload {
+  v: 1;
+  aud: typeof CLI_ACCESS_TOKEN_AUDIENCE;
+  iss: typeof CLI_ACCESS_TOKEN_ISSUER;
+  sub: string;
+  login: string;
+  avatarUrl?: string;
+  iat: number;
+  exp: number;
 }
 
 const githubTokenAuthCache = new Map<string, CachedGithubActor>();
@@ -177,16 +193,58 @@ export interface SignedUploadResult {
   };
 }
 
+export interface CliTokenExchangeResult {
+  token: string;
+  expiresAt: string;
+  actor: AuthenticatedGithubActor;
+}
+
+export function createCliAccessToken(
+  actor: AuthenticatedGithubActor,
+  now = new Date(),
+): CliTokenExchangeResult {
+  const issuedAtSeconds = Math.floor(now.getTime() / 1000);
+  const expiresAtSeconds = issuedAtSeconds + CLI_ACCESS_TOKEN_TTL_SECONDS;
+  const payload: CliAccessTokenPayload = {
+    v: 1,
+    aud: CLI_ACCESS_TOKEN_AUDIENCE,
+    iss: CLI_ACCESS_TOKEN_ISSUER,
+    sub: actor.githubUserId,
+    login: actor.githubUsername,
+    ...(actor.avatarUrl ? { avatarUrl: actor.avatarUrl } : {}),
+    iat: issuedAtSeconds,
+    exp: expiresAtSeconds,
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf-8").toString(
+    "base64url",
+  );
+  const signedValue = `${CLI_ACCESS_TOKEN_PREFIX}.${encodedPayload}`;
+  const signature = signCliAccessToken(signedValue);
+
+  return {
+    token: `${signedValue}.${signature}`,
+    expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+    actor: { ...actor },
+  };
+}
+
+export async function authenticateIngestRequest(
+  request: Request,
+): Promise<AuthenticatedGithubActor> {
+  const token = getBearerToken(request, "Missing ingest bearer token.");
+  const actor = verifyCliAccessToken(token);
+
+  if (actor) {
+    return actor;
+  }
+
+  return authenticateGithubRequest(request);
+}
+
 export async function authenticateGithubRequest(
   request: Request,
 ): Promise<AuthenticatedGithubActor> {
-  const header = request.headers.get("authorization") || "";
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1]?.trim();
-
-  if (!token) {
-    throw new IngestHttpError(401, "Missing GitHub bearer token.");
-  }
+  const token = getBearerToken(request, "Missing GitHub bearer token.");
 
   const tokenHash = sha256Hex(token);
   const cachedActor = getCachedGithubActor(tokenHash);
@@ -225,6 +283,124 @@ export async function authenticateGithubRequest(
 
   setCachedGithubActor(tokenHash, actor);
   return { ...actor };
+}
+
+function getBearerToken(request: Request, missingMessage: string): string {
+  const header = request.headers.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+
+  if (!token) {
+    throw new IngestHttpError(401, missingMessage);
+  }
+
+  return token;
+}
+
+function verifyCliAccessToken(token: string): AuthenticatedGithubActor | null {
+  if (!token.startsWith(`${CLI_ACCESS_TOKEN_PREFIX}.`)) {
+    return null;
+  }
+
+  const [prefix, encodedPayload, signature, ...rest] = token.split(".");
+
+  if (
+    prefix !== CLI_ACCESS_TOKEN_PREFIX ||
+    !encodedPayload ||
+    !signature ||
+    rest.length > 0
+  ) {
+    throw new IngestHttpError(401, "Invalid athrd CLI token.");
+  }
+
+  const signedValue = `${prefix}.${encodedPayload}`;
+  const expectedSignature = signCliAccessToken(signedValue);
+
+  if (!constantTimeEqual(signature, expectedSignature)) {
+    throw new IngestHttpError(401, "Invalid athrd CLI token.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(
+      Buffer.from(encodedPayload, "base64url").toString("utf-8"),
+    ) as unknown;
+  } catch {
+    throw new IngestHttpError(401, "Invalid athrd CLI token.");
+  }
+
+  if (!isCliAccessTokenPayload(payload)) {
+    throw new IngestHttpError(401, "Invalid athrd CLI token.");
+  }
+
+  if (payload.exp <= Math.floor(Date.now() / 1000)) {
+    throw new IngestHttpError(401, "Expired athrd CLI token.");
+  }
+
+  return {
+    githubUserId: payload.sub,
+    githubUsername: payload.login,
+    ...(payload.avatarUrl ? { avatarUrl: payload.avatarUrl } : {}),
+  };
+}
+
+function isCliAccessTokenPayload(
+  value: unknown,
+): value is CliAccessTokenPayload {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const payload = value as Partial<CliAccessTokenPayload>;
+  return (
+    payload.v === 1 &&
+    payload.aud === CLI_ACCESS_TOKEN_AUDIENCE &&
+    payload.iss === CLI_ACCESS_TOKEN_ISSUER &&
+    typeof payload.sub === "string" &&
+    payload.sub.trim().length > 0 &&
+    typeof payload.login === "string" &&
+    payload.login.trim().length > 0 &&
+    (payload.avatarUrl === undefined ||
+      typeof payload.avatarUrl === "string") &&
+    typeof payload.iat === "number" &&
+    Number.isFinite(payload.iat) &&
+    typeof payload.exp === "number" &&
+    Number.isFinite(payload.exp) &&
+    payload.exp > payload.iat
+  );
+}
+
+function signCliAccessToken(value: string): string {
+  return createHmac("sha256", getCliTokenSecret())
+    .update(value)
+    .digest("base64url");
+}
+
+function getCliTokenSecret(): string {
+  const secret = process.env.BETTER_AUTH_SECRET?.trim();
+  if (secret) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new IngestHttpError(
+      500,
+      "CLI token signing secret is not configured.",
+    );
+  }
+
+  return DEVELOPMENT_CLI_TOKEN_SECRET;
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left, "utf-8");
+  const rightBuffer = Buffer.from(right, "utf-8");
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function getCachedGithubActor(

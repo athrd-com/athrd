@@ -160,6 +160,44 @@ describe("ingest", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("authenticates signed CLI ingest tokens without calling GitHub", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { authenticateIngestRequest, createCliAccessToken } = await import(
+      "./ingest"
+    );
+    const exchange = createCliAccessToken({
+      ...actor,
+      avatarUrl: "https://example.com/octocat.png",
+    });
+
+    await expect(
+      authenticateIngestRequest(githubAuthRequest(exchange.token)),
+    ).resolves.toEqual({
+      ...actor,
+      avatarUrl: "https://example.com/octocat.png",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid signed CLI ingest tokens without GitHub fallback", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { authenticateIngestRequest, createCliAccessToken } = await import(
+      "./ingest"
+    );
+    const exchange = createCliAccessToken(actor);
+
+    await expect(
+      authenticateIngestRequest(githubAuthRequest(`${exchange.token}.tampered`)),
+    ).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("creates a storage plan from organization settings", async () => {
     getOrganizationStorageConfigMock.mockResolvedValueOnce({
       provider: "s3",

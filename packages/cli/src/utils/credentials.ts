@@ -10,6 +10,8 @@ export interface StoredGitHubUserInfo {
 
 export interface Credentials {
   token: string;
+  athrdToken?: string;
+  athrdTokenExpiresAt?: string;
   userInfo?: StoredGitHubUserInfo;
 }
 

@@ -1,5 +1,5 @@
 import {
-  authenticateGithubRequest,
+  authenticateIngestRequest,
   completeIngestRequestSchema,
   completeThreadIngest,
   IngestHttpError,
@@ -8,7 +8,7 @@ import { ZodError } from "zod";
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const actor = await authenticateGithubRequest(request);
+    const actor = await authenticateIngestRequest(request);
     const body = completeIngestRequestSchema.parse(await request.json());
     const result = await completeThreadIngest({
       metadata: body.metadata,

@@ -47,6 +47,22 @@ export interface SignedUploadResult {
   };
 }
 
+export interface CliTokenExchangeResult {
+  token: string;
+  expiresAt: string;
+  actor: {
+    githubUserId: string;
+    githubUsername: string;
+    avatarUrl?: string;
+  };
+}
+
+export async function exchangeCliToken(
+  githubToken: string,
+): Promise<CliTokenExchangeResult> {
+  return postJson("/api/cli/token", githubToken, {});
+}
+
 export async function createIngestPlan(input: {
   token: string;
   metadata: AthrdMetadata;

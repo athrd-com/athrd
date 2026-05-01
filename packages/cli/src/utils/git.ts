@@ -73,3 +73,21 @@ export function getGitHeadCommitHash(cwd?: string): string | null {
     return null;
   }
 }
+
+/**
+ * Get the current branch name for a repository working directory.
+ * Returns null for detached HEADs or non-git directories.
+ */
+export function getGitCurrentBranch(cwd?: string): string | null {
+  try {
+    const branch = execSync("git branch --show-current", {
+      encoding: "utf-8",
+      cwd,
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim();
+
+    return branch || null;
+  } catch {
+    return null;
+  }
+}

@@ -5,7 +5,16 @@ import * as path from "path";
 const ATHRD_DIR = path.join(os.homedir(), ".athrd");
 const SESSIONS_FILE = path.join(ATHRD_DIR, "sessions.json");
 
-export type SessionsMap = Record<string, string>;
+export type ThreadStorageProvider = "gist" | "s3";
+
+export interface StoredThreadUpload {
+  provider: ThreadStorageProvider;
+  publicId: string;
+  sourceId: string;
+  gistId?: string;
+}
+
+export type SessionsMap = Record<string, string | StoredThreadUpload>;
 
 function isSessionsMap(value: unknown): value is SessionsMap {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -13,7 +22,11 @@ function isSessionsMap(value: unknown): value is SessionsMap {
   }
 
   for (const v of Object.values(value as Record<string, unknown>)) {
-    if (typeof v !== "string") {
+    if (typeof v === "string") {
+      continue;
+    }
+
+    if (!isStoredThreadUpload(v)) {
       return false;
     }
   }
@@ -64,6 +77,21 @@ async function writeSessionsMap(data: SessionsMap): Promise<void> {
 export async function getGistIdForThread(
   threadId: string,
 ): Promise<string | null> {
+  const upload = await getStoredThreadUpload(threadId);
+  if (!upload) {
+    return null;
+  }
+
+  if (typeof upload === "string") {
+    return upload;
+  }
+
+  return upload.provider === "gist" ? upload.gistId || upload.sourceId : null;
+}
+
+export async function getStoredThreadUpload(
+  threadId: string,
+): Promise<string | StoredThreadUpload | null> {
   const sessions = await loadSessionsMap();
   return sessions[threadId] || null;
 }
@@ -72,7 +100,37 @@ export async function upsertThreadGistMapping(params: {
   threadId: string;
   gistId: string;
 }): Promise<void> {
+  await upsertThreadUploadMapping({
+    threadId: params.threadId,
+    upload: {
+      provider: "gist",
+      publicId: params.gistId,
+      sourceId: params.gistId,
+      gistId: params.gistId,
+    },
+  });
+}
+
+export async function upsertThreadUploadMapping(params: {
+  threadId: string;
+  upload: StoredThreadUpload;
+}): Promise<void> {
   const sessions = await loadSessionsMap();
-  sessions[params.threadId] = params.gistId;
+  sessions[params.threadId] = params.upload;
   await writeSessionsMap(sessions);
+}
+
+function isStoredThreadUpload(value: unknown): value is StoredThreadUpload {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    (record.provider === "gist" || record.provider === "s3") &&
+    typeof record.publicId === "string" &&
+    typeof record.sourceId === "string" &&
+    (record.gistId === undefined || typeof record.gistId === "string")
+  );
 }

@@ -94,3 +94,43 @@ CREATE INDEX IF NOT EXISTS "repositories_githubOrgId_idx"
 
 CREATE UNIQUE INDEX IF NOT EXISTS "repositories_owner_name_lower_idx"
   ON "repositories" (LOWER(owner), LOWER(name));
+
+CREATE TABLE IF NOT EXISTS "threads" (
+  id TEXT PRIMARY KEY,
+  "threadId" TEXT NOT NULL,
+  "providerSessionId" TEXT NOT NULL,
+  source TEXT NOT NULL,
+  title TEXT,
+  "messageCount" INTEGER,
+  "ownerGithubUserId" TEXT NOT NULL,
+  "ownerGithubUsername" TEXT NOT NULL,
+  "organizationGithubOrgId" TEXT REFERENCES "organizations"("githubOrgId") ON DELETE SET NULL,
+  "repositoryGithubRepoId" TEXT REFERENCES "repositories"("githubRepoId") ON DELETE SET NULL,
+  "publicId" TEXT NOT NULL UNIQUE,
+  "storageProvider" TEXT NOT NULL,
+  "storageSourceId" TEXT NOT NULL,
+  "artifactFileName" TEXT NOT NULL,
+  "artifactFormat" TEXT NOT NULL,
+  "startedAt" TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL,
+  "uploadedAt" TIMESTAMP DEFAULT NOW(),
+  "commitSha" TEXT,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "lastSeenAt" TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT "threads_storageProvider_check"
+    CHECK ("storageProvider" IN ('gist', 's3')),
+  CONSTRAINT "threads_artifactFormat_check"
+    CHECK ("artifactFormat" IN ('json', 'jsonl'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "threads_owner_source_thread_idx"
+  ON "threads" ("ownerGithubUserId", source, "threadId");
+
+CREATE INDEX IF NOT EXISTS "threads_owner_updatedAt_idx"
+  ON "threads" ("ownerGithubUserId", "updatedAt" DESC);
+
+CREATE INDEX IF NOT EXISTS "threads_organization_updatedAt_idx"
+  ON "threads" ("organizationGithubOrgId", "updatedAt" DESC);
+
+CREATE INDEX IF NOT EXISTS "threads_repository_updatedAt_idx"
+  ON "threads" ("repositoryGithubRepoId", "updatedAt" DESC);

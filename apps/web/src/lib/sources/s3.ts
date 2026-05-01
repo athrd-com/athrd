@@ -1,5 +1,8 @@
-import { env } from "@/env";
 import { createS3ThreadListEntry, type ThreadListPage } from "../thread-list";
+import {
+  getOrganizationStorageConfig,
+  type S3StorageConfig,
+} from "~/server/organization-storage";
 import type {
   ThreadLocator,
   ThreadListPageOptions,
@@ -40,19 +43,15 @@ type BunRuntimeLike = {
 type BunS3ClientLike = InstanceType<BunRuntimeLike["S3Client"]>;
 
 export class S3ThreadSourceProvider implements ThreadSourceProvider {
-  private client: BunS3ClientLike | null = null;
+  private clients = new Map<string, BunS3ClientLike>();
 
   async readThread(locator: ThreadLocator): Promise<ThreadSourceRecord | null> {
-    const bucket = env.ATHRD_THREADS_S3_BUCKET;
-    const region = env.ATHRD_THREADS_S3_REGION;
-    const accessKeyId = env.ATHRD_THREADS_S3_ACCESS_KEY_ID;
-    const secretAccessKey = env.ATHRD_THREADS_S3_SECRET_ACCESS_KEY;
-
-    if (!bucket || !region || !accessKeyId || !secretAccessKey) {
+    const storageConfig = await this.getStorageConfig(locator.sourceId);
+    if (!isS3StorageConfigured(storageConfig)) {
       return null;
     }
 
-    const client = this.getClient();
+    const client = this.getClient(storageConfig);
     if (!client) {
       return null;
     }
@@ -89,7 +88,12 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
       return { items: [] };
     }
 
-    const client = this.getClient();
+    const storageConfig = await this.getStorageConfig(orgId);
+    if (!isS3StorageConfigured(storageConfig)) {
+      return { items: [] };
+    }
+
+    const client = this.getClient(storageConfig);
     if (!client) {
       return { items: [] };
     }
@@ -120,7 +124,12 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
   }
 
   async deleteThread(sourceId: string): Promise<void> {
-    const client = this.getClient();
+    const storageConfig = await this.getStorageConfig(sourceId);
+    if (!isS3StorageConfigured(storageConfig)) {
+      throw new Error("S3 storage is not configured");
+    }
+
+    const client = this.getClient(storageConfig);
     if (!client) {
       throw new Error("S3 storage is not configured");
     }
@@ -134,7 +143,12 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
   }
 
   async updateTitle(sourceId: string, title: string): Promise<void> {
-    const client = this.getClient();
+    const storageConfig = await this.getStorageConfig(sourceId);
+    if (!isS3StorageConfigured(storageConfig)) {
+      throw new Error("S3 storage is not configured");
+    }
+
+    const client = this.getClient(storageConfig);
     if (!client) {
       throw new Error("S3 storage is not configured");
     }
@@ -166,28 +180,38 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
     await client.write(objectKey, `${JSON.stringify(rawContent, null, 2)}\n`);
   }
 
-  private getClient() {
+  private async getStorageConfig(sourceIdOrOrgId: string): Promise<S3StorageConfig> {
+    const orgId = getOrgIdFromSourceId(sourceIdOrOrgId);
+    const storage = await getOrganizationStorageConfig(orgId);
+    return storage.s3;
+  }
+
+  private getClient(config: S3StorageConfig) {
     const BunRuntime = getBunRuntime();
 
     if (!BunRuntime?.S3Client) {
       return null;
     }
 
-    if (!this.client) {
-      this.client = this.createClient(BunRuntime);
+    const clientKey = getS3ClientKey(config);
+    const existingClient = this.clients.get(clientKey);
+    if (existingClient) {
+      return existingClient;
     }
 
-    return this.client;
+    const client = this.createClient(BunRuntime, config);
+    this.clients.set(clientKey, client);
+    return client;
   }
 
-  private createClient(BunRuntime: BunRuntimeLike) {
+  private createClient(BunRuntime: BunRuntimeLike, config: S3StorageConfig) {
     return new BunRuntime.S3Client({
-      region: env.ATHRD_THREADS_S3_REGION,
-      bucket: env.ATHRD_THREADS_S3_BUCKET,
-      accessKeyId: env.ATHRD_THREADS_S3_ACCESS_KEY_ID,
-      secretAccessKey: env.ATHRD_THREADS_S3_SECRET_ACCESS_KEY,
-      endpoint: env.ATHRD_THREADS_S3_ENDPOINT || undefined,
-      virtualHostedStyle: env.ATHRD_THREADS_S3_VIRTUAL_HOSTED_STYLE,
+      region: config.region,
+      bucket: config.bucket,
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      endpoint: config.endpointUrl || undefined,
+      virtualHostedStyle: config.virtualHostedStyle,
     });
   }
 
@@ -199,7 +223,7 @@ export class S3ThreadSourceProvider implements ThreadSourceProvider {
       return sourceId;
     }
 
-    const filename = sourceId.endsWith(".json") ? sourceId : `${sourceId}.json`;
+    const filename = sourceId.match(/\.jsonl?$/i) ? sourceId : `${sourceId}.json`;
     const objectKeys = await listAllObjectKeys(client);
     const match = objectKeys.find((object) =>
       object.key.endsWith(`/${filename}`),
@@ -250,7 +274,7 @@ async function listAllObjectKeys(
     for (const object of response.contents || []) {
       if (
         !object.key ||
-        !object.key.endsWith(".json") ||
+        !isThreadArtifactObjectKey(object.key) ||
         (prefix && !object.key.startsWith(prefix))
       ) {
         continue;
@@ -292,7 +316,7 @@ async function listObjectKeysPage(
       .filter(
         (object) =>
           object.key &&
-          object.key.endsWith(".json") &&
+          isThreadArtifactObjectKey(object.key) &&
           (!options.prefix || object.key.startsWith(options.prefix)),
       )
       .map((object) => ({
@@ -326,4 +350,31 @@ function getComparableDate(value: string | number | undefined): number {
   }
 
   return 0;
+}
+
+function isThreadArtifactObjectKey(objectKey: string): boolean {
+  return /\.jsonl?$/i.test(objectKey);
+}
+
+function getOrgIdFromSourceId(sourceIdOrOrgId: string): string | undefined {
+  return sourceIdOrOrgId.trim().split("/").filter(Boolean)[0];
+}
+
+function isS3StorageConfigured(config: S3StorageConfig): boolean {
+  return Boolean(
+    config.bucket &&
+      config.region &&
+      config.accessKeyId &&
+      config.secretAccessKey,
+  );
+}
+
+function getS3ClientKey(config: S3StorageConfig): string {
+  return JSON.stringify({
+    endpointUrl: config.endpointUrl || "",
+    bucket: config.bucket || "",
+    region: config.region || "",
+    accessKeyId: config.accessKeyId || "",
+    virtualHostedStyle: config.virtualHostedStyle ?? null,
+  });
 }

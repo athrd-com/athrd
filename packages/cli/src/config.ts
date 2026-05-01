@@ -9,7 +9,14 @@ export const config = {
 
   // API endpoints (customize for your service)
   api: {
-    baseUrl: process.env.ATHRD_API_URL || "https://api.athrd.com",
+    baseUrl:
+      process.env.ATHRD_API_URL ||
+      process.env.ATHRD_WEB_URL ||
+      "https://athrd.com",
+  },
+
+  web: {
+    baseUrl: process.env.ATHRD_WEB_URL || "https://athrd.com",
   },
 
   // CLI metadata

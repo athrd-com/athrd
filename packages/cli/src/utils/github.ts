@@ -10,6 +10,7 @@ export interface GitHubOrgInfo {
 	orgId: number;
 	orgName: string;
 	orgIcon: string;
+	name?: string;
 }
 
 let cachedUserInfo: GitHubUserInfo | null = null;
@@ -69,6 +70,7 @@ export async function getGitHubOrgInfo(
 		orgId: response.data.id,
 		orgName: response.data.login,
 		orgIcon: response.data.avatar_url,
+		name: response.data.name || undefined,
 	};
 
 	cachedOrgInfos.set(orgName, orgInfo);
@@ -84,7 +86,12 @@ export function resetGitHubOrgInfoCache(): void {
 
 export interface GitHubRepoInfo {
 	repoId: number;
+	owner: string;
 	name: string;
+	fullName: string;
+	htmlUrl?: string;
+	defaultBranch?: string;
+	private?: boolean;
 }
 
 const cachedRepoInfos = new Map<string, GitHubRepoInfo>();
@@ -113,7 +120,12 @@ export async function getGitHubRepoInfo(
 
 	const repoInfo: GitHubRepoInfo = {
 		repoId: response.data.id,
+		owner: response.data.owner.login,
 		name: response.data.name,
+		fullName: response.data.full_name,
+		htmlUrl: response.data.html_url,
+		defaultBranch: response.data.default_branch,
+		private: response.data.private,
 	};
 
 	cachedRepoInfos.set(cacheKey, repoInfo);

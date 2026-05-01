@@ -12,17 +12,30 @@ import {
 import { requireAuth } from "../utils/auth.js";
 import { formatDate } from "../utils/date.js";
 import { ensureRepoCommitMsgHookCompatibility } from "../utils/git-hooks.js";
-import { getGitHeadCommitHash, getGitHubRepo } from "../utils/git.js";
+import {
+  getGitCurrentBranch,
+  getGitHeadCommitHash,
+  getGitHubRepo,
+} from "../utils/git.js";
 import {
   getGitHubOrgInfo,
   getGitHubRepoInfo,
   getGitHubUserInfo,
 } from "../utils/github.js";
+import {
+  completeIngest,
+  createSignedUpload,
+  createIngestPlan,
+  getFallbackThreadUrl,
+  type IngestGithubContext,
+  uploadToSignedUrl,
+} from "../utils/ingest-client.js";
 import { appendAthrdUrlMarker } from "../utils/marker.js";
 import { maybeBackfillHookDrivenCommit } from "../utils/hook-share-backfill.js";
 import {
   getGistIdForThread,
   upsertThreadGistMapping,
+  upsertThreadUploadMapping,
 } from "../utils/sessions.js";
 
 function extractSessionIdFromHookPayload(
@@ -101,6 +114,66 @@ async function getExistingStaleAthrdFileName(
 
   const response = await octokit.gists.get({ gist_id: gistId });
   return response.data.files?.[staleFileName] ? staleFileName : null;
+}
+
+async function getIngestPlanOrDefault(input: {
+  token: string;
+  metadata: AthrdMetadata;
+  github: IngestGithubContext;
+}) {
+  try {
+    return await createIngestPlan(input);
+  } catch (error) {
+    console.warn(
+      chalk.yellow(
+        `⚠ Unable to reach athrd ingest API; defaulting to Gist upload: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      ),
+    );
+
+    return {
+      storageProvider: "gist" as const,
+      uploadMode: "client" as const,
+    };
+  }
+}
+
+async function completeGistIngestOrFallback(input: {
+  token: string;
+  metadata: AthrdMetadata;
+  github: IngestGithubContext;
+  artifact: {
+    fileName: string;
+    format: "json" | "jsonl";
+  };
+  gistId: string;
+}): Promise<string> {
+  try {
+    const result = await completeIngest({
+      token: input.token,
+      metadata: input.metadata,
+      github: input.github,
+      artifact: input.artifact,
+      storage: {
+        provider: "gist",
+        publicId: input.gistId,
+        sourceId: input.gistId,
+      },
+    });
+
+    return result.url;
+  } catch (error) {
+    console.warn(
+      chalk.yellow(
+        `⚠ Uploaded Gist but failed to index thread in athrd: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      ),
+    );
+
+    return getFallbackThreadUrl(input.gistId);
+  }
 }
 
 export function shareCommand(program: Command) {
@@ -299,6 +372,7 @@ export function shareCommand(program: Command) {
             // Prefer cwd from hook payload when available, then session workspace path.
             const githubRepo = getGitHubRepo(repoCwd);
             const commitHash = getGitHeadCommitHash(repoCwd);
+            const branch = getGitCurrentBranch(repoCwd);
 
             // Extract organization name from repo (format: "org/repo")
             const orgName = githubRepo?.split("/")[0];
@@ -311,6 +385,31 @@ export function shareCommand(program: Command) {
               orgName && repoName
                 ? await getGitHubRepoInfo(octokit, orgName, repoName)
                 : null;
+            const githubContext: IngestGithubContext = {
+              ...(orgInfo && {
+                organization: {
+                  githubOrgId: String(orgInfo.orgId),
+                  login: orgInfo.orgName,
+                  ...(orgInfo.name ? { name: orgInfo.name } : {}),
+                  avatarUrl: orgInfo.orgIcon,
+                },
+              }),
+              ...(repoInfo && {
+                repository: {
+                  githubRepoId: String(repoInfo.repoId),
+                  owner: repoInfo.owner,
+                  name: repoInfo.name,
+                  fullName: repoInfo.fullName,
+                  ...(repoInfo.htmlUrl ? { htmlUrl: repoInfo.htmlUrl } : {}),
+                  ...(repoInfo.defaultBranch
+                    ? { defaultBranch: repoInfo.defaultBranch }
+                    : {}),
+                  ...(typeof repoInfo.private === "boolean"
+                    ? { private: repoInfo.private }
+                    : {}),
+                },
+              }),
+            };
 
             const threadMetadata = await provider.getMetadata(session, {
               cliVersion: config.version,
@@ -336,6 +435,7 @@ export function shareCommand(program: Command) {
               ...(commitHash && {
                 commit: {
                   sha: commitHash,
+                  ...(branch ? { branch } : {}),
                 },
               }),
               upload: {
@@ -345,56 +445,112 @@ export function shareCommand(program: Command) {
 
             const content = injectAthrdMetadata(artifact, athrdMetadata);
             const fileName = artifact.fileName;
-
-            const existingGistId = await getGistIdForThread(session.sessionId);
-
-            let gistId: string;
             let actionLabel: string;
+            let athrdUrl: string;
 
-            if (existingGistId) {
-              const staleFileName = await getExistingStaleAthrdFileName(
-                octokit,
-                existingGistId,
-                fileName,
-              );
-              const files: Record<string, any> = {
-                [fileName]: { content },
-              };
-              if (staleFileName) {
-                files[staleFileName] = null;
-              }
-
-              await octokit.gists.update({
-                gist_id: existingGistId,
-                files,
-                description: threadMetadata.title || "AI Chat Thread",
-              });
-
-              gistId = existingGistId;
-              actionLabel = "updated";
-            } else {
-              const response = await octokit.gists.create({
-                files: {
-                  [fileName]: { content },
-                },
-                description: threadMetadata.title || "AI Chat Thread",
-                public: false,
-              });
-
-              if (!response.data.id) {
-                throw new Error("GitHub API did not return a gist id");
-              }
-
-              gistId = response.data.id;
-              actionLabel = "created";
-            }
-
-            await upsertThreadGistMapping({
-              threadId: session.sessionId,
-              gistId,
+            const ingestPlan = await getIngestPlanOrDefault({
+              token,
+              metadata: athrdMetadata,
+              github: githubContext,
             });
 
-            const athrdUrl = `https://athrd.com/threads/${gistId}`;
+            if (ingestPlan.storageProvider === "s3") {
+              const signedUpload = await createSignedUpload({
+                token,
+                metadata: athrdMetadata,
+                github: githubContext,
+                artifact: {
+                  fileName,
+                  format: artifact.format,
+                },
+              });
+              await uploadToSignedUrl({
+                uploadUrl: signedUpload.uploadUrl,
+                content,
+                format: artifact.format,
+              });
+              const result = await completeIngest({
+                token,
+                metadata: athrdMetadata,
+                github: githubContext,
+                artifact: {
+                  fileName,
+                  format: artifact.format,
+                },
+                storage: signedUpload.storage,
+              });
+
+              await upsertThreadUploadMapping({
+                threadId: session.sessionId,
+                upload: {
+                  provider: "s3",
+                  publicId: result.publicId,
+                  sourceId: result.sourceId,
+                },
+              });
+
+              actionLabel = "uploaded";
+              athrdUrl = result.url;
+            } else {
+              const existingGistId = await getGistIdForThread(session.sessionId);
+
+              let gistId: string;
+
+              if (existingGistId) {
+                const staleFileName = await getExistingStaleAthrdFileName(
+                  octokit,
+                  existingGistId,
+                  fileName,
+                );
+                const files: Record<string, any> = {
+                  [fileName]: { content },
+                };
+                if (staleFileName) {
+                  files[staleFileName] = null;
+                }
+
+                await octokit.gists.update({
+                  gist_id: existingGistId,
+                  files,
+                  description: threadMetadata.title || "AI Chat Thread",
+                });
+
+                gistId = existingGistId;
+                actionLabel = "updated";
+              } else {
+                const response = await octokit.gists.create({
+                  files: {
+                    [fileName]: { content },
+                  },
+                  description: threadMetadata.title || "AI Chat Thread",
+                  public: false,
+                });
+
+                if (!response.data.id) {
+                  throw new Error("GitHub API did not return a gist id");
+                }
+
+                gistId = response.data.id;
+                actionLabel = "created";
+              }
+
+              await upsertThreadGistMapping({
+                threadId: session.sessionId,
+                gistId,
+              });
+
+              athrdUrl = await completeGistIngestOrFallback({
+                token,
+                metadata: athrdMetadata,
+                github: githubContext,
+                artifact: {
+                  fileName,
+                  format: artifact.format,
+                },
+                gistId,
+              });
+            }
+
             uploadedCount++;
 
             if (options.mark) {

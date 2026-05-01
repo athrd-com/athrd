@@ -12,6 +12,20 @@ vi.mock("@/env", () => ({
   },
 }));
 
+vi.mock("~/server/organization-storage", () => ({
+  getOrganizationStorageConfig: vi.fn().mockResolvedValue({
+    provider: "s3",
+    s3: {
+      bucket: "athrd-threads",
+      region: "us-west-2",
+      accessKeyId: "filebase-key",
+      secretAccessKey: "filebase-secret",
+      endpointUrl: undefined,
+      virtualHostedStyle: false,
+    },
+  }),
+}));
+
 const existsMock = vi.fn();
 const textMock = vi.fn();
 const deleteMock = vi.fn();

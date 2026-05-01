@@ -50,6 +50,27 @@ describe("thread-source", () => {
     });
   });
 
+  it("parses structured S3 ids with hyphenated thread ids", () => {
+    const publicId = createS3PublicId("456/123/thread-a.json");
+
+    expect(parseThreadLocator(publicId)).toEqual({
+      publicId,
+      source: "s3",
+      sourceId: "456/123/thread-a.json",
+    });
+  });
+
+  it("uses encoded S3 ids for JSONL object keys", () => {
+    const publicId = createS3PublicId("456/123/thread-a.jsonl");
+
+    expect(publicId).toMatch(/^S_/);
+    expect(parseThreadLocator(publicId)).toEqual({
+      publicId,
+      source: "s3",
+      sourceId: "456/123/thread-a.jsonl",
+    });
+  });
+
   it("keeps supporting raw S3 ids", () => {
     expect(parseThreadLocator("S-threads/demo.json")).toEqual({
       publicId: "S-threads/demo.json",

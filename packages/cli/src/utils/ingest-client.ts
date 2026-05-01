@@ -112,9 +112,23 @@ export async function uploadToSignedUrl(input: {
 }
 
 export function getFallbackThreadUrl(publicId: string): string {
-  return `${config.web.baseUrl.replace(/\/+$/, "")}/threads/${encodeURIComponent(
+  return `${canonicalizeAthrdBaseUrl(config.web.baseUrl)}/threads/${encodeURIComponent(
     publicId,
   )}`;
+}
+
+export function canonicalizeAthrdBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === "https:" && url.hostname === "athrd.com") {
+      url.hostname = "www.athrd.com";
+    }
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return trimmed;
+  }
 }
 
 async function postJson<T>(
@@ -124,6 +138,7 @@ async function postJson<T>(
 ): Promise<T> {
   const response = await fetch(resolveApiUrl(path), {
     method: "POST",
+    redirect: "manual",
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
@@ -140,6 +155,13 @@ async function postJson<T>(
 }
 
 async function getErrorMessage(response: Response): Promise<string> {
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
+    return location
+      ? `athrd ingest API redirected to ${location}. Set ATHRD_API_URL to the canonical API origin so the authorization header is not lost.`
+      : `athrd ingest API returned HTTP ${response.status} redirect response`;
+  }
+
   try {
     const body = (await response.json()) as { error?: unknown };
     if (typeof body.error === "string" && body.error.trim()) {
@@ -153,5 +175,5 @@ async function getErrorMessage(response: Response): Promise<string> {
 }
 
 function resolveApiUrl(path: string): string {
-  return `${config.api.baseUrl.replace(/\/+$/, "")}${path}`;
+  return `${canonicalizeAthrdBaseUrl(config.api.baseUrl)}${path}`;
 }

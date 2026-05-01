@@ -12,14 +12,14 @@ export const config = {
     baseUrl:
       process.env.ATHRD_API_URL ||
       process.env.ATHRD_WEB_URL ||
-      "https://athrd.com",
+      "https://www.athrd.com",
   },
 
   web: {
-    baseUrl: process.env.ATHRD_WEB_URL || "https://athrd.com",
+    baseUrl: process.env.ATHRD_WEB_URL || "https://www.athrd.com",
   },
 
   // CLI metadata
   name: "@athrd/cli",
-  version: "1.1.8",
+  version: "1.1.9",
 };

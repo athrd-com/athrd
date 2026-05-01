@@ -27,7 +27,7 @@ const metadata: AthrdMetadata = {
     sha: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
   },
   upload: {
-    cliVersion: "1.1.8",
+    cliVersion: "1.1.9",
   },
 };
 
@@ -46,7 +46,7 @@ describe("injectAthrdMetadata", () => {
     const parsed = JSON.parse(output);
     expect(parsed.__athrd.thread.source).toBe("codex");
     expect(parsed.__athrd.thread.ide).toBeUndefined();
-    expect(parsed.__athrd.upload).toEqual({ cliVersion: "1.1.8" });
+    expect(parsed.__athrd.upload).toEqual({ cliVersion: "1.1.9" });
     expect(parsed.__athrd.organization).toEqual({ githubOrgId: "456" });
     expect(parsed.__athrd.repository).toEqual({ githubRepoId: "789" });
   });

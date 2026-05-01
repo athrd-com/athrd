@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ClaudeAiIcon } from "@/components/ui/svgs/claudeAiIcon";
+import { CursorDark } from "@/components/ui/svgs/cursorDark";
+import { Gemini } from "@/components/ui/svgs/gemini";
+import { OpenaiDark } from "@/components/ui/svgs/openaiDark";
+import { Pi } from "@/components/ui/svgs/pi";
+import { Vscode } from "@/components/ui/svgs/vscode";
+import { ArrowRight, Code2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "~/components/ui/table";
 import type { ThreadListEntry } from "~/lib/thread-list";
@@ -25,6 +31,7 @@ export function ThreadRow({
   const updatedLabel = updatedAt
     ? formatUpdatedAt(updatedAt, updatedDisplay, relativeTo)
     : "Unknown";
+  const ideIcon = getIdeIcon(thread.ide);
 
   return (
     <TableRow
@@ -32,8 +39,16 @@ export function ThreadRow({
       onClick={() => router.push(href)}
     >
       <TableCell className="max-w-[28rem] py-2">
-        <div className="truncate font-medium">
-          {thread.title || "Untitled Thread"}
+        <div className="flex min-w-0 items-center gap-2 font-medium">
+          {ideIcon ? (
+            <span
+              className="flex size-4 shrink-0 items-center justify-center"
+              title={getIdeName(thread.ide)}
+            >
+              {ideIcon}
+            </span>
+          ) : null}
+          <span className="truncate">{thread.title || "Untitled Thread"}</span>
         </div>
       </TableCell>
       <TableCell className="hidden max-w-64 py-2 md:table-cell">
@@ -47,6 +62,55 @@ export function ThreadRow({
       </TableCell>
     </TableRow>
   );
+}
+
+function getIdeIcon(ide?: string) {
+  const iconClassName = "size-4";
+
+  switch (ide) {
+    case "claude":
+      return <ClaudeAiIcon className={iconClassName} />;
+    case "codex":
+      return <OpenaiDark className={iconClassName} />;
+    case "cursor":
+      return (
+        <CursorDark
+          className={`${iconClassName} text-white`}
+          fill="currentColor"
+        />
+      );
+    case "gemini":
+      return <Gemini className={iconClassName} />;
+    case "pi":
+      return <Pi className={`${iconClassName} text-white`} />;
+    case "vscode":
+      return <Vscode className={iconClassName} />;
+    default:
+      return ide ? (
+        <Code2 className={`${iconClassName} text-muted-foreground`} />
+      ) : null;
+  }
+}
+
+function getIdeName(ide?: string): string {
+  switch (ide) {
+    case "claude":
+      return "Claude";
+    case "codex":
+      return "Codex";
+    case "cursor":
+      return "Cursor";
+    case "gemini":
+      return "Gemini";
+    case "opencode":
+      return "OpenCode";
+    case "pi":
+      return "Pi";
+    case "vscode":
+      return "VS Code";
+    default:
+      return ide || "Unknown IDE";
+  }
 }
 
 function getRepositoryLabel(thread: ThreadListEntry): string {

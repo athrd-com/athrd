@@ -83,6 +83,7 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
     threadGroups.today.length +
     threadGroups.yesterday.length +
     threadGroups.older.items.length;
+  const relativeTo = Date.now();
   const nextHref = threadGroups.older.nextCursor
     ? buildThreadsHref({
         orgId: selectedOrgId,
@@ -127,7 +128,9 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
           <ThreadSection
             title="Today"
             emptyLabel="No sessions today"
+            relativeTo={relativeTo}
             threads={threadGroups.today}
+            updatedDisplay="relative"
           />
           <ThreadSection
             title="Yesterday"
@@ -182,12 +185,16 @@ function ThreadSection({
   title,
   emptyLabel,
   footer,
+  relativeTo,
   threads,
+  updatedDisplay = "absolute",
 }: {
   title: string;
   emptyLabel: string;
   footer?: ReactNode;
+  relativeTo?: number;
   threads: ThreadListEntry[];
+  updatedDisplay?: "absolute" | "relative";
 }) {
   return (
     <section className="space-y-3">
@@ -203,7 +210,6 @@ function ThreadSection({
             <TableRow>
               <TableHead>Session</TableHead>
               <TableHead className="hidden md:table-cell">Repository</TableHead>
-              <TableHead className="hidden lg:table-cell">Organization</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="w-10 text-right">Actions</TableHead>
             </TableRow>
@@ -211,13 +217,18 @@ function ThreadSection({
           <TableBody>
             {threads.length > 0 ? (
               threads.map((thread) => (
-                <ThreadRow key={thread.id} thread={thread} />
+                <ThreadRow
+                  key={thread.id}
+                  relativeTo={relativeTo}
+                  thread={thread}
+                  updatedDisplay={updatedDisplay}
+                />
               ))
             ) : (
               <TableRow>
                 <TableCell
                   className="px-4 py-8 text-center text-sm text-muted-foreground"
-                  colSpan={5}
+                  colSpan={4}
                 >
                   {emptyLabel}
                 </TableCell>

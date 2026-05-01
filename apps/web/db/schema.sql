@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS "organizations" (
   login TEXT NOT NULL,
   name TEXT,
   "avatarUrl" TEXT,
+  "githubMemberCount" INTEGER,
+  "githubAppInstallationId" TEXT,
   "storageProvider" TEXT NOT NULL DEFAULT 'gist',
   "s3EndpointUrl" TEXT,
   "s3Bucket" TEXT,
@@ -68,12 +70,44 @@ CREATE TABLE IF NOT EXISTS "organizations" (
   "createdAt" TIMESTAMP DEFAULT NOW(),
   "updatedAt" TIMESTAMP DEFAULT NOW(),
   "lastSeenAt" TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT "organizations_githubMemberCount_check"
+    CHECK ("githubMemberCount" IS NULL OR "githubMemberCount" >= 0),
   CONSTRAINT "organizations_storageProvider_check"
     CHECK ("storageProvider" IN ('gist', 's3'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "organizations_login_lower_idx"
   ON "organizations" (LOWER(login));
+
+CREATE UNIQUE INDEX IF NOT EXISTS "organizations_githubAppInstallationId_idx"
+  ON "organizations" ("githubAppInstallationId")
+  WHERE "githubAppInstallationId" IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS "organization_billing" (
+  "githubOrgId" TEXT PRIMARY KEY REFERENCES "organizations"("githubOrgId") ON DELETE CASCADE,
+  "stripeCustomerId" TEXT NOT NULL UNIQUE,
+  "stripeSubscriptionId" TEXT UNIQUE,
+  "stripeSubscriptionItemId" TEXT UNIQUE,
+  "stripePriceId" TEXT,
+  "subscriptionStatus" TEXT NOT NULL DEFAULT 'incomplete',
+  "cancelAtPeriodEnd" BOOLEAN NOT NULL DEFAULT FALSE,
+  "currentPeriodEnd" TIMESTAMP,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT "organization_billing_subscriptionStatus_check"
+    CHECK (
+      "subscriptionStatus" IN (
+        'incomplete',
+        'incomplete_expired',
+        'trialing',
+        'active',
+        'past_due',
+        'canceled',
+        'unpaid',
+        'paused'
+      )
+    )
+);
 
 CREATE TABLE IF NOT EXISTS "repositories" (
   "githubRepoId" TEXT PRIMARY KEY,

@@ -109,6 +109,28 @@ CREATE TABLE IF NOT EXISTS "organization_billing" (
     )
 );
 
+CREATE TABLE IF NOT EXISTS "stripe_events" (
+  "stripeEventId" TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  "apiVersion" TEXT,
+  livemode BOOLEAN,
+  status TEXT NOT NULL DEFAULT 'processing',
+  attempts INTEGER NOT NULL DEFAULT 1,
+  payload JSONB NOT NULL,
+  "stripeCreatedAt" TIMESTAMP,
+  "processedAt" TIMESTAMP,
+  "processingError" TEXT,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT "stripe_events_status_check"
+    CHECK (status IN ('processing', 'processed', 'failed')),
+  CONSTRAINT "stripe_events_attempts_check"
+    CHECK (attempts >= 1)
+);
+
+CREATE INDEX IF NOT EXISTS "stripe_events_status_updatedAt_idx"
+  ON "stripe_events" (status, "updatedAt");
+
 CREATE TABLE IF NOT EXISTS "repositories" (
   "githubRepoId" TEXT PRIMARY KEY,
   "githubOrgId" TEXT REFERENCES "organizations"("githubOrgId") ON DELETE SET NULL,

@@ -49,6 +49,9 @@ interface StripeSubscriptionResponse {
 export interface StripeWebhookEvent {
   id?: string;
   type?: string;
+  api_version?: string;
+  created?: number;
+  livemode?: boolean;
   data?: {
     object?: unknown;
   };

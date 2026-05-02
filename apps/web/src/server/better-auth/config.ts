@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 
 import { env } from "~/env";
 import { pool } from "~/server/db";
+import { importGithubOrganizationsForAuthAccount } from "~/server/github-organizations";
 
 function normalizeBaseUrl(url: string) {
   const trimmedUrl = url.trim().replace(/\/+$/, "");
@@ -28,6 +29,20 @@ function resolveBaseUrl() {
 export const auth = betterAuth({
   baseURL: resolveBaseUrl(),
   database: pool,
+  databaseHooks: {
+    account: {
+      create: {
+        after: async (account, context) => {
+          await importGithubOrganizationsAfterAuth(account, context);
+        },
+      },
+      update: {
+        after: async (account, context) => {
+          await importGithubOrganizationsAfterAuth(account, context);
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
   },
@@ -41,3 +56,18 @@ export const auth = betterAuth({
 });
 
 export type Session = typeof auth.$Infer.Session;
+
+async function importGithubOrganizationsAfterAuth(
+  account: Parameters<typeof importGithubOrganizationsForAuthAccount>[0],
+  context: Parameters<typeof importGithubOrganizationsForAuthAccount>[1],
+): Promise<void> {
+  try {
+    await importGithubOrganizationsForAuthAccount(account, context);
+  } catch (error) {
+    console.warn("github-organization-import-failed", {
+      accountId: account.accountId,
+      userId: account.userId,
+      error,
+    });
+  }
+}

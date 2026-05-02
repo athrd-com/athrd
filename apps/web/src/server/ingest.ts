@@ -7,6 +7,7 @@ import {
   type S3StorageConfig,
 } from "~/server/organization-storage";
 import { getOrganizationBillingState } from "~/server/organization-billing";
+import { upsertGithubOrganization } from "~/server/github-organizations";
 
 const S3_SIGNED_UPLOAD_TTL_SECONDS = 300;
 const S3_SIGNATURE_ALGORITHM = "AWS4-HMAC-SHA256";
@@ -509,7 +510,10 @@ export async function completeThreadIngest(input: {
     );
   }
 
-  await upsertOrganization(organization.githubOrgId, organization.organization);
+  await upsertGithubOrganization(
+    organization.githubOrgId,
+    organization.organization,
+  );
   await upsertRepository(repository, organization.githubOrgId);
   await upsertThread({
     ...input,
@@ -614,50 +618,6 @@ function assertOrganizationBillingReadyForIngest(
       "Organization billing is active but GitHub App installation is incomplete.",
     );
   }
-}
-
-async function upsertOrganization(
-  githubOrgId: string | undefined,
-  organization: NonNullable<GithubIngestContext>["organization"] | undefined,
-): Promise<void> {
-  if (!githubOrgId) {
-    return;
-  }
-
-  const login = organization?.login?.trim() || `github-org-${githubOrgId}`;
-  const hasOrganizationDetails = Boolean(organization?.login?.trim());
-
-  await db.query(
-    `INSERT INTO "organizations" (
-      "githubOrgId",
-      login,
-      name,
-      "avatarUrl",
-      "createdAt",
-      "updatedAt",
-      "lastSeenAt"
-    )
-    VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
-    ON CONFLICT ("githubOrgId") DO UPDATE SET
-      login = CASE WHEN $5 THEN EXCLUDED.login ELSE "organizations".login END,
-      name = CASE
-        WHEN $5 THEN COALESCE(EXCLUDED.name, "organizations".name)
-        ELSE "organizations".name
-      END,
-      "avatarUrl" = CASE
-        WHEN $5 THEN COALESCE(EXCLUDED."avatarUrl", "organizations"."avatarUrl")
-        ELSE "organizations"."avatarUrl"
-      END,
-      "updatedAt" = NOW(),
-      "lastSeenAt" = NOW()`,
-    [
-      githubOrgId,
-      login,
-      organization?.name || null,
-      organization?.avatarUrl || null,
-      hasOrganizationDetails,
-    ],
-  );
 }
 
 async function upsertRepository(

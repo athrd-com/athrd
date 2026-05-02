@@ -16,17 +16,21 @@ describe("github-organizations", () => {
     vi.unstubAllGlobals();
   });
 
-  it("fetches GitHub organizations across pages", async () => {
+  it("fetches active GitHub organization memberships across pages", async () => {
     const firstPage = Array.from({ length: 100 }, (_, index) => ({
-      id: index + 1,
-      login: `org-${index + 1}`,
-      avatar_url: `https://avatars.example.com/${index + 1}.png`,
+      organization: {
+        id: index + 1,
+        login: `org-${index + 1}`,
+        avatar_url: `https://avatars.example.com/${index + 1}.png`,
+      },
     }));
     const secondPage = [
       {
-        id: 101,
-        login: "final-org",
-        avatar_url: null,
+        organization: {
+          id: 101,
+          login: "final-org",
+          avatar_url: null,
+        },
       },
     ];
     const fetchMock = vi
@@ -46,10 +50,10 @@ describe("github-organizations", () => {
     await expect(fetchGithubOrganizations("gho_test")).resolves.toHaveLength(101);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.github.com/user/orgs?per_page=100&page=1",
+      "https://api.github.com/user/memberships/orgs?state=active&per_page=100&page=1",
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://api.github.com/user/orgs?per_page=100&page=2",
+      "https://api.github.com/user/memberships/orgs?state=active&per_page=100&page=2",
     );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       headers: {
@@ -106,9 +110,11 @@ describe("github-organizations", () => {
       ok: true,
       json: async () => [
         {
-          id: 456,
-          login: "athrd-com",
-          avatar_url: "https://avatars.example.com/456.png",
+          organization: {
+            id: 456,
+            login: "athrd-com",
+            avatar_url: "https://avatars.example.com/456.png",
+          },
         },
       ],
     });

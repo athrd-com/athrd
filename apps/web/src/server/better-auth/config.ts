@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 
 import { env } from "~/env";
+import { GITHUB_OAUTH_SCOPES } from "~/lib/github-oauth";
 import { pool } from "~/server/db";
 import { importGithubOrganizationsForAuthAccount } from "~/server/github-organizations";
 
@@ -50,7 +51,8 @@ export const auth = betterAuth({
     github: {
       clientId: env.BETTER_AUTH_GITHUB_CLIENT_ID,
       clientSecret: env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
-      scope: ["gist", "user:email", "read:org"],
+      disableDefaultScope: true,
+      scope: [...GITHUB_OAUTH_SCOPES],
     },
   },
 });

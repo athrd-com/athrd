@@ -11,6 +11,10 @@ interface GithubOrganizationResponse {
   avatar_url?: string | null;
 }
 
+interface GithubOrganizationMembershipResponse {
+  organization?: GithubOrganizationResponse | null;
+}
+
 export interface GithubOrganization {
   githubOrgId: string;
   login: string;
@@ -54,7 +58,7 @@ export async function fetchGithubOrganizations(
   let page = 1;
 
   while (true) {
-    const pageOrganizations = await fetchGithubOrganizationsPage(
+    const pageOrganizations = await fetchGithubOrganizationMembershipsPage(
       accessToken,
       page,
     );
@@ -155,12 +159,12 @@ export async function upsertGithubOrganizations(
   );
 }
 
-async function fetchGithubOrganizationsPage(
+async function fetchGithubOrganizationMembershipsPage(
   accessToken: string,
   page: number,
 ): Promise<GithubOrganization[]> {
   const response = await fetch(
-    `${GITHUB_API_URL}/user/orgs?per_page=100&page=${page}`,
+    `${GITHUB_API_URL}/user/memberships/orgs?state=active&per_page=100&page=${page}`,
     {
       headers: githubHeaders(accessToken),
       cache: "no-store",
@@ -181,10 +185,10 @@ async function fetchGithubOrganizationsPage(
     );
   }
 
-  return body.map(parseGithubOrganizationResponse);
+  return body.map(parseGithubOrganizationMembershipResponse);
 }
 
-function parseGithubOrganizationResponse(
+function parseGithubOrganizationMembershipResponse(
   value: unknown,
 ): GithubOrganization {
   if (typeof value !== "object" || value === null) {
@@ -193,8 +197,9 @@ function parseGithubOrganizationResponse(
     );
   }
 
-  const organization = value as GithubOrganizationResponse;
-  if (!organization.id || !organization.login) {
+  const membership = value as GithubOrganizationMembershipResponse;
+  const organization = membership.organization;
+  if (!organization?.id || !organization.login) {
     throw new GithubOrganizationImportError(
       "GitHub organization response is incomplete.",
     );

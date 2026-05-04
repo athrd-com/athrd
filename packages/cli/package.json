@@ -19,11 +19,13 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "postinstall.cjs"
   ],
   "scripts": {
     "build": "rm -rf dist && bun run tsc",
     "dev": "bun run tsc --watch",
+    "postinstall": "node postinstall.cjs",
     "start": "bun dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepublishOnly": "bun run build"

@@ -22,5 +22,5 @@ export const config = {
 
   // CLI metadata
   name: "@athrd/cli",
-  version: "1.1.10",
+  version: "1.1.12",
 };

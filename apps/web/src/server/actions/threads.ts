@@ -88,13 +88,13 @@ export async function getUserThreadGroups(
   }
 
   const normalizedFilters = normalizeThreadFilters(filters);
-  const { todayStart, tomorrowStart, yesterdayStart } = getDayBoundaries();
+  const { todayStart, yesterdayStart } = getDayBoundaries();
 
   const [today, yesterday, older] = await Promise.all([
     queryThreadEntries({
       ownerGithubUserId: account.accountId,
       filters: normalizedFilters,
-      dateRange: { from: todayStart, to: tomorrowStart },
+      dateRange: { from: todayStart },
     }),
     queryThreadEntries({
       ownerGithubUserId: account.accountId,
@@ -219,17 +219,20 @@ async function getCurrentGithubAccount(): Promise<Account | null> {
 async function queryThreadEntries(input: {
   ownerGithubUserId: string;
   filters: NormalizedThreadGroupFilters;
-  dateRange: { from: Date; to: Date };
+  dateRange: { from: Date; to?: Date };
 }): Promise<ThreadListEntry[]> {
   const { clauses, values } = buildThreadWhereClauses({
     ownerGithubUserId: input.ownerGithubUserId,
     filters: input.filters,
   });
 
-  values.push(input.dateRange.from, input.dateRange.to);
-  clauses.push(
-    `t."updatedAt" >= $${values.length - 1} AND t."updatedAt" < $${values.length}`,
-  );
+  values.push(input.dateRange.from);
+  clauses.push(`t."updatedAt" >= $${values.length}`);
+
+  if (input.dateRange.to) {
+    values.push(input.dateRange.to);
+    clauses.push(`t."updatedAt" < $${values.length}`);
+  }
 
   const result = await db.query<ThreadDbRow>(
     `${THREAD_LIST_SELECT}

@@ -7,18 +7,29 @@ export interface GeminiThread {
 export interface GeminiUserMessage {
   id: string;
   type: "user";
-  content: string;
+  content: GeminiContent;
+  timestamp?: string;
 }
 
 export interface GeminiAssistantMessage {
   id: string;
   type: "gemini";
-  content: string;
+  content: GeminiContent;
   timestamp: string;
   thoughts?: GeminiThinking[];
   toolCalls?: GeminiToolCall[];
   model: string;
 }
+
+export type GeminiContent =
+  | string
+  | Array<
+      | string
+      | {
+          text?: string;
+          content?: GeminiContent;
+        }
+    >;
 
 export interface GeminiThinking {
   subject: string;

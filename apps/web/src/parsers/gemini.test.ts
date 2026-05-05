@@ -135,6 +135,26 @@ describe("geminiParser", () => {
       expect(result.messages[0]?.content).toBe("First message");
       expect(result.messages[1]?.content).toBe("Second message");
     });
+
+    it("should parse JSONL-style user content arrays", () => {
+      const thread = createBaseThread();
+      thread.messages = [
+        {
+          id: "user_1",
+          type: "user",
+          content: [{ text: "Hello" }, { text: "What's this repo about?" }],
+        },
+      ];
+
+      const result = geminiParser.parse(thread);
+
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0]).toMatchObject({
+        id: "user_1",
+        type: "user",
+        content: "Hello\nWhat's this repo about?",
+      });
+    });
   });
 
   describe("parse - assistant messages", () => {

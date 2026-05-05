@@ -72,7 +72,7 @@ function parseUserMessage(msg: GeminiUserMessage): AthrdUserMessage {
   return {
     id: msg.id || generateId(),
     type: "user",
-    content: msg.content,
+    content: normalizeGeminiContent(msg.content),
   };
 }
 
@@ -94,7 +94,7 @@ function parseAssistantMessage(
   return {
     id: msg.id || generateId(),
     type: "assistant",
-    content: msg.content,
+    content: normalizeGeminiContent(msg.content),
     timestamp: normalizeTimestamp(msg.timestamp),
     thoughts: thoughts?.length ? thoughts : undefined,
     toolCalls: toolCalls?.length ? toolCalls : undefined,
@@ -211,6 +211,31 @@ function parseToolCall(tc: GeminiToolCall, timestamp: string): AthrdToolCall {
         result,
       });
   }
+}
+
+function normalizeGeminiContent(content: GeminiUserMessage["content"]): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        if (typeof item.text === "string") {
+          return item.text;
+        }
+
+        return item.content ? normalizeGeminiContent(item.content) : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return "";
 }
 
 export default geminiParser;

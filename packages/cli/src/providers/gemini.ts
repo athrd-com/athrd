@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChatSession } from "../types/index.js";
-import { readJsonFile } from "../utils/bun-parsing.js";
+import { readJsonFile, readJsonlFile } from "../utils/bun-parsing.js";
 import {
   ChatProvider,
   getDefaultProviderThreadMetadata,
@@ -106,18 +106,27 @@ export class GeminiProvider implements ChatProvider {
   }
 
   /**
-   * Try to resolve workspace path from Gemini's SHA-256 hash directory name
+   * Try to resolve workspace path from Gemini's SHA-256 projectHash
    * Gemini encodes workspace paths as SHA-256 hashes
    */
-  private resolveWorkspacePath(projectDirHash: string): string | undefined {
+  private resolveWorkspacePath(
+    projectHash: string,
+    candidatePaths: string[] = [],
+  ): string | undefined {
+    for (const candidatePath of candidatePaths) {
+      if (this.hashPath(candidatePath) === projectHash) {
+        return candidatePath;
+      }
+    }
+
     // Try current working directory first
     const cwd = process.cwd();
-    if (this.hashPath(cwd) === projectDirHash) {
+    if (this.hashPath(cwd) === projectHash) {
       return cwd;
     }
 
     // Try common workspace locations
-    const homeDir = os.homedir();
+    const homeDir = this.getHomeDir();
     const commonPaths = [
       path.join(homeDir, "code"),
       path.join(homeDir, "projects"),
@@ -135,7 +144,7 @@ export class GeminiProvider implements ChatProvider {
             const fullPath = path.join(basePath, entry);
             if (
               fs.statSync(fullPath).isDirectory() &&
-              this.hashPath(fullPath) === projectDirHash
+              this.hashPath(fullPath) === projectHash
             ) {
               return fullPath;
             }
@@ -154,7 +163,7 @@ export class GeminiProvider implements ChatProvider {
   }
 
   async list(_context?: ProviderListContext): Promise<ChatSession[]> {
-    const geminiTmpPath = path.join(os.homedir(), ".gemini", "tmp");
+    const geminiTmpPath = path.join(this.getGeminiHomeDir(), "tmp");
 
     if (!fs.existsSync(geminiTmpPath)) {
       return [];
@@ -173,12 +182,6 @@ export class GeminiProvider implements ChatProvider {
           continue;
         }
 
-        // Try to resolve the actual workspace path from the hash
-        const workspacePath = this.resolveWorkspacePath(projectDir);
-        const workspaceName = workspacePath
-          ? path.basename(workspacePath)
-          : "Gemini";
-
         const chatsPath = path.join(projectPath, "chats");
 
         if (fs.existsSync(chatsPath) && fs.statSync(chatsPath).isDirectory()) {
@@ -186,7 +189,7 @@ export class GeminiProvider implements ChatProvider {
             const chatFiles = fs.readdirSync(chatsPath);
 
             for (const chatFile of chatFiles) {
-              if (!chatFile.endsWith(".json")) {
+              if (!chatFile.endsWith(".json") && !chatFile.endsWith(".jsonl")) {
                 continue;
               }
 
@@ -196,6 +199,19 @@ export class GeminiProvider implements ChatProvider {
 
               const filePath = path.join(chatsPath, chatFile);
               try {
+                if (chatFile.endsWith(".jsonl")) {
+                  const session = await this.createJsonlSession(
+                    filePath,
+                    chatFile,
+                    projectDir,
+                    projectPath,
+                  );
+                  if (session) {
+                    sessions.push(session);
+                  }
+                  continue;
+                }
+
                 const sessionData = await readJsonFile<any>(filePath);
 
                 if (
@@ -209,6 +225,24 @@ export class GeminiProvider implements ChatProvider {
                 if (messages.length === 0) {
                   continue;
                 }
+
+                const projectHash =
+                  typeof sessionData.projectHash === "string"
+                    ? sessionData.projectHash
+                    : undefined;
+                const projectRoot = this.readVerifiedProjectRoot(
+                  projectPath,
+                  projectHash,
+                );
+                const workspacePath = projectHash
+                  ? this.resolveWorkspacePath(
+                      projectHash,
+                      projectRoot ? [projectRoot] : [],
+                    )
+                  : projectRoot ?? this.resolveWorkspacePath(projectDir);
+                const workspaceName = workspacePath
+                  ? path.basename(workspacePath)
+                  : this.getFallbackWorkspaceName(projectDir);
 
                 // Find first user message for title
                 let firstUserMessage = "Gemini Chat";
@@ -230,8 +264,9 @@ export class GeminiProvider implements ChatProvider {
                     msg.type === "user" &&
                     firstUserMessage === "Gemini Chat"
                   ) {
-                    if (msg.content) {
-                      firstUserMessage = msg.content.substring(0, 60);
+                    const preview = this.extractTextFromContent(msg.content);
+                    if (preview) {
+                      firstUserMessage = preview.substring(0, 60);
                     }
                   }
                 }
@@ -265,6 +300,173 @@ export class GeminiProvider implements ChatProvider {
     }
 
     return sessions;
+  }
+
+  private async createJsonlSession(
+    filePath: string,
+    chatFile: string,
+    projectDir: string,
+    projectPath: string,
+  ): Promise<ChatSession | null> {
+    const entries = await readJsonlFile<any>(filePath, { skipInvalid: true });
+    if (entries.length === 0) {
+      return null;
+    }
+
+    const sessionEntry = entries.find(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        typeof entry.sessionId === "string",
+    );
+    const sessionId =
+      sessionEntry?.sessionId || chatFile.replace(/\.jsonl$/i, "");
+    const projectHash =
+      typeof sessionEntry?.projectHash === "string"
+        ? sessionEntry.projectHash
+        : undefined;
+    const projectRoot = this.readVerifiedProjectRoot(projectPath, projectHash);
+    const workspacePath = projectHash
+      ? this.resolveWorkspacePath(
+          projectHash,
+          projectRoot ? [projectRoot] : [],
+        )
+      : projectRoot ?? this.resolveWorkspacePath(projectDir);
+    const workspaceName = workspacePath
+      ? path.basename(workspacePath)
+      : this.getFallbackWorkspaceName(projectDir);
+
+    let firstUserMessage: string | undefined;
+    let messageCount = 0;
+    const seenMessageIds = new Set<string>();
+    let earliestTimestamp = Number.POSITIVE_INFINITY;
+    let latestTimestamp = 0;
+
+    for (const entry of entries) {
+      const timestamp = this.extractTimestamp(entry);
+      if (typeof timestamp === "number") {
+        earliestTimestamp = Math.min(earliestTimestamp, timestamp);
+        latestTimestamp = Math.max(latestTimestamp, timestamp);
+      }
+
+      if (entry?.$set?.lastUpdated) {
+        const lastUpdated = new Date(entry.$set.lastUpdated).getTime();
+        if (!Number.isNaN(lastUpdated)) {
+          latestTimestamp = Math.max(latestTimestamp, lastUpdated);
+        }
+      }
+
+      if (entry?.type !== "user" && entry?.type !== "gemini") {
+        continue;
+      }
+
+      const messageId =
+        typeof entry.id === "string" && entry.id.trim()
+          ? entry.id
+          : undefined;
+      if (!messageId || !seenMessageIds.has(messageId)) {
+        messageCount++;
+      }
+      if (messageId) {
+        seenMessageIds.add(messageId);
+      }
+
+      if (entry.type === "user" && !firstUserMessage) {
+        firstUserMessage = this.extractTextFromContent(entry.content);
+      }
+    }
+
+    if (messageCount === 0) {
+      return null;
+    }
+
+    const creationDate = Number.isFinite(earliestTimestamp)
+      ? earliestTimestamp
+      : latestTimestamp || Date.now();
+    const lastMessageDate = latestTimestamp || creationDate;
+
+    return {
+      sessionId,
+      creationDate,
+      lastMessageDate,
+      title: firstUserMessage?.substring(0, 60) || "Gemini Chat",
+      requestCount: messageCount,
+      filePath,
+      source: this.id,
+      workspaceName,
+      workspacePath,
+    };
+  }
+
+  private extractTimestamp(entry: any): number | undefined {
+    const raw = entry?.timestamp || entry?.startTime || entry?.lastUpdated;
+    if (!raw) {
+      return undefined;
+    }
+
+    const timestamp = new Date(raw).getTime();
+    return Number.isNaN(timestamp) ? undefined : timestamp;
+  }
+
+  private extractTextFromContent(content: any): string | undefined {
+    if (typeof content === "string") {
+      return this.normalizePreview(content);
+    }
+
+    if (Array.isArray(content)) {
+      const parts = content
+        .map((item) => this.extractTextFromContent(item))
+        .filter((part): part is string => Boolean(part));
+      return parts.length > 0 ? parts.join("\n") : undefined;
+    }
+
+    if (content && typeof content === "object") {
+      return this.extractTextFromContent(content.text ?? content.content);
+    }
+
+    return undefined;
+  }
+
+  private normalizePreview(value: string): string | undefined {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  private getFallbackWorkspaceName(projectDir: string): string {
+    return /^[a-f0-9]{64}$/i.test(projectDir) ? "Gemini" : projectDir;
+  }
+
+  private readVerifiedProjectRoot(
+    projectPath: string,
+    projectHash?: string,
+  ): string | undefined {
+    const projectRootPath = path.join(projectPath, ".project_root");
+    if (!fs.existsSync(projectRootPath)) {
+      return undefined;
+    }
+
+    try {
+      const projectRoot = fs.readFileSync(projectRootPath, "utf-8").trim();
+      if (!projectRoot) {
+        return undefined;
+      }
+
+      if (projectHash && this.hashPath(projectRoot) !== projectHash) {
+        return undefined;
+      }
+
+      return projectRoot;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getGeminiHomeDir(): string {
+    return process.env.GEMINI_HOME || path.join(this.getHomeDir(), ".gemini");
+  }
+
+  private getHomeDir(): string {
+    return process.env.HOME || os.homedir();
   }
 
   async parse(session: ChatSession): Promise<ProviderParseResult> {

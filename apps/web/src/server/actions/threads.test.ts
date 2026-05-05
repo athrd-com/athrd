@@ -142,6 +142,10 @@ describe("server/actions/threads", () => {
     });
     expect(gistListThreadsMock).not.toHaveBeenCalled();
     expect(s3ListThreadsMock).not.toHaveBeenCalled();
+    expect(dbQueryMock.mock.calls[1]?.[0]).toContain('t."updatedAt" >= $2');
+    expect(dbQueryMock.mock.calls[1]?.[0]).not.toContain(
+      't."updatedAt" < $3',
+    );
   });
 
   it("applies org and repo filters to DB-backed thread groups", async () => {

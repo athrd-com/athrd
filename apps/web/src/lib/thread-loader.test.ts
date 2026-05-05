@@ -341,6 +341,145 @@ describe("thread-loader", () => {
     expect(context.parsedThread.messages.length).toBeGreaterThan(0);
   });
 
+  it("loads raw Gemini JSONL thread artifacts", () => {
+    const context = parseThreadContextFromSourceRecord({
+      id: "gist-gemini-jsonl",
+      source: "gist",
+      sourceId: "gist-gemini-jsonl",
+      filename: "athrd-session-3.jsonl",
+      content: [
+        JSON.stringify({
+          type: "athrd_metadata",
+          __athrd: {
+            schemaVersion: 1,
+            thread: {
+              id: "session_3",
+              providerSessionId: "session_3",
+              source: "gemini",
+              title: "Raw Gemini JSONL",
+              updatedAt: "2026-05-05T05:48:30.007Z",
+            },
+            actor: {
+              githubUsername: "athrd-bot",
+            },
+          },
+        }),
+        JSON.stringify({
+          sessionId: "session_3",
+          projectHash:
+            "bc49bf60e744d7d8eb0e17d6a5e7179ef44e9f401ad8355de12752e5a9e83b64",
+          startTime: "2026-05-05T05:48:00.644Z",
+          lastUpdated: "2026-05-05T05:48:00.644Z",
+          kind: "main",
+        }),
+        JSON.stringify({
+          id: "user-1",
+          timestamp: "2026-05-05T05:48:05.184Z",
+          type: "user",
+          content: [{ text: "What's this repo about?" }],
+        }),
+        JSON.stringify({
+          $set: {
+            lastUpdated: "2026-05-05T05:48:05.184Z",
+          },
+        }),
+        JSON.stringify({
+          id: "assistant-1",
+          timestamp: "2026-05-05T05:48:17.847Z",
+          type: "gemini",
+          content: "",
+          thoughts: [
+            {
+              subject: "Exploring Repository Purpose",
+              description: "Reading the README.",
+              timestamp: "2026-05-05T05:48:17.495Z",
+            },
+          ],
+          model: "gemini-3-flash-preview",
+        }),
+        JSON.stringify({
+          id: "assistant-1",
+          timestamp: "2026-05-05T05:48:17.847Z",
+          type: "gemini",
+          content: "",
+          thoughts: [
+            {
+              subject: "Exploring Repository Purpose",
+              description: "Reading the README.",
+              timestamp: "2026-05-05T05:48:17.495Z",
+            },
+          ],
+          model: "gemini-3-flash-preview",
+          toolCalls: [
+            {
+              id: "read_file_1",
+              name: "read_file",
+              args: {
+                file_path: "README.md",
+              },
+              result: [
+                {
+                  functionResponse: {
+                    id: "read_file_1",
+                    name: "read_file",
+                    response: {
+                      output: "# ATHRD",
+                    },
+                  },
+                },
+              ],
+              status: "success",
+              timestamp: "2026-05-05T05:48:17.889Z",
+              resultDisplay: "",
+              description: "README.md",
+              displayName: "ReadFile",
+              renderOutputAsMarkdown: true,
+            },
+          ],
+        }),
+        JSON.stringify({
+          id: "assistant-2",
+          timestamp: "2026-05-05T05:48:30.007Z",
+          type: "gemini",
+          content: "This repo contains ATHRD.",
+          model: "gemini-3-flash-preview",
+        }),
+        JSON.stringify({
+          $set: {
+            lastUpdated: "2026-05-05T05:48:30.007Z",
+          },
+        }),
+      ].join("\n"),
+    });
+
+    expect(context.ide).toBe("gemini");
+    expect(context.title).toBe("Raw Gemini JSONL");
+    expect(context.modelsUsed).toContain("gemini-3-flash-preview");
+    expect(context.parsedThread.messages).toHaveLength(3);
+    expect(context.parsedThread.messages[0]).toMatchObject({
+      id: "user-1",
+      type: "user",
+      content: "What's this repo about?",
+    });
+    expect(context.parsedThread.messages[1]).toMatchObject({
+      id: "assistant-1",
+      type: "assistant",
+      toolCalls: [
+        {
+          name: "read_file",
+          args: {
+            file_path: "README.md",
+          },
+        },
+      ],
+    });
+    expect(context.parsedThread.messages[2]).toMatchObject({
+      id: "assistant-2",
+      type: "assistant",
+      content: "This repo contains ATHRD.",
+    });
+  });
+
   it("throws INVALID_JSON for malformed content", () => {
     const file: GistFile = {
       ...gistFile,

@@ -276,6 +276,10 @@ function parseJsonlThreadContent(
     return normalizeClaudeJsonl(bodyEntries, record, athrdMeta);
   }
 
+  if (source === IDE.GEMINI || looksLikeGeminiJsonl(bodyEntries)) {
+    return normalizeGeminiJsonl(bodyEntries, record, athrdMeta);
+  }
+
   if (source === IDE.PI || looksLikePiJsonl(bodyEntries)) {
     return normalizePiJsonl(bodyEntries, record, athrdMeta);
   }
@@ -368,6 +372,44 @@ function normalizePiJsonl(
   };
 }
 
+function normalizeGeminiJsonl(
+  entries: Record<string, unknown>[],
+  record: ThreadSourceRecord,
+  athrdMeta?: Record<string, unknown>,
+): Record<string, unknown> {
+  const sessionEntry = entries.find(
+    (entry) =>
+      typeof entry.sessionId === "string" ||
+      typeof entry.projectHash === "string",
+  );
+  const lastUpdated = getNestedString(
+    { lastSet: findLastRecord(entries, (entry) => isRecord(entry.$set))?.$set },
+    ["lastSet", "lastUpdated"],
+  );
+  const messages = mergeGeminiJsonlMessages(
+    entries.filter(
+      (entry) => entry.type === "user" || entry.type === "gemini",
+    ),
+  );
+
+  return {
+    ...(sessionEntry || {}),
+    sessionId:
+      firstNonEmptyString(
+        getNestedString({ __athrd: athrdMeta }, [
+          "__athrd",
+          "thread",
+          "providerSessionId",
+        ]),
+        getString(sessionEntry, "sessionId"),
+        record.sourceId,
+      ) || record.sourceId,
+    ...(lastUpdated ? { lastUpdated } : {}),
+    messages,
+    ...(athrdMeta ? { __athrd: athrdMeta } : {}),
+  };
+}
+
 function looksLikeCodexJsonl(entries: Record<string, unknown>[]): boolean {
   return entries.some((entry) =>
     ["session_meta", "event_msg", "response_item", "turn_context"].includes(
@@ -382,6 +424,17 @@ function looksLikeClaudeJsonl(entries: Record<string, unknown>[]): boolean {
       (entry.type === "user" || entry.type === "assistant") &&
       isRecord(entry.message) &&
       typeof entry.message.role === "string",
+  );
+}
+
+function looksLikeGeminiJsonl(entries: Record<string, unknown>[]): boolean {
+  return (
+    entries.some(
+      (entry) =>
+        typeof entry.sessionId === "string" &&
+        typeof entry.projectHash === "string",
+    ) &&
+    entries.some((entry) => entry.type === "user" || entry.type === "gemini")
   );
 }
 
@@ -404,6 +457,75 @@ function findLastRecord(
   }
 
   return undefined;
+}
+
+function mergeGeminiJsonlMessages(
+  entries: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const messages: Record<string, unknown>[] = [];
+  const indexesById = new Map<string, number>();
+
+  for (const entry of entries) {
+    const id = getString(entry, "id");
+    if (!id) {
+      messages.push(entry);
+      continue;
+    }
+
+    const existingIndex = indexesById.get(id);
+    if (existingIndex === undefined) {
+      indexesById.set(id, messages.length);
+      messages.push(entry);
+      continue;
+    }
+
+    messages[existingIndex] = mergeGeminiJsonlMessage(
+      messages[existingIndex]!,
+      entry,
+    );
+  }
+
+  return messages;
+}
+
+function mergeGeminiJsonlMessage(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...previous,
+    ...next,
+    content: hasGeminiContent(next.content) ? next.content : previous.content,
+    thoughts:
+      Array.isArray(next.thoughts) && next.thoughts.length > 0
+        ? next.thoughts
+        : previous.thoughts,
+    toolCalls: Array.isArray(next.toolCalls)
+      ? next.toolCalls
+      : previous.toolCalls,
+  };
+}
+
+function hasGeminiContent(value: unknown): boolean {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.some((item) => {
+    if (typeof item === "string") {
+      return item.trim().length > 0;
+    }
+
+    if (!isRecord(item)) {
+      return false;
+    }
+
+    return hasGeminiContent(item.text) || hasGeminiContent(item.content);
+  });
 }
 
 function getFirstUserMessageContent(thread: AThrd): string | undefined {

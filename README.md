@@ -68,6 +68,10 @@ To share sessions manually:
 athrd share
 ```
 
+Uploaded sessions are secret-obfuscated: detected API keys, tokens, passwords,
+private keys, credential-bearing URLs, and secret-like environment variables are
+replaced with `********` before upload.
+
 ### GitHub Action: sync athrd links into PR body
 
 If you want repo-owned automation (no GitHub App install), add this workflow to the target repository:

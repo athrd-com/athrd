@@ -23,6 +23,9 @@ Share sessions manually:
 athrd share
 ```
 
+Session uploads replace detected secrets with `********` before they are written
+to Gists or signed upload storage.
+
 Log out and clear stored credentials:
 
 ```bash

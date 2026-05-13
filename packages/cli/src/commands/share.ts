@@ -34,6 +34,7 @@ import {
 } from "../utils/ingest-client.js";
 import { appendAthrdUrlMarker } from "../utils/marker.js";
 import { maybeBackfillHookDrivenCommit } from "../utils/hook-share-backfill.js";
+import { obfuscateSessionContent } from "../utils/secret-obfuscation.js";
 import {
   getGistIdForThread,
   upsertThreadGistMapping,
@@ -441,7 +442,22 @@ export function shareCommand(program: Command) {
               },
             };
 
-            const content = injectAthrdMetadata(artifact, athrdMetadata);
+            let content = injectAthrdMetadata(artifact, athrdMetadata);
+            const obfuscated = obfuscateSessionContent(
+              content,
+              artifact.format,
+            );
+            content = obfuscated.content;
+
+            if (obfuscated.redactionCount > 0) {
+              console.log(
+                chalk.dim(
+                  `  • Obfuscated ${obfuscated.redactionCount} potential secret(s) in ${
+                    session.title || session.sessionId
+                  }`,
+                ),
+              );
+            }
             const fileName = artifact.fileName;
             let actionLabel: string;
             let athrdUrl: string;

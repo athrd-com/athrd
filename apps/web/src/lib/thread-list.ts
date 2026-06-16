@@ -51,6 +51,19 @@ export interface ThreadFilterOptions {
   repositories: ThreadRepositoryFilterOption[];
 }
 
+export interface ThreadUsageDay {
+  date: string;
+  count: number;
+}
+
+export interface ThreadUsageHistory {
+  startDate: string;
+  endDate: string;
+  totalCount: number;
+  maxCount: number;
+  days: ThreadUsageDay[];
+}
+
 interface S3ThreadListEntryInput {
   sourceId: string;
   content?: string;

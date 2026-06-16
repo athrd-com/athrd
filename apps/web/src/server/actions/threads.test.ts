@@ -255,6 +255,74 @@ describe("server/actions/threads", () => {
     expect(dbQueryMock.mock.calls[2]?.[1]).toEqual(["123", "456"]);
   });
 
+  it("returns daily usage history for the signed-in user's filtered threads", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
+
+    try {
+      getSessionMock.mockResolvedValue({
+        user: { id: "user-1" },
+      });
+      dbQueryMock.mockResolvedValueOnce({
+        rows: [
+          {
+            id: "account-1",
+            userId: "user-1",
+            providerId: "github",
+            accountId: "123",
+            accessToken: "github-token",
+          },
+        ],
+      });
+      dbQueryMock.mockResolvedValueOnce({
+        rows: [
+          { date: "2026-06-14", count: "2" },
+          { date: "2026-06-15", count: 1 },
+        ],
+      });
+
+      const { getUserThreadUsageHistory } = await import("./threads");
+      const history = await getUserThreadUsageHistory({
+        orgId: "456",
+        repoId: "789",
+      });
+
+      expect(history).toMatchObject({
+        startDate: "2025-06-16",
+        endDate: "2026-06-15",
+        totalCount: 3,
+        maxCount: 2,
+      });
+      expect(history.days).toHaveLength(365);
+      expect(history.days.at(-2)).toEqual({
+        date: "2026-06-14",
+        count: 2,
+      });
+      expect(history.days.at(-1)).toEqual({
+        date: "2026-06-15",
+        count: 1,
+      });
+      expect(dbQueryMock.mock.calls[1]?.[0]).toContain(
+        't."organizationGithubOrgId" = $2',
+      );
+      expect(dbQueryMock.mock.calls[1]?.[0]).toContain(
+        't."repositoryGithubRepoId" = $3',
+      );
+      expect(dbQueryMock.mock.calls[1]?.[0]).toContain(
+        'GROUP BY t."updatedAt"::date',
+      );
+      expect(dbQueryMock.mock.calls[1]?.[1]).toEqual([
+        "123",
+        "456",
+        "789",
+        new Date(2025, 5, 16),
+        new Date(2026, 5, 16),
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("deletes gist-backed threads owned by the signed-in user", async () => {
     getGithubAccountMock.mockResolvedValue({
       accountId: "123",

@@ -10,6 +10,7 @@ import type {
   ThreadListEntry,
   ThreadListGroups,
   ThreadListPage,
+  ThreadUsageHistory,
 } from "~/lib/thread-list";
 import { fetchGist } from "~/lib/github";
 import { auth } from "~/server/better-auth/config";
@@ -27,6 +28,7 @@ interface Account {
 const s3ThreadSourceProvider = new S3ThreadSourceProvider();
 const gistThreadSourceProvider = new GistThreadSourceProvider();
 const THREADS_PAGE_SIZE = 20;
+const THREAD_USAGE_DAY_COUNT = 365;
 
 interface ThreadGroupFilters {
   orgId?: string;
@@ -70,6 +72,11 @@ interface RepositoryFilterRow {
   owner: string;
   name: string;
   organizationId: string | null;
+}
+
+interface ThreadUsageHistoryRow {
+  date: string;
+  count: number | string;
 }
 
 const EMPTY_THREAD_GROUPS: ThreadListGroups = {
@@ -192,6 +199,41 @@ export async function getThreadFilterOptions(
         organizationId: row.organizationId || undefined,
       })),
   };
+}
+
+export async function getUserThreadUsageHistory(
+  filters: Pick<ThreadGroupFilters, "orgId" | "repoId"> = {},
+): Promise<ThreadUsageHistory> {
+  const { startDate, endDate, endExclusiveDate } = getUsageHistoryDateRange();
+  const account = await getCurrentGithubAccount();
+
+  if (!account) {
+    return createThreadUsageHistory([], startDate, endDate);
+  }
+
+  const normalizedFilters = normalizeThreadFilters(filters);
+  const { clauses, values } = buildThreadWhereClauses({
+    ownerGithubUserId: account.accountId,
+    filters: normalizedFilters,
+  });
+
+  values.push(startDate);
+  clauses.push(`t."updatedAt" >= $${values.length}`);
+  values.push(endExclusiveDate);
+  clauses.push(`t."updatedAt" < $${values.length}`);
+
+  const result = await db.query<ThreadUsageHistoryRow>(
+    `SELECT
+      TO_CHAR(t."updatedAt"::date, 'YYYY-MM-DD') AS date,
+      COUNT(*)::int AS count
+    FROM "threads" t
+    WHERE ${clauses.join(" AND ")}
+    GROUP BY t."updatedAt"::date
+    ORDER BY t."updatedAt"::date ASC`,
+    values,
+  );
+
+  return createThreadUsageHistory(result.rows, startDate, endDate);
 }
 
 async function getCurrentGithubAccount(): Promise<Account | null> {
@@ -381,6 +423,67 @@ function getDayBoundaries(now = new Date()): {
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
   return { todayStart, tomorrowStart, yesterdayStart };
+}
+
+function getUsageHistoryDateRange(now = new Date()): {
+  startDate: Date;
+  endDate: Date;
+  endExclusiveDate: Date;
+} {
+  const { todayStart, tomorrowStart } = getDayBoundaries(now);
+  const startDate = new Date(todayStart);
+  startDate.setDate(startDate.getDate() - (THREAD_USAGE_DAY_COUNT - 1));
+
+  return {
+    startDate,
+    endDate: todayStart,
+    endExclusiveDate: tomorrowStart,
+  };
+}
+
+function createThreadUsageHistory(
+  rows: ThreadUsageHistoryRow[],
+  startDate: Date,
+  endDate: Date,
+): ThreadUsageHistory {
+  const countByDate = new Map(
+    rows.map((row) => [row.date, Number(row.count) || 0]),
+  );
+  const days = [];
+
+  for (
+    let cursor = new Date(startDate);
+    cursor <= endDate;
+    cursor.setDate(cursor.getDate() + 1)
+  ) {
+    const date = toDateKey(cursor);
+    days.push({
+      date,
+      count: countByDate.get(date) ?? 0,
+    });
+  }
+
+  const totalCount = days.reduce((total, day) => total + day.count, 0);
+  const maxCount = days.reduce(
+    (maximum, day) => Math.max(maximum, day.count),
+    0,
+  );
+
+  return {
+    startDate: toDateKey(startDate),
+    endDate: toDateKey(endDate),
+    totalCount,
+    maxCount,
+    days,
+  };
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function encodeThreadCursor(row: ThreadDbRow): string {

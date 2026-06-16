@@ -1,6 +1,7 @@
 import {
   getThreadFilterOptions,
   getUserThreadGroups,
+  getUserThreadUsageHistory,
 } from "@/server/actions/threads";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -19,6 +20,7 @@ import type { ThreadListEntry } from "~/lib/thread-list";
 import { auth } from "~/server/better-auth/config";
 import { ThreadFilters } from "./thread-filters";
 import { ThreadRow } from "./thread-row";
+import { ThreadUsageHeatmap } from "./thread-usage-heatmap";
 
 interface ThreadsPageProps {
   searchParams?: Promise<{
@@ -74,11 +76,17 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
     filterOptions.repositories.some((repository) => repository.id === selectedRepoId)
       ? selectedRepoId
       : undefined;
-  const threadGroups = await getUserThreadGroups({
-    orgId: selectedOrgId,
-    repoId: effectiveRepoId,
-    cursor: currentCursor,
-  });
+  const [threadGroups, usageHistory] = await Promise.all([
+    getUserThreadGroups({
+      orgId: selectedOrgId,
+      repoId: effectiveRepoId,
+      cursor: currentCursor,
+    }),
+    getUserThreadUsageHistory({
+      orgId: selectedOrgId,
+      repoId: effectiveRepoId,
+    }),
+  ]);
   const totalThreads =
     threadGroups.today.length +
     threadGroups.yesterday.length +
@@ -125,6 +133,7 @@ export default async function ThreadsPage({ searchParams }: ThreadsPageProps) {
         </aside>
 
         <div className="min-w-0 space-y-8">
+          <ThreadUsageHeatmap history={usageHistory} />
           <ThreadSection
             title="Today"
             emptyLabel="No sessions today"

@@ -1,3 +1,11 @@
+"use client";
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 import type { ThreadUsageDay, ThreadUsageHistory } from "~/lib/thread-list";
 
@@ -6,8 +14,14 @@ interface ThreadUsageHeatmapProps {
 }
 
 type CalendarCell = ThreadUsageDay | null;
+type MonthLabel = {
+  column: number;
+  label: string;
+  span: number;
+};
 
 const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
+const WEEKDAY_COLUMN_WIDTH = "1.5rem";
 const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: "short" });
 const DAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -29,7 +43,7 @@ export function ThreadUsageHeatmap({ history }: ThreadUsageHeatmapProps) {
     history.totalCount === 1
       ? "1 indexed session"
       : `${history.totalCount} indexed sessions`;
-  const gridTemplateColumns = `repeat(${weeks.length}, 0.625rem)`;
+  const gridTemplateColumns = `${WEEKDAY_COLUMN_WIDTH} repeat(${weeks.length}, minmax(0.625rem, 1fr))`;
 
   return (
     <section className="space-y-3">
@@ -47,67 +61,54 @@ export function ThreadUsageHeatmap({ history }: ThreadUsageHeatmapProps) {
 
       <div className="rounded-md border px-4 py-4">
         <div className="overflow-x-auto pb-1">
-          <div className="min-w-max">
+          <div className="min-w-[42rem] w-full">
             <div
               aria-hidden="true"
-              className="mb-1 grid gap-[3px] pl-8 text-[10px] leading-3 text-muted-foreground"
+              className="mb-1 grid gap-[3px] text-[10px] leading-3 text-muted-foreground"
               style={{ gridTemplateColumns }}
             >
+              <span />
               {monthLabels.map((month) => (
                 <span
                   className="truncate"
                   key={`${month.label}-${month.column}`}
-                  style={{ gridColumn: `${month.column + 1} / span 4` }}
+                  style={{
+                    gridColumn: `${month.column + 2} / span ${month.span}`,
+                  }}
                 >
                   {month.label}
                 </span>
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <div
-                aria-hidden="true"
-                className="grid grid-rows-7 gap-[3px] text-right text-[10px] leading-[0.625rem] text-muted-foreground"
-              >
-                {WEEKDAY_LABELS.map((label, index) => (
-                  <span className="h-2.5 w-6" key={`${label}-${index}`}>
-                    {label}
-                  </span>
-                ))}
-              </div>
-
+            <TooltipProvider delayDuration={100}>
               <div
                 aria-label={`Daily usage from ${formatDateLabel(
                   history.startDate,
                 )} to ${formatDateLabel(history.endDate)}`}
-                className="grid grid-flow-col grid-rows-7 gap-[3px]"
+                className="grid grid-rows-7 gap-[3px]"
                 role="grid"
                 style={{ gridTemplateColumns }}
               >
+                {Array.from({ length: 7 }, (_, dayIndex) => (
+                  <WeekdayLabel
+                    dayIndex={dayIndex}
+                    key={`weekday-${dayIndex}`}
+                  />
+                ))}
                 {weeks.flatMap((week, weekIndex) =>
-                  week.map((day, dayIndex) =>
-                    day ? (
-                      <span
-                        aria-label={formatCellLabel(day)}
-                        className={cn(
-                          "block size-2.5 rounded-[2px] border",
-                          getIntensityClass(day.count, history.maxCount),
-                        )}
-                        key={day.date}
-                        role="gridcell"
-                        title={formatCellLabel(day)}
-                      />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="block size-2.5"
-                        key={`empty-${weekIndex}-${dayIndex}`}
-                      />
-                    ),
-                  ),
+                  week.map((day, dayIndex) => (
+                    <HeatmapCell
+                      day={day}
+                      dayIndex={dayIndex}
+                      key={day?.date ?? `empty-${weekIndex}-${dayIndex}`}
+                      maxCount={history.maxCount}
+                      weekIndex={weekIndex}
+                    />
+                  )),
                 )}
               </div>
-            </div>
+            </TooltipProvider>
           </div>
         </div>
 
@@ -125,6 +126,61 @@ export function ThreadUsageHeatmap({ history }: ThreadUsageHeatmapProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+function WeekdayLabel({ dayIndex }: { dayIndex: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex min-h-2.5 items-center justify-end pr-1 text-[10px] leading-none text-muted-foreground"
+      style={{ gridColumn: 1, gridRow: dayIndex + 1 }}
+    >
+      {WEEKDAY_LABELS[dayIndex]}
+    </span>
+  );
+}
+
+function HeatmapCell({
+  day,
+  dayIndex,
+  maxCount,
+  weekIndex,
+}: {
+  day: CalendarCell;
+  dayIndex: number;
+  maxCount: number;
+  weekIndex: number;
+}) {
+  if (!day) {
+    return (
+      <span
+        aria-hidden="true"
+        className="block aspect-square min-h-2.5 w-full"
+        style={{ gridColumn: weekIndex + 2, gridRow: dayIndex + 1 }}
+      />
+    );
+  }
+
+  const label = formatCellLabel(day);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          aria-label={label}
+          className={cn(
+            "block aspect-square min-h-2.5 w-full rounded-[2px] border",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            getIntensityClass(day.count, maxCount),
+          )}
+          role="gridcell"
+          style={{ gridColumn: weekIndex + 2, gridRow: dayIndex + 1 }}
+          tabIndex={0}
+        />
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -155,15 +211,14 @@ function buildCalendarWeeks(days: ThreadUsageDay[]): CalendarCell[][] {
 
 function buildMonthLabels(
   weeks: CalendarCell[][],
-): Array<{ column: number; label: string }> {
-  const labels: Array<{ column: number; label: string }> = [];
+): MonthLabel[] {
+  const labels: Array<Omit<MonthLabel, "span">> = [];
   let lastMonthKey: string | undefined;
 
   weeks.forEach((week, column) => {
-    const firstDayOfMonth = week.find(
+    const labelDay = week.find(
       (day) => day && parseDateKey(day.date).getDate() === 1,
     );
-    const labelDay = firstDayOfMonth ?? (labels.length === 0 ? week.find(Boolean) : null);
 
     if (!labelDay) {
       return;
@@ -183,7 +238,10 @@ function buildMonthLabels(
     lastMonthKey = monthKey;
   });
 
-  return labels;
+  return labels.map((label, index) => ({
+    ...label,
+    span: (labels[index + 1]?.column ?? weeks.length) - label.column,
+  }));
 }
 
 function getIntensityClass(count: number, maxCount: number): string {
